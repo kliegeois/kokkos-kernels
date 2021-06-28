@@ -61,11 +61,6 @@ typedef typename Kokkos::Device<exec_space, memory_space> device;
 typedef double value_type;
 typedef int local_ordinal_type;
 
-typedef KokkosSparse::CrsMatrix<value_type, local_ordinal_type, device, void,
-                                local_ordinal_type>
-    matrix_type;
-typedef typename matrix_type::staticcrsgraph_type graph_type;
-
 /// 128*128*128/16*5 * (2*8) / 16
 ///
 /// simd typedefs
@@ -87,6 +82,14 @@ typedef Vector<SIMD<value_type>, internal_vector_length> internal_vector_type;
 #else
 typedef value_type internal_vector_type;
 #endif
+
+typedef KokkosSparse::CrsMatrix<value_type, local_ordinal_type, device, void,
+                                local_ordinal_type>
+    matrix_type;
+typedef KokkosSparse::CrsMatrix<vector_type, local_ordinal_type, device, void,
+                                local_ordinal_type>
+    vector_matrix_type;
+typedef typename matrix_type::staticcrsgraph_type graph_type;
 
 template <typename ActiveMemorySpace>
 struct FactorizeModeAndAlgo;
@@ -399,6 +402,16 @@ int main(int argc, char *argv[]) {
     SPDSparseMatrices<value_type, local_ordinal_type>(Blk, nnz, N, rowOffsets,
                                                       colIndices, values);
 
+    Kokkos::View<vector_type **, LR> vector_values("values", N/vector_length, nnz);
+    Kokkos::View<value_type **[vector_length], LR> vector_values_data((value_type*) vector_values.data(), N/vector_length, nnz);
+
+  Kokkos::parallel_for(
+      N/vector_length, KOKKOS_LAMBDA(int i) {
+      for (int j = 0; j < nnz; ++j)
+        for (int k = 0; k < vector_length; ++k)
+          vector_values_data(i,j,k) = values(i*vector_length+k,j);
+      });
+
     graph_type myGraph(colIndices, rowOffsets);
 
     matrix_type myMatrices[N];
@@ -407,21 +420,50 @@ int main(int argc, char *argv[]) {
           matrix_type("test matrix", Blk,
                       subview(values, i_matrix, Kokkos::ALL()), myGraph);
 
+    vector_matrix_type myVectorMatrices[N/vector_length];
+    for (int i_matrix = 0; i_matrix < N/vector_length; ++i_matrix)
+      myVectorMatrices[i_matrix] =
+          vector_matrix_type("test matrix", Blk,
+                      subview(vector_values, i_matrix, Kokkos::ALL()), myGraph);
+
     double s_a[N], s_b[N];
 
     std::fill_n(s_a, N, 1.0);
     std::fill_n(s_b, N, 0.0);
+
+    vector_type s_av[N/vector_length], s_bv[N/vector_length];
+
+    std::fill_n(s_av, N/vector_length, 1.0);
+    std::fill_n(s_bv, N/vector_length, 0.0);
 
     int rows_per_team = 4;
 
     using XType = Kokkos::View<double **, LR>;
     using YType = Kokkos::View<double **, LR>;
 
+    using XVType = Kokkos::View<vector_type **, LR>;
+    using YVType = Kokkos::View<vector_type **, LR>;
+
     XType x("values", N, Blk);
     YType y("values", N, Blk);
 
+    XVType xv("values", N/vector_length, Blk);
+    YVType yv("values", N/vector_length, Blk);
+
+    Kokkos::View<value_type **[vector_length], LR> xv_data((value_type*) xv.data(), N/vector_length, Blk);
+    Kokkos::View<value_type **[vector_length], LR> yv_data((value_type*) yv.data(), N/vector_length, Blk);
+
     Kokkos::deep_copy(x, 1.);
     Kokkos::deep_copy(y, 0.);
+
+    Kokkos::parallel_for(
+      N/vector_length, KOKKOS_LAMBDA(int i) {
+      for (int j = 0; j < Blk; ++j)
+        for (int k = 0; k < vector_length; ++k) {
+          xv_data(i,j,k) = x(i*vector_length+k,j);
+          yv_data(i,j,k) = y(i*vector_length+k,j);
+        }
+      });
 
     {
       std::ofstream myfile;
@@ -448,7 +490,7 @@ int main(int argc, char *argv[]) {
         cudaProfilerStart();
 #endif
         timer.reset();
-        BSPMV_Functor<matrix_type, XType, YType, 0, false> default_func(
+        BSPMV_Functor<matrix_type, XType, YType, 0> func(
             s_a, myMatrices, x, s_b, y, rows_per_team, N, i_impl);
 
         using policy_type = Kokkos::TeamPolicy<exec_space>;
@@ -457,7 +499,7 @@ int main(int argc, char *argv[]) {
 
         for (int i_rep = 0; i_rep < n_rep; ++i_rep)
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
-                               default_func);
+                               func);
 
         const double t = timer.seconds();
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
@@ -486,6 +528,52 @@ int main(int argc, char *argv[]) {
       }
 
       Kokkos::deep_copy(y, 0.);
+    }
+    for (int i_impl = 0; i_impl < n_impl; ++i_impl) {
+      {
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+        cudaProfilerStart();
+#endif
+        timer.reset();
+        BSPMV_Functor<vector_matrix_type, XVType, YVType, 0> func(
+            s_av, myVectorMatrices, xv, s_bv, yv, rows_per_team, N/vector_length, i_impl);
+
+        using policy_type = Kokkos::TeamPolicy<exec_space>;
+        using member_type = typename policy_type::member_type;
+        policy_type policy(N, Kokkos::AUTO(), Kokkos::AUTO());
+
+        for (int i_rep = 0; i_rep < n_rep; ++i_rep)
+          Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
+                               func);
+
+        const double t = timer.seconds();
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+        cudaProfilerStop();
+#endif
+        printf("Vector implementation %d: solve time = %f , # of SPMV per min = %f\n",
+               i_impl, t, 1.0 / t * 60 * N * n_rep);
+      }
+
+      {
+        std::ofstream myfile;
+        myfile.open("yv_" + std::to_string(i_impl) + ".txt");
+
+        typename Kokkos::View<value_type **[vector_length], LR>::HostMirror yv_h = Kokkos::create_mirror_view(yv_data);
+
+        Kokkos::deep_copy(yv_h, yv_data);
+
+        for (int i = 0; i < Blk; ++i) {
+          for (int i_matrix = 0; i_matrix < N/vector_length; ++i_matrix)
+            for (int k = 0; k < vector_length; ++k)
+              myfile << yv_h(i_matrix, i, k) << " ";
+          myfile << std::endl;
+        }
+
+        myfile.close();
+      }
+
+      Kokkos::deep_copy(yv_data, 0.);
+
     }
   }
   Kokkos::finalize();

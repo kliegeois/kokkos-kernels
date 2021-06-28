@@ -1,5 +1,4 @@
-template <class AMatrix, class XVector, class YVector, int dobeta,
-          bool conjugate>
+template <class AMatrix, class XVector, class YVector, int dobeta>
 struct BSPMV_Functor {
   typedef typename AMatrix::execution_space execution_space;
   typedef typename AMatrix::non_const_ordinal_type ordinal_type;
@@ -57,9 +56,7 @@ struct BSPMV_Functor {
               Kokkos::parallel_reduce(
                   Kokkos::ThreadVectorRange(dev, row_length),
                   [&](const ordinal_type& iEntry, value_type& lsum) {
-                    const value_type val = conjugate
-                                               ? ATV::conj(row.value(iEntry))
-                                               : row.value(iEntry);
+                    const value_type val = row.value(iEntry);
                     lsum += val * m_x(i_matrix, row.colidx(iEntry));
                   },
                   sum);
@@ -99,9 +96,7 @@ struct BSPMV_Functor {
               Kokkos::parallel_reduce(
                   Kokkos::ThreadVectorRange(dev, row_length),
                   [&](const ordinal_type& iEntry, value_type& lsum) {
-                    const value_type val = conjugate
-                                               ? ATV::conj(row.value(iEntry))
-                                               : row.value(iEntry);
+                    const value_type val = row.value(iEntry);
                     lsum += val * m_x(i_matrix, row.colidx(iEntry));
                   },
                   sum);
