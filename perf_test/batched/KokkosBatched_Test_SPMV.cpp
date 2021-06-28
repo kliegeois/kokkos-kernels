@@ -364,18 +364,20 @@ int main(int argc, char *argv[]) {
     int N           = 128;  /// # of problems (batch size)
     int Blk         = 30;   /// block dimension
     int nnz_per_row = 5;
+    int n_rep       = 1000;  // # of repetitions
     for (int i = 1; i < argc; ++i) {
       const std::string &token = argv[i];
       if (token == std::string("-N")) N = std::atoi(argv[++i]);
       if (token == std::string("-B")) Blk = std::atoi(argv[++i]);
       if (token == std::string("-nnz_per_row"))
         nnz_per_row = std::atoi(argv[++i]);
+      if (token == std::string("-n")) n_rep = std::atoi(argv[++i]);
     }
 
     printf(
         " :::: Testing (N = %d, Blk = %d, vl = %d, vi = %d, nnz_per_row = "
-        "%d)\n",
-        N, Blk, vector_length, internal_vector_length, nnz_per_row);
+        "%d, n = %d)\n",
+        N, Blk, vector_length, internal_vector_length, nnz_per_row, n_rep);
 
     local_ordinal_type nnz = Blk * nnz_per_row;
     typename graph_type::row_map_type::non_const_type rowOffsets;
@@ -436,43 +438,51 @@ int main(int argc, char *argv[]) {
       myfile.close();
     }
 
-    if (1) {
-#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-      cudaProfilerStart();
-#endif
-      timer.reset();
-      BSPMV_Functor<matrix_type, XType, YType, 0, false> default_func(
-          s_a, myMatrices, x, s_b, y, rows_per_team, N, 0);
+    int n_impl = 2;
+    for (int i_impl = 0; i_impl < n_impl; ++i_impl) {
+      {
+  #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+        cudaProfilerStart();
+  #endif
+        timer.reset();
+        BSPMV_Functor<matrix_type, XType, YType, 0, false> default_func(
+            s_a, myMatrices, x, s_b, y, rows_per_team, N, i_impl);
 
-      using policy_type = Kokkos::TeamPolicy<exec_space>;
-      using member_type = typename policy_type::member_type;
-      policy_type policy(N, Kokkos::AUTO(), Kokkos::AUTO());
+        using policy_type = Kokkos::TeamPolicy<exec_space>;
+        using member_type = typename policy_type::member_type;
+        policy_type policy(N, Kokkos::AUTO(), Kokkos::AUTO());
 
-      Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
-                           default_func);
-      const double t = timer.seconds();
-#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-      cudaProfilerStop();
-#endif
-      printf("solve time = %f , # of SPMV per min = %f\n", t, 1.0 / t * 60 * N);
-    }
+        for (int i_rep = 0; i_rep < n_rep; ++i_rep)
+          Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
+                              default_func);
 
-    {
-      std::ofstream myfile;
-      myfile.open("y.txt");
-
-      typename YType::HostMirror y_h = Kokkos::create_mirror_view(y);
-
-      Kokkos::deep_copy(y_h, y);
-
-      for (int i = 0; i < Blk; ++i) {
-        for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-          myfile << y_h(i, i_matrix) << " ";
-        }
-        myfile << std::endl;
+        const double t = timer.seconds();
+  #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+        cudaProfilerStop();
+  #endif
+        printf("Implementation %d: solve time = %f , # of SPMV per min = %f\n", i_impl, t,
+              1.0 / t * 60 * N * n_rep);
       }
 
-      myfile.close();
+      {
+        std::ofstream myfile;
+        myfile.open("y_"+std::to_string(i_impl)+".txt");
+
+        typename YType::HostMirror y_h = Kokkos::create_mirror_view(y);
+
+        Kokkos::deep_copy(y_h, y);
+
+        for (int i = 0; i < Blk; ++i) {
+          for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
+            myfile << y_h(i, i_matrix) << " ";
+          }
+          myfile << std::endl;
+        }
+
+        myfile.close();
+      }
+
+      Kokkos::deep_copy(y, 0.);
     }
   }
   Kokkos::finalize();
