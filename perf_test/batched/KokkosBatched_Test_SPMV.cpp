@@ -122,6 +122,9 @@ struct SolveModeAndAlgo<Kokkos::CudaSpace> {
 };
 #endif
 
+typedef Kokkos::LayoutRight LR;
+typedef Kokkos::LayoutLeft LL;
+
 template <typename ScalarType, typename OrdinalType, class Layout>
 void SPDSparseMatrices(
     OrdinalType nrows, OrdinalType nnz, OrdinalType N,
@@ -136,14 +139,13 @@ void SPDSparseMatrices(
 
   using row_map_type = typename graph_type::row_map_type;
   using entries_type = typename graph_type::entries_type;
-  using values_type  = typename matrix_type::values_type;
 
   typename entries_type::non_const_type row_ind_lower_trig(
       "row indices", nnz_lower_trig + nnz_d);
   typename entries_type::non_const_type col_ind_lower_trig(
       "column indices", nnz_lower_trig + nnz_d);
-  Kokkos::View<ScalarType **> value_lower_trig("values", nnz_lower_trig + nnz_d,
-                                               N);
+  Kokkos::View<ScalarType **, Layout> value_lower_trig("values", N,
+                                                       nnz_lower_trig + nnz_d);
 
   {
     typename entries_type::HostMirror row_ind_lower_trig_h =
@@ -178,7 +180,7 @@ void SPDSparseMatrices(
       col_ind_lower_trig_h(current_nnz_lower_trig) = i2;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(current_nnz_lower_trig, i_matrix) =
+        value_lower_trig_h(i_matrix, current_nnz_lower_trig) =
             100.0 * rand() / INT_MAX - 50.0;
 
       ++current_nnz_lower_trig;
@@ -189,7 +191,7 @@ void SPDSparseMatrices(
       col_ind_lower_trig_h(nnz_lower_trig + i) = i;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(nnz_lower_trig + i, i_matrix) =
+        value_lower_trig_h(i_matrix, nnz_lower_trig + i) =
             100.0 * rand() / INT_MAX - 50.0;
     }
 
@@ -260,7 +262,7 @@ void SPDSparseMatrices(
       Kokkos::sort(colIndices, row_map_h(irow), row_map_h(irow + 1));
   }
 
-  Kokkos::resize(values, nnz, N);
+  Kokkos::resize(values, N, nnz);
 
   // Fill the view with the random values
   Kokkos::parallel_for(
@@ -275,7 +277,7 @@ void SPDSparseMatrices(
               if (row == row_ind_lower_trig(ielem) &&
                   col == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
+                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
                 break;
               }
             }
@@ -284,20 +286,21 @@ void SPDSparseMatrices(
               if (col == row_ind_lower_trig(ielem) &&
                   row == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
+                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
                 break;
               }
             }
           else
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(jcol, i_matrix) =
-                  value_lower_trig(nnz_lower_trig + irow, i_matrix);
+              values(i_matrix, jcol) =
+                  value_lower_trig(i_matrix, nnz_lower_trig + irow);
         }
       });
 
   using Kokkos::Experimental::fabs;
 
-  // Make the diagonal dominant
+  // Make the diagonal dominant (and therefore SPD using the Gershgorin circle
+  // theorem)
   Kokkos::parallel_for(
       nrows, KOKKOS_LAMBDA(int irow) {
         for (OrdinalType jcol = rowOffsets(irow); jcol < rowOffsets(irow + 1);
@@ -307,12 +310,12 @@ void SPDSparseMatrices(
 
           if (row == col) {
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(jcol, i_matrix) = fabs(values(jcol, i_matrix));
+              values(i_matrix, jcol) = fabs(values(i_matrix, jcol));
             for (OrdinalType jjcol = rowOffsets(irow);
                  jjcol < rowOffsets(irow + 1); ++jjcol) {
               if (jjcol != jcol)
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(jcol, i_matrix) += fabs(values(jjcol, i_matrix));
+                  values(i_matrix, col) += fabs(values(i_matrix, jjcol));
             }
           }
         }
@@ -337,7 +340,7 @@ void SPDSparseMatrices(
       for (OrdinalType j = row_map_h(i); j < row_map_h(i + 1); ++j) {
         myfile << i << " " << entries_h(j) << " ";
         for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-          myfile << values_h(j, i_matrix) << " ";
+          myfile << values_h(i_matrix, j) << " ";
         }
         myfile << std::endl;
       }
@@ -382,7 +385,7 @@ int main(int argc, char *argv[]) {
     local_ordinal_type nnz = Blk * nnz_per_row;
     typename graph_type::row_map_type::non_const_type rowOffsets;
     typename graph_type::entries_type::non_const_type colIndices;
-    Kokkos::View<double **, Kokkos::LayoutLeft> values;
+    Kokkos::View<double **, LR> values;
 
     {
       std::ofstream myfile;
@@ -402,7 +405,7 @@ int main(int argc, char *argv[]) {
     for (int i_matrix = 0; i_matrix < N; ++i_matrix)
       myMatrices[i_matrix] =
           matrix_type("test matrix", Blk,
-                      subview(values, Kokkos::ALL(), i_matrix), myGraph);
+                      subview(values, i_matrix, Kokkos::ALL()), myGraph);
 
     double s_a[N], s_b[N];
 
@@ -411,11 +414,11 @@ int main(int argc, char *argv[]) {
 
     int rows_per_team = 4;
 
-    using XType = Kokkos::View<double **, Kokkos::LayoutLeft>;
-    using YType = Kokkos::View<double **, Kokkos::LayoutLeft>;
+    using XType = Kokkos::View<double **, LR>;
+    using YType = Kokkos::View<double **, LR>;
 
-    XType x("values", Blk, N);
-    YType y("values", Blk, N);
+    XType x("values", N, Blk);
+    YType y("values", N, Blk);
 
     Kokkos::deep_copy(x, 1.);
     Kokkos::deep_copy(y, 0.);
@@ -430,7 +433,7 @@ int main(int argc, char *argv[]) {
 
       for (int i = 0; i < Blk; ++i) {
         for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-          myfile << x_h(i, i_matrix) << " ";
+          myfile << x_h(i_matrix, i) << " ";
         }
         myfile << std::endl;
       }
@@ -441,9 +444,9 @@ int main(int argc, char *argv[]) {
     int n_impl = 2;
     for (int i_impl = 0; i_impl < n_impl; ++i_impl) {
       {
-  #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
         cudaProfilerStart();
-  #endif
+#endif
         timer.reset();
         BSPMV_Functor<matrix_type, XType, YType, 0, false> default_func(
             s_a, myMatrices, x, s_b, y, rows_per_team, N, i_impl);
@@ -454,19 +457,19 @@ int main(int argc, char *argv[]) {
 
         for (int i_rep = 0; i_rep < n_rep; ++i_rep)
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
-                              default_func);
+                               default_func);
 
         const double t = timer.seconds();
-  #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
         cudaProfilerStop();
-  #endif
-        printf("Implementation %d: solve time = %f , # of SPMV per min = %f\n", i_impl, t,
-              1.0 / t * 60 * N * n_rep);
+#endif
+        printf("Implementation %d: solve time = %f , # of SPMV per min = %f\n",
+               i_impl, t, 1.0 / t * 60 * N * n_rep);
       }
 
       {
         std::ofstream myfile;
-        myfile.open("y_"+std::to_string(i_impl)+".txt");
+        myfile.open("y_" + std::to_string(i_impl) + ".txt");
 
         typename YType::HostMirror y_h = Kokkos::create_mirror_view(y);
 
@@ -474,7 +477,7 @@ int main(int argc, char *argv[]) {
 
         for (int i = 0; i < Blk; ++i) {
           for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-            myfile << y_h(i, i_matrix) << " ";
+            myfile << y_h(i_matrix, i) << " ";
           }
           myfile << std::endl;
         }

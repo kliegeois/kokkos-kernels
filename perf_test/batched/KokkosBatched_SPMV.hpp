@@ -60,7 +60,7 @@ struct BSPMV_Functor {
                     const value_type val = conjugate
                                                ? ATV::conj(row.value(iEntry))
                                                : row.value(iEntry);
-                    lsum += val * m_x(row.colidx(iEntry), i_matrix);
+                    lsum += val * m_x(i_matrix, row.colidx(iEntry));
                   },
                   sum);
 
@@ -68,56 +68,56 @@ struct BSPMV_Functor {
                 sum *= alpha[i_matrix];
 
                 if (dobeta == 0) {
-                  m_y(iRow, i_matrix) = sum;
+                  m_y(i_matrix, iRow) = sum;
                 } else {
-                  m_y(iRow, i_matrix) =
-                      beta[i_matrix] * m_y(iRow, i_matrix) + sum;
+                  m_y(i_matrix, iRow) =
+                      beta[i_matrix] * m_y(i_matrix, iRow) + sum;
                 }
               });
             });
       }
     }
     if (implementation == 1) {
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(dev, 0, rows_per_team),
-            [&](const ordinal_type& loop) {
-              const ordinal_type iRow =
-                  static_cast<ordinal_type>(dev.league_rank()) * rows_per_team +
-                  loop;
-              if (iRow >= m_A[0].numRows()) {
-                return;
-              }
+      Kokkos::parallel_for(
+          Kokkos::TeamThreadRange(dev, 0, rows_per_team),
+          [&](const ordinal_type& loop) {
+            const ordinal_type iRow =
+                static_cast<ordinal_type>(dev.league_rank()) * rows_per_team +
+                loop;
+            if (iRow >= m_A[0].numRows()) {
+              return;
+            }
 
-              for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-                value_type sum = 0;
+            for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
+              value_type sum = 0;
 
-                const KokkosSparse::SparseRowViewConst<AMatrix> row =
-                    m_A[i_matrix].rowConst(iRow);
-                const ordinal_type row_length =
-                    static_cast<ordinal_type>(row.length);
+              const KokkosSparse::SparseRowViewConst<AMatrix> row =
+                  m_A[i_matrix].rowConst(iRow);
+              const ordinal_type row_length =
+                  static_cast<ordinal_type>(row.length);
 
-                Kokkos::parallel_reduce(
-                    Kokkos::ThreadVectorRange(dev, row_length),
-                    [&](const ordinal_type& iEntry, value_type& lsum) {
-                      const value_type val = conjugate
-                                                ? ATV::conj(row.value(iEntry))
-                                                : row.value(iEntry);
-                      lsum += val * m_x(row.colidx(iEntry), i_matrix);
-                    },
-                    sum);
+              Kokkos::parallel_reduce(
+                  Kokkos::ThreadVectorRange(dev, row_length),
+                  [&](const ordinal_type& iEntry, value_type& lsum) {
+                    const value_type val = conjugate
+                                               ? ATV::conj(row.value(iEntry))
+                                               : row.value(iEntry);
+                    lsum += val * m_x(i_matrix, row.colidx(iEntry));
+                  },
+                  sum);
 
-                Kokkos::single(Kokkos::PerThread(dev), [&]() {
-                  sum *= alpha[i_matrix];
+              Kokkos::single(Kokkos::PerThread(dev), [&]() {
+                sum *= alpha[i_matrix];
 
-                  if (dobeta == 0) {
-                    m_y(iRow, i_matrix) = sum;
-                  } else {
-                    m_y(iRow, i_matrix) =
-                        beta[i_matrix] * m_y(iRow, i_matrix) + sum;
-                  }
-                });
-              }
-            });
+                if (dobeta == 0) {
+                  m_y(i_matrix, iRow) = sum;
+                } else {
+                  m_y(i_matrix, iRow) =
+                      beta[i_matrix] * m_y(i_matrix, iRow) + sum;
+                }
+              });
+            }
+          });
     }
   }
 };
