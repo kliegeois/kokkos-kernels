@@ -543,7 +543,7 @@ int main(int argc, char *argv[]) {
 
         using policy_type = Kokkos::TeamPolicy<exec_space>;
         using member_type = typename policy_type::member_type;
-        policy_type policy(N, Kokkos::AUTO(), Kokkos::AUTO());
+        policy_type policy(N, team_size, vector_length);
 
         for (int i_rep = 0; i_rep < n_rep; ++i_rep)
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
@@ -588,7 +588,7 @@ int main(int argc, char *argv[]) {
 
         using policy_type = Kokkos::TeamPolicy<exec_space>;
         using member_type = typename policy_type::member_type;
-        policy_type policy(N, Kokkos::AUTO(), Kokkos::AUTO());
+        policy_type policy(N, team_size, vector_length);
 
         for (int i_rep = 0; i_rep < n_rep; ++i_rep)
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
