@@ -353,6 +353,46 @@ void SPDSparseMatrices(
   }
 }
 
+template<class execution_space>
+int launch_parameters(int numRows, int nnz, int rows_per_thread, int& team_size, int vector_length) {
+  int rows_per_team;
+  int nnz_per_row = nnz/numRows;
+  if(nnz_per_row < 1) nnz_per_row = 1;
+
+  // Determine rows per thread
+  if(rows_per_thread < 1) {
+    #ifdef KOKKOS_ENABLE_CUDA
+    if(std::is_same<Kokkos::Cuda,execution_space>::value)
+      rows_per_thread = 1;
+    else
+    #endif
+    {
+      if(nnz_per_row < 20 && nnz > 5000000 ) {
+        rows_per_thread = 256;
+      } else
+        rows_per_thread = 64;
+    }
+  }
+
+  #ifdef KOKKOS_ENABLE_CUDA
+  if(team_size < 1)
+    team_size = 256/vector_length;
+  #endif
+
+  rows_per_team = rows_per_thread * team_size;
+
+  if(rows_per_team < 0) {
+    int nnz_per_team = 4096;
+    int conc = execution_space::concurrency();
+    while((conc * nnz_per_team * 4> nnz)&&(nnz_per_team>256)) nnz_per_team/=2;
+    int tmp_nnz_per_row = nnz/numRows;
+    rows_per_team = (nnz_per_team+tmp_nnz_per_row - 1)/tmp_nnz_per_row;
+  }
+
+
+  return rows_per_team;
+}
+
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
   {
@@ -371,6 +411,8 @@ int main(int argc, char *argv[]) {
     int Blk         = 30;   /// block dimension
     int nnz_per_row = 5;
     int n_rep       = 1000;  // # of repetitions
+    int rows_per_thread = 1;
+    int team_size = 64/vector_length;
     for (int i = 1; i < argc; ++i) {
       const std::string &token = argv[i];
       if (token == std::string("-N")) N = std::atoi(argv[++i]);
@@ -378,6 +420,8 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-nnz_per_row"))
         nnz_per_row = std::atoi(argv[++i]);
       if (token == std::string("-n")) n_rep = std::atoi(argv[++i]);
+      if (token == std::string("-rows_per_thread")) rows_per_thread = std::atoi(argv[++i]);
+      if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
     }
 
     printf(
@@ -436,7 +480,11 @@ int main(int argc, char *argv[]) {
     std::fill_n(s_av, N/vector_length, 1.0);
     std::fill_n(s_bv, N/vector_length, 0.0);
 
-    int rows_per_team = 4;
+    int rows_per_team = launch_parameters<exec_space>(Blk,(int) nnz,rows_per_thread,team_size,vector_length);
+
+    printf(
+        " :::: Testing (team_size = %d, rows_per_thread = %d, rows_per_team = %d)\n",
+        team_size, rows_per_thread, rows_per_team);
 
     using XType = Kokkos::View<double **, LR>;
     using YType = Kokkos::View<double **, LR>;
