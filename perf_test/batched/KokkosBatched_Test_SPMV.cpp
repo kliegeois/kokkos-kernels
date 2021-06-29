@@ -586,9 +586,11 @@ int main(int argc, char *argv[]) {
         BSPMV_Functor<vector_matrix_type, XVType, YVType, 0> func(
             s_av, myVectorMatrices, xv, s_bv, yv, rows_per_team, N/vector_length, i_impl);
 
+        int worksets = (N+vector_length-1)/vector_length;
+
         using policy_type = Kokkos::TeamPolicy<exec_space>;
         using member_type = typename policy_type::member_type;
-        policy_type policy(N, team_size, vector_length);
+        policy_type policy(worksets, team_size, vector_length);
 
         for (int i_rep = 0; i_rep < n_rep; ++i_rep)
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,

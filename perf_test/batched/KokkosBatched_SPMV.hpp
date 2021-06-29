@@ -15,18 +15,18 @@ struct BSPMV_Functor {
   const int N;
   const int implementation;
 
-  const ordinal_type rows_per_team;
+  const ordinal_type matrices_per_team;
 
   BSPMV_Functor(const value_type* alpha_, const AMatrix* m_A_,
                 const XVector m_x_, const value_type* beta_, const YVector m_y_,
-                const int rows_per_team_, const int N_,
+                const int matrices_per_team_, const int N_,
                 const int implementation_ = 0)
       : alpha(alpha_),
         m_A(m_A_),
         m_x(m_x_),
         beta(beta_),
         m_y(m_y_),
-        rows_per_team(rows_per_team_),
+        matrices_per_team(matrices_per_team_),
         N(N_),
         implementation(implementation_) {
     static_assert(static_cast<int>(XVector::rank) == 2,
@@ -37,16 +37,10 @@ struct BSPMV_Functor {
 
   KOKKOS_INLINE_FUNCTION void operator()(const team_member& dev) const {
     if (implementation == 0) {
-      for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
+      for (int i_matrix = static_cast<int>(dev.league_rank()) * matrices_per_team; i_matrix < min(static_cast<int>(dev.league_rank()+1) * matrices_per_team, N); ++i_matrix) {
         Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(dev, 0, rows_per_team),
-            [&](const ordinal_type& loop) {
-              const ordinal_type iRow =
-                  static_cast<ordinal_type>(dev.league_rank()) * rows_per_team +
-                  loop;
-              if (iRow >= m_A[i_matrix].numRows()) {
-                return;
-              }
+            Kokkos::TeamThreadRange(dev, 0, m_A[i_matrix].numRows()),
+            [&](const ordinal_type& iRow) {
               const KokkosSparse::SparseRowViewConst<AMatrix> row =
                   m_A[i_matrix].rowConst(iRow);
               const ordinal_type row_length =
@@ -76,16 +70,10 @@ struct BSPMV_Functor {
     }
     if (implementation == 1) {
       Kokkos::parallel_for(
-          Kokkos::TeamThreadRange(dev, 0, rows_per_team),
-          [&](const ordinal_type& loop) {
-            const ordinal_type iRow =
-                static_cast<ordinal_type>(dev.league_rank()) * rows_per_team +
-                loop;
-            if (iRow >= m_A[0].numRows()) {
-              return;
-            }
+          Kokkos::TeamThreadRange(dev, 0, m_A[0].numRows()),
+          [&](const ordinal_type& iRow) {
 
-            for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
+            for (int i_matrix = static_cast<int>(dev.league_rank()) * matrices_per_team; i_matrix < min(static_cast<int>(dev.league_rank()+1) * matrices_per_team, N); ++i_matrix) {
               value_type sum = 0;
 
               const KokkosSparse::SparseRowViewConst<AMatrix> row =
