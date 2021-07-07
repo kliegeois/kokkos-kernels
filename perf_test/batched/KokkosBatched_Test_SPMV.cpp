@@ -531,7 +531,7 @@ int main(int argc, char *argv[]) {
       myfile.close();
     }
 
-    int n_impl = 2;
+    int n_impl = 4;
     for (int i_impl = 0; i_impl < n_impl; ++i_impl) {
       {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
@@ -544,6 +544,11 @@ int main(int argc, char *argv[]) {
         using policy_type = Kokkos::TeamPolicy<exec_space>;
         using member_type = typename policy_type::member_type;
         policy_type policy(N, team_size, vector_length);
+
+        using ScratchPadView =
+            Kokkos::View<value_type **, Kokkos::DefaultExecutionSpace::scratch_memory_space>;
+        size_t bytes = ScratchPadView::shmem_size(Blk, team_size);
+        policy.set_scratch_size(0,Kokkos::PerTeam(bytes));
 
         for (int i_rep = 0; i_rep < n_rep; ++i_rep)
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
@@ -577,6 +582,7 @@ int main(int argc, char *argv[]) {
 
       Kokkos::deep_copy(y, 0.);
     }
+/*    
     for (int i_impl = 0; i_impl < n_impl; ++i_impl) {
       {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
@@ -590,7 +596,8 @@ int main(int argc, char *argv[]) {
 
         using policy_type = Kokkos::TeamPolicy<exec_space>;
         using member_type = typename policy_type::member_type;
-        policy_type policy(worksets, team_size, vector_length);
+        policy_type policy(worksets, 1, vector_length);
+        policy.set_scratch_size(0,Kokkos::PerTeam(Blk*vector_length*sizeof(value_type)));
 
         for (int i_rep = 0; i_rep < n_rep; ++i_rep)
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy,
@@ -625,6 +632,7 @@ int main(int argc, char *argv[]) {
       Kokkos::deep_copy(yv_data, 0.);
 
     }
+*/
   }
   Kokkos::finalize();
 
