@@ -5,6 +5,7 @@ struct BSPMV_Functor {
   typedef typename AMatrix::non_const_value_type value_type;
   typedef typename Kokkos::TeamPolicy<execution_space> team_policy;
   typedef typename team_policy::member_type team_member;
+  typedef typename AMatrix::staticcrsgraph_type::entries_type entries_type;
   typedef Kokkos::Details::ArithTraits<value_type> ATV;
 
   const value_type* alpha;
@@ -16,6 +17,7 @@ struct BSPMV_Functor {
   const int implementation;
 
   const ordinal_type matrices_per_team;
+  typename entries_type::non_const_type row_indices;
 
   BSPMV_Functor(const value_type* alpha_, const AMatrix* m_A_,
                 const XVector m_x_, const value_type* beta_, const YVector m_y_,
@@ -33,6 +35,18 @@ struct BSPMV_Functor {
                   "XVector must be a rank 2 View.");
     static_assert(static_cast<int>(YVector::rank) == 2,
                   "YVector must be a rank 2 View.");
+    if(implementation>1) {
+      Kokkos::resize(row_indices, m_A[0].nnz());
+      typename entries_type::HostMirror row_indices_h =
+        Kokkos::create_mirror_view(row_indices);
+      typename entries_type::HostMirror row_map_tmp_h =
+        Kokkos::create_mirror_view(m_A[0].graph.row_map);
+      Kokkos::deep_copy(row_map_tmp_h, m_A[0].graph.row_map);
+      for (int irow = 0; irow < m_A[0].numRows(); ++irow)
+        for (int iEntry = row_map_tmp_h(irow); iEntry < row_map_tmp_h(irow+1); ++iEntry)
+          row_indices_h(iEntry) = irow;
+      Kokkos::deep_copy(row_indices, row_indices_h);
+    }
   }
 
   KOKKOS_INLINE_FUNCTION void operator()(const team_member& dev) const {
@@ -139,14 +153,7 @@ struct BSPMV_Functor {
           Kokkos::parallel_for(Kokkos::TeamThreadRange(dev, 0, A.nnz()),
               [&](const ordinal_type& iEntry) {
                   int col = A.graph.entries(iEntry);
-                  int row;
-                  for (int irow = 0; irow < A.numRows();
-                      ++irow)
-                    if (A.graph.row_map(irow) <= iEntry &&
-                        A.graph.row_map(irow + 1) > iEntry) {
-                      row = irow;
-                      break;
-                    }
+                  int row = row_indices(iEntry);
 
                   Kokkos::atomic_fetch_add(&sum(row, iMatrix), A.values(iEntry) * m_x(iGlobalMatrix, col));
               });
@@ -200,14 +207,7 @@ struct BSPMV_Functor {
       Kokkos::parallel_for(Kokkos::TeamThreadRange(dev, 0, nnz),
           [&](const ordinal_type& iEntry) {
             int col = A.graph.entries(iEntry);
-            int row;
-            for (int irow = 0; irow < A.numRows(); ++irow) {
-              if (A.graph.row_map(irow) <= iEntry &&
-                  A.graph.row_map(irow + 1) > iEntry) {
-                row = irow;
-                break;
-              }
-            }
+            int row = row_indices(iEntry);
             Kokkos::parallel_for(
                 Kokkos::ThreadVectorRange(dev, n_matrices),
                 [&](const ordinal_type& iMatrix) {
