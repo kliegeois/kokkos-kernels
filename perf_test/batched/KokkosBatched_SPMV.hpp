@@ -35,7 +35,7 @@ struct BSPMV_Functor {
                   "XVector must be a rank 2 View.");
     static_assert(static_cast<int>(YVector::rank) == 2,
                   "YVector must be a rank 2 View.");
-    if (implementation > 1) {
+    if (implementation > 2) {
       Kokkos::resize(row_indices, m_A[0].nnz());
       typename entries_type::HostMirror row_indices_h =
           Kokkos::create_mirror_view(row_indices);
@@ -153,16 +153,14 @@ struct BSPMV_Functor {
                            m_x(iGlobalMatrix, row.colidx(iEntry));
                   }
 
-                  Kokkos::single(Kokkos::PerThread(dev), [&]() {
-                    sum *= alpha[iGlobalMatrix];
+                  sum *= alpha[iGlobalMatrix];
 
-                    if (dobeta == 0) {
-                      m_y(iGlobalMatrix, iRow) = sum;
-                    } else {
-                      m_y(iGlobalMatrix, iRow) =
-                          beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
-                    }
-                  });
+                  if (dobeta == 0) {
+                    m_y(iGlobalMatrix, iRow) = sum;
+                  } else {
+                    m_y(iGlobalMatrix, iRow) =
+                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                  }
                 });
           });
     }
