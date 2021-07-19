@@ -510,6 +510,9 @@ int main(int argc, char *argv[]) {
     using XVType = Kokkos::View<vector_type **, LR>;
     using YVType = Kokkos::View<vector_type **, LR>;
 
+    using ScratchPadIntView =
+      Kokkos::View<int *, exec_space::scratch_memory_space>;
+
     XType x("values", N, Blk);
     YType y("values", N, Blk);
 
@@ -574,6 +577,10 @@ int main(int argc, char *argv[]) {
           using policy_type = Kokkos::TeamPolicy<exec_space>;
           using member_type = typename policy_type::member_type;
           policy_type policy(N / vector_length, team_size, vector_length);
+          size_t bytes_0 = ScratchPadIntView::shmem_size(Blk);
+          size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
+          policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0));
+          policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy, func);
 
           exec_space().fence();

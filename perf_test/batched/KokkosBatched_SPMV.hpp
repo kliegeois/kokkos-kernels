@@ -1,9 +1,9 @@
 template <class AMatrix, class XVector, class YVector, int dobeta>
 struct BSPMV_Functor {
-  typedef typename AMatrix::execution_space execution_space;
+  typedef typename AMatrix::execution_space exec_space;
   typedef typename AMatrix::non_const_ordinal_type ordinal_type;
   typedef typename AMatrix::non_const_value_type value_type;
-  typedef typename Kokkos::TeamPolicy<execution_space> team_policy;
+  typedef typename Kokkos::TeamPolicy<exec_space> team_policy;
   typedef typename team_policy::member_type team_member;
   typedef typename AMatrix::staticcrsgraph_type::entries_type entries_type;
   typedef Kokkos::Details::ArithTraits<value_type> ATV;
@@ -35,19 +35,6 @@ struct BSPMV_Functor {
                   "XVector must be a rank 2 View.");
     static_assert(static_cast<int>(YVector::rank) == 2,
                   "YVector must be a rank 2 View.");
-    if (implementation > 10) {
-      Kokkos::resize(row_indices, m_A[0].nnz());
-      typename entries_type::HostMirror row_indices_h =
-          Kokkos::create_mirror_view(row_indices);
-      typename entries_type::HostMirror row_map_tmp_h =
-          Kokkos::create_mirror_view(m_A[0].graph.row_map);
-      Kokkos::deep_copy(row_map_tmp_h, m_A[0].graph.row_map);
-      for (int irow = 0; irow < m_A[0].numRows(); ++irow)
-        for (int iEntry = row_map_tmp_h(irow); iEntry < row_map_tmp_h(irow + 1);
-             ++iEntry)
-          row_indices_h(iEntry) = irow;
-      Kokkos::deep_copy(row_indices, row_indices_h);
-    }
   }
 
   KOKKOS_INLINE_FUNCTION void operator()(const team_member& dev) const {
@@ -234,6 +221,301 @@ struct BSPMV_Functor {
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
               sum += row.value(iEntry) *
                       m_x(iGlobalMatrix, row.colidx(iEntry));
+            }
+
+            sum *= alpha[iGlobalMatrix];
+
+            if (dobeta == 0) {
+              m_y(iGlobalMatrix, iRow) = sum;
+            } else {
+              m_y(iGlobalMatrix, iRow) =
+                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+            }
+          });
+    }
+    if (implementation == 5) {
+      using ScratchPadIntView =
+        Kokkos::View<int *, Kokkos::DefaultExecutionSpace::scratch_memory_space>;
+
+      ScratchPadIntView cols(dev.team_scratch(1), m_A[0].nnz());
+      ScratchPadIntView row_map(dev.team_scratch(0), m_A[0].numRows());
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].numRows()),
+        [&](const ordinal_type& i) {
+          row_map(i) = m_A[0].graph.row_map(i);
+        });
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].nnz()),
+        [&](const ordinal_type& i) {
+          cols(i) = m_A[0].graph.entries(i);
+        });
+
+      dev.team_barrier();
+
+      for (int i_matrix =
+               static_cast<int>(dev.league_rank()) * matrices_per_team;
+           i_matrix <
+           min(static_cast<int>(dev.league_rank() + 1) * matrices_per_team, N);
+           ++i_matrix) {
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(dev, 0, m_A[i_matrix].numRows()),
+            [&](const ordinal_type& iRow) {
+              const KokkosSparse::SparseRowViewConst<AMatrix> row =
+                  m_A[i_matrix].rowConst(iRow);
+              const ordinal_type row_length =
+                  static_cast<ordinal_type>(row.length);
+              value_type sum = 0;
+
+              Kokkos::parallel_reduce(
+                  Kokkos::ThreadVectorRange(dev, row_length),
+                  [&](const ordinal_type& iEntry, value_type& lsum) {
+                    const value_type val = row.value(iEntry);
+                    lsum += val * m_x(i_matrix, cols(row_map(iRow) + iEntry));
+                  },
+                  sum);
+
+              Kokkos::single(Kokkos::PerThread(dev), [&]() {
+                sum *= alpha[i_matrix];
+
+                if (dobeta == 0) {
+                  m_y(i_matrix, iRow) = sum;
+                } else {
+                  m_y(i_matrix, iRow) =
+                      beta[i_matrix] * m_y(i_matrix, iRow) + sum;
+                }
+              });
+            });
+      }
+    }
+    if (implementation == 6) {
+      using ScratchPadIntView =
+        Kokkos::View<int *, Kokkos::DefaultExecutionSpace::scratch_memory_space>;
+
+      ScratchPadIntView cols(dev.team_scratch(1), m_A[0].nnz());
+      ScratchPadIntView row_map(dev.team_scratch(0), m_A[0].numRows());
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].numRows()),
+        [&](const ordinal_type& i) {
+          row_map(i) = m_A[0].graph.row_map(i);
+        });
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].nnz()),
+        [&](const ordinal_type& i) {
+          cols(i) = m_A[0].graph.entries(i);
+        });
+
+      dev.team_barrier();
+
+      const int first_matrix =
+          static_cast<int>(dev.league_rank()) * matrices_per_team;
+      const int last_matrix =
+          min(static_cast<int>(dev.league_rank() + 1) * matrices_per_team, N);
+      const int n_matrices = last_matrix - first_matrix;
+
+      Kokkos::parallel_for(
+          Kokkos::ThreadVectorRange(dev, n_matrices),
+          [&](const ordinal_type& iMatrix) {
+            const int iGlobalMatrix = first_matrix + iMatrix;
+            const auto A            = m_A[iGlobalMatrix];
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(dev, 0, A.numRows()),
+                [&](const ordinal_type& iRow) {
+                  const KokkosSparse::SparseRowViewConst<AMatrix> row =
+                      A.rowConst(iRow);
+                  const ordinal_type row_length =
+                      static_cast<ordinal_type>(row.length);
+                  value_type sum = 0;
+
+                  for (int iEntry = 0; iEntry < row_length; ++iEntry) {
+                    sum += row.value(iEntry) *
+                           m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
+                  }
+
+                  sum *= alpha[iGlobalMatrix];
+
+                  if (dobeta == 0) {
+                    m_y(iGlobalMatrix, iRow) = sum;
+                  } else {
+                    m_y(iGlobalMatrix, iRow) =
+                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                  }
+                });
+          });
+    }
+    if (implementation == 7) {
+      using ScratchPadIntView =
+        Kokkos::View<int *, Kokkos::DefaultExecutionSpace::scratch_memory_space>;
+
+      ScratchPadIntView cols(dev.team_scratch(1), m_A[0].nnz());
+      ScratchPadIntView row_map(dev.team_scratch(0), m_A[0].numRows());
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].numRows()),
+        [&](const ordinal_type& i) {
+          row_map(i) = m_A[0].graph.row_map(i);
+        });
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].nnz()),
+        [&](const ordinal_type& i) {
+          cols(i) = m_A[0].graph.entries(i);
+        });
+
+      dev.team_barrier();
+
+      const int first_matrix =
+          static_cast<int>(dev.league_rank()) * matrices_per_team;
+      const int last_matrix =
+          min(static_cast<int>(dev.league_rank() + 1) * matrices_per_team, N);
+      const int n_matrices = last_matrix - first_matrix;
+
+      const auto A = m_A[0];
+
+      Kokkos::parallel_for(
+          Kokkos::TeamThreadRange(dev, 0, A.numRows()),
+          [&](const ordinal_type& iRow) {
+            Kokkos::parallel_for(
+                Kokkos::ThreadVectorRange(dev, n_matrices),
+                [&](const ordinal_type& iMatrix) {
+                  const int iGlobalMatrix = first_matrix + iMatrix;
+
+                  const KokkosSparse::SparseRowViewConst<AMatrix> row =
+                      m_A[iGlobalMatrix].rowConst(iRow);
+                  const ordinal_type row_length =
+                      static_cast<ordinal_type>(row.length);
+                  value_type sum = 0;
+
+                  for (int iEntry = 0; iEntry < row_length; ++iEntry) {
+                    sum += row.value(iEntry) *
+                           m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
+                  }
+
+                  sum *= alpha[iGlobalMatrix];
+
+                  if (dobeta == 0) {
+                    m_y(iGlobalMatrix, iRow) = sum;
+                  } else {
+                    m_y(iGlobalMatrix, iRow) =
+                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                  }
+                });
+          });
+    }
+    if (implementation == 8) {
+      using ScratchPadIntView =
+        Kokkos::View<int *, Kokkos::DefaultExecutionSpace::scratch_memory_space>;
+
+      ScratchPadIntView cols(dev.team_scratch(1), m_A[0].nnz());
+      ScratchPadIntView row_map(dev.team_scratch(0), m_A[0].numRows());
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].numRows()),
+        [&](const ordinal_type& i) {
+          row_map(i) = m_A[0].graph.row_map(i);
+        });
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].nnz()),
+        [&](const ordinal_type& i) {
+          cols(i) = m_A[0].graph.entries(i);
+        });
+
+      dev.team_barrier();
+
+      const int first_matrix =
+          static_cast<int>(dev.league_rank()) * matrices_per_team;
+      const int last_matrix =
+          min(static_cast<int>(dev.league_rank() + 1) * matrices_per_team, N);
+      const int n_matrices = last_matrix - first_matrix;
+      const int n_rows = m_A[0].numRows();
+
+      //using MDPolicyType_2D = typename Kokkos::Experimental::MDRangePolicy<
+      //    Kokkos::Experimental::Rank<2> >;
+      //MDPolicyType_2D policyInit({0,0}, {n_rows, n_matrices});
+
+      Kokkos::parallel_for(
+          Kokkos::TeamVectorRange(dev, 0, n_rows * n_matrices),
+          [&](const ordinal_type& iTemp) {
+            const ordinal_type& iRow = iTemp/n_matrices;
+            const ordinal_type& iMatrix = iTemp%n_matrices;
+            const int iGlobalMatrix = first_matrix + iMatrix;
+            //const auto A            = m_A[iGlobalMatrix];
+
+            const KokkosSparse::SparseRowViewConst<AMatrix> row =
+                m_A[iGlobalMatrix].rowConst(iRow);
+            const ordinal_type row_length =
+                static_cast<ordinal_type>(row.length);
+            value_type sum = 0;
+
+            for (int iEntry = 0; iEntry < row_length; ++iEntry) {
+              sum += row.value(iEntry) *
+                      m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
+            }
+
+            sum *= alpha[iGlobalMatrix];
+
+            if (dobeta == 0) {
+              m_y(iGlobalMatrix, iRow) = sum;
+            } else {
+              m_y(iGlobalMatrix, iRow) =
+                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+            }
+          });
+    }
+    if (implementation == 9) {
+      using ScratchPadIntView =
+        Kokkos::View<int *, Kokkos::DefaultExecutionSpace::scratch_memory_space>;
+
+      ScratchPadIntView cols(dev.team_scratch(1), m_A[0].nnz());
+      ScratchPadIntView row_map(dev.team_scratch(0), m_A[0].numRows());
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].numRows()),
+        [&](const ordinal_type& i) {
+          row_map(i) = m_A[0].graph.row_map(i);
+        });
+
+      Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(dev, 0, m_A[0].nnz()),
+        [&](const ordinal_type& i) {
+          cols(i) = m_A[0].graph.entries(i);
+        });
+
+      dev.team_barrier();
+
+      const int first_matrix =
+          static_cast<int>(dev.league_rank()) * matrices_per_team;
+      const int last_matrix =
+          min(static_cast<int>(dev.league_rank() + 1) * matrices_per_team, N);
+      const int n_matrices = last_matrix - first_matrix;
+      const int n_rows = m_A[0].numRows();
+
+      //using MDPolicyType_2D = typename Kokkos::Experimental::MDRangePolicy<
+      //    Kokkos::Experimental::Rank<2> >;
+      //MDPolicyType_2D policyInit({0,0}, {n_rows, n_matrices});
+
+      Kokkos::parallel_for(
+          Kokkos::TeamVectorRange(dev, 0, n_rows * n_matrices),
+          [&](const ordinal_type& iTemp) {
+            const ordinal_type& iRow = iTemp%n_rows;
+            const ordinal_type& iMatrix = iTemp/n_rows;
+            const int iGlobalMatrix = first_matrix + iMatrix;
+            //const auto A            = m_A[iGlobalMatrix];
+
+            const KokkosSparse::SparseRowViewConst<AMatrix> row =
+                m_A[iGlobalMatrix].rowConst(iRow);
+            const ordinal_type row_length =
+                static_cast<ordinal_type>(row.length);
+            value_type sum = 0;
+
+            for (int iEntry = 0; iEntry < row_length; ++iEntry) {
+              sum += row.value(iEntry) *
+                      m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
             }
 
             sum *= alpha[iGlobalMatrix];
