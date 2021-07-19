@@ -152,6 +152,8 @@ void SPDSparseMatrices(
   Kokkos::View<ScalarType **, Layout> value_lower_trig("values", N,
                                                        nnz_lower_trig + nnz_d);
 
+  srand(1);
+
   {
     typename entries_type::HostMirror row_ind_lower_trig_h =
         Kokkos::create_mirror_view(row_ind_lower_trig);
@@ -412,7 +414,7 @@ int main(int argc, char *argv[]) {
     int N               = 128;  /// # of problems (batch size)
     int Blk             = 30;   /// block dimension
     int nnz_per_row     = 5;
-    int n_rep_1         = 10;  // # of repetitions
+    int n_rep_1         = 10;    // # of repetitions
     int n_rep_2         = 1000;  // # of repetitions
     int rows_per_thread = 1;
     int team_size       = 64 / vector_length;
@@ -433,8 +435,8 @@ int main(int argc, char *argv[]) {
     }
 
     // V100 L2 cache 6MB per core
-    constexpr size_t LLC_CAPACITY = 80*6*1024*1024;
-    Flush<LLC_CAPACITY,exec_space> flush;
+    constexpr size_t LLC_CAPACITY = 80 * 6 * 1024 * 1024;
+    Flush<LLC_CAPACITY, exec_space> flush;
 
     printf(
         " :::: Testing (N = %d, Blk = %d, vl = %d, vi = %d, nnz_per_row = "
@@ -549,8 +551,7 @@ int main(int argc, char *argv[]) {
       myfile.close();
     }
 
-    for (int i_impl=0; i_impl<n_impl; ++i_impl)
-    {
+    for (int i_impl = 0; i_impl < n_impl; ++i_impl) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
       cudaProfilerStart();
 #endif
@@ -572,13 +573,13 @@ int main(int argc, char *argv[]) {
 
           using policy_type = Kokkos::TeamPolicy<exec_space>;
           using member_type = typename policy_type::member_type;
-          policy_type policy(N/vector_length, team_size, vector_length);
+          policy_type policy(N / vector_length, team_size, vector_length);
           Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy, func);
 
           exec_space().fence();
           t_spmv += timer.seconds();
         }
-        if (i_rep > n_skip) timers.push_back(t_spmv/n_rep_2);
+        if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }
       int median_id = 3;
       auto quantiles =
