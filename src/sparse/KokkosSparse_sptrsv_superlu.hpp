@@ -52,7 +52,9 @@
 #ifndef KOKKOSSPARSE_SPTRSV_SUPERLU_HPP_
 #define KOKKOSSPARSE_SPTRSV_SUPERLU_HPP_
 
-#ifdef KOKKOSKERNELS_ENABLE_TPL_SUPERLU
+#if defined(KOKKOSKERNELS_ENABLE_TPL_SUPERLU) && \
+    defined(KOKKOSKERNELS_ENABLE_SUPERNODAL_SPTRSV)
+
 #include "slu_ddefs.h"
 
 #include "KokkosSparse_sptrsv_supernode.hpp"
@@ -92,7 +94,7 @@ graph_t read_superlu_graphL(KernelHandle *kernelHandle, SuperMatrix *L) {
 /* ========================================================================================= */
 // read SuperLU U factor into CSR
 template <typename graph_t, typename KernelHandle>
-graph_t read_superlu_graphU(KernelHandle kernelHandle, SuperMatrix *L,  SuperMatrix *U) {
+graph_t read_superlu_graphU(KernelHandle *kernelHandle, SuperMatrix *L,  SuperMatrix *U) {
 
   using   row_map_view_t = typename graph_t::row_map_type::non_const_type;
   using      cols_view_t = typename graph_t::entries_type::non_const_type;
@@ -326,7 +328,7 @@ void sptrsv_symbolic(
 
 /* ========================================================================================= */
 template <typename crsmat_t, typename graph_t, typename KernelHandle>
-crsmat_t read_superlu_valuesL(KernelHandle kernelHandle, SuperMatrix *L, graph_t &static_graph) {
+crsmat_t read_superlu_valuesL(KernelHandle *kernelHandle, SuperMatrix *L, graph_t &static_graph) {
 
   using values_view_t = typename crsmat_t::values_type::non_const_type;
   using scalar_t      = typename values_view_t::value_type;
@@ -345,9 +347,9 @@ crsmat_t read_superlu_valuesL(KernelHandle kernelHandle, SuperMatrix *L, graph_t
   int * rowind = Lstore->rowind;
 
   bool ptr_by_column = true;
-  return read_supernodal_valuesL<crsmat_t> (kernelHandle, n, nsuper, 
-                                            ptr_by_column, mb, nb,
-                                            colptr, rowind, Lx, static_graph);
+  return read_supernodal_values<crsmat_t> (kernelHandle, n, nsuper, 
+                                           ptr_by_column, mb, nb,
+                                           colptr, rowind, Lx, static_graph);
 }
 
 
@@ -357,7 +359,7 @@ template <typename crsmat_t,
           typename graph_t,
           typename KernelHandle>
 crsmat_t
-read_superlu_valuesU(KernelHandle kernelHandle,
+read_superlu_valuesU(KernelHandle *kernelHandle,
                      SuperMatrix *L,  SuperMatrix *U, graph_t &static_graph) {
 
   using values_view_t  = typename crsmat_t::values_type::non_const_type;
@@ -674,6 +676,6 @@ void sptrsv_compute(
 } // namespace Experimental
 } // namespace KokkosSparse
 
-#endif // KOKKOSKERNELS_ENABLE_TPL_SUPERLU
+#endif // KOKKOSKERNELS_ENABLE_TPL_SUPERLU && KOKKOSKERNELS_ENABLE_SUPERNODAL_SPTRSV
 #endif // KOKKOSSPARSE_SPTRSV_SUPERLU_HPP_
 

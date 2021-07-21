@@ -58,25 +58,11 @@
 #include <stdexcept>
 #include <type_traits>
 #include "KokkosSparse_findRelOffset.hpp"
+#include "KokkosKernels_default_types.hpp"
+#include "KokkosKernels_Macros.hpp"
+
 
 namespace KokkosSparse {
-
-// Macro that tells GCC not to worry if a variable isn't being used.
-// Generalized attributes were not implemented in GCC until 4.8:
-//
-// https://gcc.gnu.org/gcc-4.7/cxx0x_status.html
-// https://gcc.gnu.org/gcc-4.8/cxx0x_status.html
-//
-// Thus, we can't use [[unused]]; we have to use the older GCC syntax
-// for variable attributes.  Be careful also of compilers that define
-// the __GNUC__ macro but might not necessarily actually be GCC
-// compliant.
-#if defined(__GNUC__) && ! defined(KOKKOSKERNELS_UNUSED_ATTRIBUTE)
-#  define KOKKOSKERNELS_UNUSED_ATTRIBUTE __attribute__((unused))
-#else
-#  define KOKKOSKERNELS_UNUSED_ATTRIBUTE
-#endif // __GNUC__
-
 //! String that tells sparse kernels to use the transpose of the matrix.
 static char KOKKOSKERNELS_UNUSED_ATTRIBUTE Transpose[] = "T";
 /// \brief String that tells sparse kernels to use the conjugate (NOT
@@ -100,13 +86,13 @@ inline int RowsPerThread(const int NNZPerRow) {
 }
 #ifdef KOKKOS_ENABLE_CUDA
 template<>
-inline int RowsPerThread<Kokkos::Cuda>(const int NNZPerRow) {
+inline int RowsPerThread<Kokkos::Cuda>(const int /*NNZPerRow*/) {
   return 1;
 }
 #endif
 #ifdef KOKKOS_ENABLE_HIP
 template<>
-inline int RowsPerThread<Kokkos::Experimental::HIP>(const int NNZPerRow) {
+inline int RowsPerThread<Kokkos::Experimental::HIP>(const int /*NNZPerRow*/) {
   return 1;
 }
 #endif
@@ -413,9 +399,9 @@ public:
   //! Type of a host-memory mirror of the sparse matrix.
   typedef CrsMatrix<ScalarType, OrdinalType, host_mirror_space, MemoryTraits, SizeType> HostMirror;
   //! Type of the graph structure of the sparse matrix.
-  typedef Kokkos::StaticCrsGraph<ordinal_type, Kokkos::LayoutLeft, device_type, memory_traits, size_type> StaticCrsGraphType;
+  typedef Kokkos::StaticCrsGraph<ordinal_type, default_layout, device_type, memory_traits, size_type> StaticCrsGraphType;
   //! Type of the graph structure of the sparse matrix - consistent with Kokkos.
-  typedef Kokkos::StaticCrsGraph<ordinal_type, Kokkos::LayoutLeft, device_type, memory_traits, size_type> staticcrsgraph_type;
+  typedef Kokkos::StaticCrsGraph<ordinal_type, default_layout, device_type, memory_traits, size_type> staticcrsgraph_type;
   //! Type of column indices in the sparse matrix.
   typedef typename staticcrsgraph_type::entries_type index_type;
   //! Const version of the type of column indices in the sparse matrix.
@@ -499,9 +485,9 @@ public:
   CrsMatrix (const std::string&,
       const CrsMatrix<InScalar, InOrdinal, InDevice, InMemTraits, InSizeType>& mat_)
   {
-    typename row_map_type::non_const_type rowmap(Kokkos::ViewAllocateWithoutInitializing("rowmap"), mat_.graph.row_map.extent(0));
-    index_type cols(Kokkos::ViewAllocateWithoutInitializing("cols"), mat_.nnz());
-    values = values_type(Kokkos::ViewAllocateWithoutInitializing("values"), mat_.nnz());
+    typename row_map_type::non_const_type rowmap(Kokkos::view_alloc(Kokkos::WithoutInitializing, "rowmap"), mat_.graph.row_map.extent(0));
+    index_type cols(Kokkos::view_alloc(Kokkos::WithoutInitializing, "cols"), mat_.nnz());
+    values = values_type(Kokkos::view_alloc(Kokkos::WithoutInitializing, "values"), mat_.nnz());
     Kokkos::deep_copy(rowmap, mat_.graph.row_map);
     Kokkos::deep_copy(cols, mat_.graph.entries);
     Kokkos::deep_copy(values, mat_.values);
@@ -546,7 +532,7 @@ public:
   ///   must have length \c nrows+1.
   /// \param cols [in] The column indices. \c cols[k] is the column
   ///   index of entry k, with a corresponding value of \c val[k] .
-  CrsMatrix (const std::string &label,
+  CrsMatrix (const std::string &/*label*/,
              OrdinalType nrows,
              OrdinalType ncols,
              size_type annz,
@@ -560,14 +546,14 @@ public:
     using UnmanagedEntries = Kokkos::View<const OrdinalType*, Kokkos::HostSpace, Kokkos::MemoryTraits<Unmanaged>>;
     using UnmanagedValues = Kokkos::View<const ScalarType*, Kokkos::HostSpace, Kokkos::MemoryTraits<Unmanaged>>;
     //Allocate device rowmap, entries, values views
-    typename row_map_type::non_const_type rowmapDevice(Kokkos::ViewAllocateWithoutInitializing("rowmap"), nrows + 1);
-    index_type entriesDevice(Kokkos::ViewAllocateWithoutInitializing("entries"), annz);
+    typename row_map_type::non_const_type rowmapDevice(Kokkos::view_alloc(Kokkos::WithoutInitializing, "rowmap"), nrows + 1);
+    index_type entriesDevice(Kokkos::view_alloc(Kokkos::WithoutInitializing, "entries"), annz);
     //given rowmap in ordinal_type, so may need to convert to size_type explicitly
     HostRowmap rowmapConverted;
     UnmanagedRowmap rowmapRaw;
     if(!std::is_same<OrdinalType, SizeType>::value)
     {
-      rowmapConverted = HostRowmap(Kokkos::ViewAllocateWithoutInitializing("rowmap raw"), nrows + 1);
+      rowmapConverted = HostRowmap(Kokkos::view_alloc(Kokkos::WithoutInitializing, "rowmap raw"), nrows + 1);
       for(OrdinalType i = 0; i <= nrows; i++)
         rowmapConverted(i) = rowmap[i];
       rowmapRaw = rowmapConverted;
@@ -582,7 +568,7 @@ public:
     //Construct graph and populate all members
     this->numCols_ = ncols;
     this->graph = StaticCrsGraphType(entriesDevice, rowmapDevice);
-    this->values = values_type(Kokkos::ViewAllocateWithoutInitializing("values"), annz);
+    this->values = values_type(Kokkos::view_alloc(Kokkos::WithoutInitializing, "values"), annz);
     UnmanagedValues valuesRaw(val, annz);
     Kokkos::deep_copy(this->values, valuesRaw);
 
