@@ -419,6 +419,7 @@ int main(int argc, char *argv[]) {
     int rows_per_thread = 1;
     int team_size       = 64 / vector_length;
     int n_impl          = 1;
+    std::vector<int> impls;
     for (int i = 1; i < argc; ++i) {
       const std::string &token = argv[i];
       if (token == std::string("-N")) N = std::atoi(argv[++i]);
@@ -432,7 +433,13 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
       if (token == std::string("-n_implementations"))
         n_impl = std::atoi(argv[++i]);
+      if (token == std::string("-implementation"))
+        impls.push_back(std::atoi(argv[++i]));
     }
+
+    if (impls.size()==0)
+      for (int i = 1; i < n_impl; ++i)
+        impls.push_back(i);
 
     // V100 L2 cache 6MB per core
     constexpr size_t LLC_CAPACITY = 80 * 6 * 1024 * 1024;
@@ -554,10 +561,7 @@ int main(int argc, char *argv[]) {
       myfile.close();
     }
 
-    for (int i_impl = 0; i_impl < n_impl; ++i_impl) {
-#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-      cudaProfilerStart();
-#endif
+    for (auto i_impl : impls) {
       std::vector<double> timers;
 
       int n_skip = 2;
@@ -569,6 +573,9 @@ int main(int argc, char *argv[]) {
           flush.run();
           exec_space().fence();
 
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+      cudaProfilerStart();
+#endif
           timer.reset();
           exec_space().fence();
           BSPMV_Functor<matrix_type, XType, YType, 0> func(
@@ -585,15 +592,16 @@ int main(int argc, char *argv[]) {
 
           exec_space().fence();
           t_spmv += timer.seconds();
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+      cudaProfilerStop();
+#endif
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }
       int median_id = 3;
       auto quantiles =
           Quantile<double>(timers, {0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99});
-#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-      cudaProfilerStop();
-#endif
+
       printf("Implementation %d: solve time = %f , # of SPMV per min = %f\n",
              i_impl, quantiles[median_id], 1.0 / quantiles[median_id] * 60 * N);
       {
