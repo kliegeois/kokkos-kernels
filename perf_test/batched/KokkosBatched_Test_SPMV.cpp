@@ -569,13 +569,13 @@ int main(int argc, char *argv[]) {
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
         double t_spmv = 0;
         for (int j_rep = 0; j_rep < n_rep_2; ++j_rep) {
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+      cudaProfilerStart();
+#endif
           exec_space().fence();
           flush.run();
           exec_space().fence();
 
-#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-      cudaProfilerStart();
-#endif
           timer.reset();
           exec_space().fence();
           BSPMV_Functor<matrix_type, XType, YType, 0> func(
