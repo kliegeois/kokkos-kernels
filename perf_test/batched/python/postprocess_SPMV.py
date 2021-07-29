@@ -4,23 +4,36 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
-def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n_GPUs=1, throughput=True):
+def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n_GPUs=1, throughput=True, unit='B/sec'):
 
     # V100 GPU up to 900 GB/sec = 9e11
     bandwidth = 9e11 * n_GPUs
     optimistic = bandwidth * 2/12
     pessimistic = bandwidth * 2/20
-
+    reused_optimistic = bandwidth * 2/8
     # V100 GPU up to 7.8 TFLOPS = 7.8e12
     peak_boost = 7.8e12 * n_GPUs
     peak_base = 6.1e12 * n_GPUs
+    if unit == 'B/sec':
+        optimistic *= 8
+        pessimistic *= 8
+        reused_optimistic *= 8
+        peak_boost *= 8
+        peak_base *= 8
     if memory_limits:
         if throughput:
+            ax.plot([Bs[0], Bs[-1]], [reused_optimistic, reused_optimistic], label='Reused optimistic memory bandwidth bound')
             ax.plot([Bs[0], Bs[-1]], [optimistic, optimistic], label='Optimistic memory bandwidth bound')
             ax.plot([Bs[0], Bs[-1]], [pessimistic, pessimistic], label='Pessimistic memory bandwidth bound')
         else:
+            reused_optimistic_scale = (nnz_per_row+1)*N*8*8
             optimistic_scale = (nnz_per_row+1)*N*12*8
             pessimistic_scale = (nnz_per_row+1)*N*20*8
+            if unit == 'B/sec':
+                reused_optimistic_scale /= 8
+                optimistic_scale /= 8
+                pessimistic_scale /= 8
+            ax.plot([Bs[0], Bs[-1]], [(Bs[0]*reused_optimistic_scale)/bandwidth, (Bs[-1]*reused_optimistic_scale)/bandwidth], label='Reused optimistic memory bandwidth bound')
             ax.plot([Bs[0], Bs[-1]], [(Bs[0]*optimistic_scale)/bandwidth, (Bs[-1]*optimistic_scale)/bandwidth], label='Optimistic memory bandwidth bound')
             ax.plot([Bs[0], Bs[-1]], [(Bs[0]*pessimistic_scale)/bandwidth, (Bs[-1]*pessimistic_scale)/bandwidth], label='Pessimistic memory bandwidth bound')
     if peak_limits:
@@ -78,7 +91,7 @@ for i in range(0, n_implementations):
 
 plot_limits(Bs, ax, nnz_per_row, N)
 ax.set_xlabel('Number of rows')
-ax.set_ylabel('Throughput [FLOPS]')
+ax.set_ylabel('Throughput [B/s]')
 ax.set_xlim(50, 250)
 
 legend = ax.legend(loc='best', shadow=True)

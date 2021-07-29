@@ -45,6 +45,7 @@
 #include <KokkosBatched_LU_Team_Impl.hpp>
 #include <KokkosSparse_CrsMatrix.hpp>
 #include <KokkosBatched_SPMV.hpp>
+#include <KokkosBatched_SPMV_View.hpp>
 
 #include "quantiles.hpp"
 
@@ -327,7 +328,7 @@ void SPDSparseMatrices(
           }
         }
       });
-
+  /*
   {
     std::ofstream myfile;
     myfile.open("matrices.txt");
@@ -355,6 +356,26 @@ void SPDSparseMatrices(
 
     myfile.close();
   }
+  */
+}
+
+template <class XType>
+void writeArrayTofile(const XType x, std::string name) {
+  std::ofstream myfile;
+  myfile.open(name);
+
+  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
+
+  Kokkos::deep_copy(x_h, x);
+
+  for (int i = 0; i < x_h.extent(0); ++i) {
+    for (int j = 0; j < x_h.extent(1); ++j) {
+      myfile << x_h(i, j) << " ";
+    }
+    myfile << std::endl;
+  }
+
+  myfile.close();
 }
 
 template <class execution_space>
@@ -397,6 +418,77 @@ int launch_parameters(int numRows, int nnz, int rows_per_thread, int &team_size,
   return rows_per_team;
 }
 
+template <class AMatrix, class AVMatrix, class AView, class IntView,
+          class XYVector, class XYVVector>
+void getSPMVInputs(AMatrix *myMatrices, AVMatrix *myVectorMatrices,
+                   AView values, IntView rowOffsets, IntView colIndices,
+                   XYVector x, XYVector y, XYVVector xv, XYVVector yv,
+                   const typename IntView::non_const_value_type Blk,
+                   const typename IntView::non_const_value_type nnz,
+                   const typename IntView::non_const_value_type N,
+                   typename AMatrix::non_const_value_type *s_a,
+                   typename AMatrix::non_const_value_type *s_b,
+                   typename AVMatrix::non_const_value_type *s_av,
+                   typename AVMatrix::non_const_value_type *s_bv) {
+  typedef typename AMatrix::non_const_value_type value_type;
+  typedef typename IntView::non_const_value_type int_type;
+  typedef typename AVMatrix::non_const_value_type vector_type;
+  typedef typename AView::array_layout layout;
+
+  SPDSparseMatrices<value_type, local_ordinal_type>(Blk, nnz, N, rowOffsets,
+                                                    colIndices, values);
+
+  Kokkos::View<vector_type **, layout> vector_values("values",
+                                                     N / vector_length, nnz);
+  Kokkos::View<value_type **[vector_length], layout> vector_values_data(
+      (value_type *)vector_values.data(), N / vector_length, nnz);
+
+  Kokkos::parallel_for(
+      N / vector_length, KOKKOS_LAMBDA(int i) {
+        for (int j = 0; j < nnz; ++j)
+          for (int k = 0; k < vector_length; ++k)
+            vector_values_data(i, j, k) = values(i * vector_length + k, j);
+      });
+
+  graph_type myGraph(colIndices, rowOffsets);
+
+  if (std::is_same<layout, Kokkos::LayoutRight>::value) {
+    for (int i_matrix = 0; i_matrix < N; ++i_matrix)
+      myMatrices[i_matrix] =
+          AMatrix("test matrix", Blk, subview(values, i_matrix, Kokkos::ALL()),
+                  myGraph);
+
+    for (int i_matrix = 0; i_matrix < N / vector_length; ++i_matrix)
+      myVectorMatrices[i_matrix] =
+          AVMatrix("test matrix", Blk,
+                   subview(vector_values, i_matrix, Kokkos::ALL()), myGraph);
+  } else
+    std::cout << "Crs Matrices are not created when using the left layout."
+              << std::endl;
+
+  std::fill_n(s_a, N, 1.0);
+  std::fill_n(s_b, N, 0.0);
+  std::fill_n(s_av, N / vector_length, 1.0);
+  std::fill_n(s_bv, N / vector_length, 0.0);
+
+  Kokkos::View<value_type **[vector_length], layout> xv_data(
+      (value_type *)xv.data(), N / vector_length, Blk);
+  Kokkos::View<value_type **[vector_length], layout> yv_data(
+      (value_type *)yv.data(), N / vector_length, Blk);
+
+  Kokkos::deep_copy(x, 1.);
+  Kokkos::deep_copy(y, 0.);
+
+  Kokkos::parallel_for(
+      N / vector_length, KOKKOS_LAMBDA(int i) {
+        for (int j = 0; j < Blk; ++j)
+          for (int k = 0; k < vector_length; ++k) {
+            xv_data(i, j, k) = x(i * vector_length + k, j);
+            yv_data(i, j, k) = y(i * vector_length + k, j);
+          }
+      });
+}
+
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
   {
@@ -419,6 +511,8 @@ int main(int argc, char *argv[]) {
     int rows_per_thread = 1;
     int team_size       = 64 / vector_length;
     int n_impl          = 1;
+    bool layout_left    = true;
+    bool layout_right   = false;
     std::vector<int> impls;
     for (int i = 1; i < argc; ++i) {
       const std::string &token = argv[i];
@@ -435,11 +529,18 @@ int main(int argc, char *argv[]) {
         n_impl = std::atoi(argv[++i]);
       if (token == std::string("-implementation"))
         impls.push_back(std::atoi(argv[++i]));
+      if (token == std::string("-l")) {
+        layout_left  = true;
+        layout_right = false;
+      }
+      if (token == std::string("-r")) {
+        layout_left  = false;
+        layout_right = true;
+      }
     }
 
-    if (impls.size()==0)
-      for (int i = 1; i < n_impl; ++i)
-        impls.push_back(i);
+    if (impls.size() == 0)
+      for (int i = 0; i < n_impl; ++i) impls.push_back(i);
 
     // V100 L2 cache 6MB per core
     constexpr size_t LLC_CAPACITY = 80 * 6 * 1024 * 1024;
@@ -450,11 +551,6 @@ int main(int argc, char *argv[]) {
         "%d, n = %d)\n",
         N, Blk, vector_length, internal_vector_length, nnz_per_row, n_rep_1);
 
-    local_ordinal_type nnz = Blk * nnz_per_row;
-    typename graph_type::row_map_type::non_const_type rowOffsets;
-    typename graph_type::entries_type::non_const_type colIndices;
-    Kokkos::View<double **, LR> values;
-
     {
       std::ofstream myfile;
       myfile.open("dimensions.txt");
@@ -464,102 +560,63 @@ int main(int argc, char *argv[]) {
       myfile.close();
     }
 
-    SPDSparseMatrices<value_type, local_ordinal_type>(Blk, nnz, N, rowOffsets,
-                                                      colIndices, values);
+    int nnz = Blk * nnz_per_row;
 
-    Kokkos::View<vector_type **, LR> vector_values("values", N / vector_length,
-                                                   nnz);
-    Kokkos::View<value_type **[vector_length], LR> vector_values_data(
-        (value_type *)vector_values.data(), N / vector_length, nnz);
+    using IntView = typename graph_type::row_map_type::non_const_type;
+    using AMatrixValueViewLR = Kokkos::View<double **, LR>;
+    using AMatrixValueViewLL = Kokkos::View<double **, LL>;
+    using XYTypeLR           = Kokkos::View<double **, LR>;
+    using XYTypeLL           = Kokkos::View<double **, LL>;
+    using XYVTypeLR          = Kokkos::View<vector_type **, LR>;
+    using XYVTypeLL          = Kokkos::View<vector_type **, LL>;
 
-    Kokkos::parallel_for(
-        N / vector_length, KOKKOS_LAMBDA(int i) {
-          for (int j = 0; j < nnz; ++j)
-            for (int k = 0; k < vector_length; ++k)
-              vector_values_data(i, j, k) = values(i * vector_length + k, j);
-        });
-
-    graph_type myGraph(colIndices, rowOffsets);
-
+    IntView rowOffsets("values", Blk + 1);
+    IntView colIndices("values", nnz);
+    AMatrixValueViewLR valuesLR("values", N, nnz);
+    AMatrixValueViewLL valuesLL("values", N, nnz);
     matrix_type myMatrices[N];
-    for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-      myMatrices[i_matrix] =
-          matrix_type("test matrix", Blk,
-                      subview(values, i_matrix, Kokkos::ALL()), myGraph);
-
     vector_matrix_type myVectorMatrices[N / vector_length];
-    for (int i_matrix = 0; i_matrix < N / vector_length; ++i_matrix)
-      myVectorMatrices[i_matrix] = vector_matrix_type(
-          "test matrix", Blk, subview(vector_values, i_matrix, Kokkos::ALL()),
-          myGraph);
+
+    XYTypeLR xLR("values", N, Blk);
+    XYTypeLR yLR("values", N, Blk);
+    XYVTypeLR xvLR("values", N / vector_length, Blk);
+    XYVTypeLR yvLR("values", N / vector_length, Blk);
+
+    XYTypeLL xLL("values", N, Blk);
+    XYTypeLL yLL("values", N, Blk);
+    XYVTypeLL xvLL("values", N / vector_length, Blk);
+    XYVTypeLL yvLL("values", N / vector_length, Blk);
 
     double s_a[N], s_b[N];
-
-    std::fill_n(s_a, N, 1.0);
-    std::fill_n(s_b, N, 0.0);
-
     vector_type s_av[N / vector_length], s_bv[N / vector_length];
 
-    std::fill_n(s_av, N / vector_length, 1.0);
-    std::fill_n(s_bv, N / vector_length, 0.0);
+    int rows_per_team = launch_parameters<exec_space>(Blk, nnz, rows_per_thread,
+                                                      team_size, vector_length);
 
-    int rows_per_team = launch_parameters<exec_space>(
-        Blk, (int)nnz, rows_per_thread, team_size, vector_length);
+    if (layout_left)
+      printf(
+          " :::: Testing left layout (team_size = %d, rows_per_thread = %d, "
+          "rows_per_team = "
+          "%d)\n",
+          team_size, rows_per_thread, rows_per_team);
+    if (layout_right)
+      printf(
+          " :::: Testing right layout (team_size = %d, rows_per_thread = %d, "
+          "rows_per_team = "
+          "%d)\n",
+          team_size, rows_per_thread, rows_per_team);
 
-    printf(
-        " :::: Testing (team_size = %d, rows_per_thread = %d, rows_per_team = "
-        "%d)\n",
-        team_size, rows_per_thread, rows_per_team);
-
-    using XType = Kokkos::View<double **, LR>;
-    using YType = Kokkos::View<double **, LR>;
-
-    using XVType = Kokkos::View<vector_type **, LR>;
-    using YVType = Kokkos::View<vector_type **, LR>;
+    if (layout_right)
+      getSPMVInputs(myMatrices, myVectorMatrices, valuesLR, rowOffsets,
+                    colIndices, xLR, yLR, xvLR, yvLR, Blk, nnz, N, s_a, s_b,
+                    s_av, s_bv);
+    if (layout_left)
+      getSPMVInputs(myMatrices, myVectorMatrices, valuesLL, rowOffsets,
+                    colIndices, xLL, yLL, xvLL, yvLL, Blk, nnz, N, s_a, s_b,
+                    s_av, s_bv);
 
     using ScratchPadIntView =
-      Kokkos::View<int *, exec_space::scratch_memory_space>;
-
-    XType x("values", N, Blk);
-    YType y("values", N, Blk);
-
-    XVType xv("values", N / vector_length, Blk);
-    YVType yv("values", N / vector_length, Blk);
-
-    Kokkos::View<value_type **[vector_length], LR> xv_data(
-        (value_type *)xv.data(), N / vector_length, Blk);
-    Kokkos::View<value_type **[vector_length], LR> yv_data(
-        (value_type *)yv.data(), N / vector_length, Blk);
-
-    Kokkos::deep_copy(x, 1.);
-    Kokkos::deep_copy(y, 0.);
-
-    Kokkos::parallel_for(
-        N / vector_length, KOKKOS_LAMBDA(int i) {
-          for (int j = 0; j < Blk; ++j)
-            for (int k = 0; k < vector_length; ++k) {
-              xv_data(i, j, k) = x(i * vector_length + k, j);
-              yv_data(i, j, k) = y(i * vector_length + k, j);
-            }
-        });
-
-    {
-      std::ofstream myfile;
-      myfile.open("x.txt");
-
-      typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
-
-      Kokkos::deep_copy(x_h, x);
-
-      for (int i = 0; i < Blk; ++i) {
-        for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-          myfile << x_h(i_matrix, i) << " ";
-        }
-        myfile << std::endl;
-      }
-
-      myfile.close();
-    }
+        Kokkos::View<int *, exec_space::scratch_memory_space>;
 
     for (auto i_impl : impls) {
       std::vector<double> timers;
@@ -570,7 +627,7 @@ int main(int argc, char *argv[]) {
         double t_spmv = 0;
         for (int j_rep = 0; j_rep < n_rep_2; ++j_rep) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-      cudaProfilerStart();
+          cudaProfilerStart();
 #endif
           exec_space().fence();
           flush.run();
@@ -578,22 +635,44 @@ int main(int argc, char *argv[]) {
 
           timer.reset();
           exec_space().fence();
-          BSPMV_Functor<matrix_type, XType, YType, 0> func(
-              s_a, myMatrices, x, s_b, y, vector_length, N, i_impl);
 
-          using policy_type = Kokkos::TeamPolicy<exec_space>;
-          using member_type = typename policy_type::member_type;
-          policy_type policy(N / vector_length, team_size, vector_length);
-          size_t bytes_0 = ScratchPadIntView::shmem_size(Blk);
-          size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-          policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0));
-          policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
-          Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy, func);
+          // BSPMV_Functor<matrix_type, XType, YType, 0> func(
+          //    s_a, myMatrices, x, s_b, y, vector_length, N, i_impl);
 
+          if (layout_left) {
+            BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL, XYTypeLL,
+                               0>
+                func(s_a, valuesLL, rowOffsets, colIndices, xLL, s_b, yLL,
+                     vector_length, N, i_impl);
+
+            using policy_type = Kokkos::TeamPolicy<exec_space>;
+            using member_type = typename policy_type::member_type;
+            policy_type policy(N / vector_length, team_size, vector_length);
+            size_t bytes_0 = ScratchPadIntView::shmem_size(Blk);
+            size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
+            policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0));
+            policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
+            Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy, func);
+          }
+          if (layout_right) {
+            BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR, XYTypeLR,
+                               0>
+                func(s_a, valuesLR, rowOffsets, colIndices, xLR, s_b, yLR,
+                     vector_length, N, i_impl);
+
+            using policy_type = Kokkos::TeamPolicy<exec_space>;
+            using member_type = typename policy_type::member_type;
+            policy_type policy(N / vector_length, team_size, vector_length);
+            size_t bytes_0 = ScratchPadIntView::shmem_size(Blk+1);
+            size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
+            policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0));
+            policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
+            Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy, func);
+          }
           exec_space().fence();
           t_spmv += timer.seconds();
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-      cudaProfilerStop();
+          cudaProfilerStop();
 #endif
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
@@ -602,11 +681,24 @@ int main(int argc, char *argv[]) {
       auto quantiles =
           Quantile<double>(timers, {0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99});
 
-      printf("Implementation %d: solve time = %f , # of SPMV per min = %f\n",
-             i_impl, quantiles[median_id], 1.0 / quantiles[median_id] * 60 * N);
+      if (layout_left)
+        printf(
+            "Left layout: Implementation %d: solve time = %f , # of SPMV per "
+            "min = %f\n",
+            i_impl, quantiles[median_id], 1.0 / quantiles[median_id] * 60 * N);
+      if (layout_right)
+        printf(
+            "Right layout: Implementation %d: solve time = %f , # of SPMV per "
+            "min = %f\n",
+            i_impl, quantiles[median_id], 1.0 / quantiles[median_id] * 60 * N);
       {
         std::ofstream myfile;
-        myfile.open("timer_" + std::to_string(i_impl) + ".txt");
+        std::string name;
+        if (layout_left) name = "timer_" + std::to_string(i_impl) + "_left.txt";
+        if (layout_right)
+          name = "timer_" + std::to_string(i_impl) + "_right.txt";
+
+        myfile.open(name);
 
         for (size_t i = 0; i < quantiles.size(); ++i)
           myfile << quantiles[i] << " ";
@@ -615,23 +707,11 @@ int main(int argc, char *argv[]) {
 
         myfile.close();
       }
-      {
-        std::ofstream myfile;
-        myfile.open("y_" + std::to_string(i_impl) + ".txt");
 
-        typename YType::HostMirror y_h = Kokkos::create_mirror_view(y);
-
-        Kokkos::deep_copy(y_h, y);
-
-        for (int i = 0; i < Blk; ++i) {
-          for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-            myfile << y_h(i_matrix, i) << " ";
-          }
-          myfile << std::endl;
-        }
-
-        myfile.close();
-      }
+      if (layout_left)
+        writeArrayTofile(yLL, "y_" + std::to_string(i_impl) + "_l.txt");
+      if (layout_right)
+        writeArrayTofile(yLR, "y_" + std::to_string(i_impl) + "_r.txt");
     }
   }
   Kokkos::finalize();
