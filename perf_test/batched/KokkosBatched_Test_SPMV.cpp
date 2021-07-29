@@ -648,7 +648,7 @@ int main(int argc, char *argv[]) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
             using member_type = typename policy_type::member_type;
             policy_type policy(N / vector_length, team_size, vector_length);
-            size_t bytes_0 = ScratchPadIntView::shmem_size(Blk);
+            size_t bytes_0 = ScratchPadIntView::shmem_size(Blk+1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
             policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0));
             policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
