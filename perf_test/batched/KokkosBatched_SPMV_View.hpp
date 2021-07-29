@@ -257,7 +257,7 @@ struct BSPMV_Functor_View {
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(dev, 0, n_rows),
             [&](const ordinal_type& iRow) {
-              const ordinal_type row_length = m_A_row_ptr(iRow+1) - m_A_row_ptr(iRow);
+              const ordinal_type row_length = row_map(iRow+1) - row_map(iRow);
               value_type sum = 0;
 
               Kokkos::parallel_reduce(
@@ -319,7 +319,7 @@ struct BSPMV_Functor_View {
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(dev, 0, n_rows),
                 [&](const ordinal_type& iRow) {
-                  const ordinal_type row_length = m_A_row_ptr(iRow+1) - m_A_row_ptr(iRow);
+                  const ordinal_type row_length = row_map(iRow+1) - row_map(iRow);
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
@@ -376,7 +376,7 @@ struct BSPMV_Functor_View {
                 [&](const ordinal_type& iMatrix) {
                   const int iGlobalMatrix = first_matrix + iMatrix;
 
-                  const ordinal_type row_length = m_A_row_ptr(iRow+1) - m_A_row_ptr(iRow);
+                  const ordinal_type row_length = row_map(iRow+1) - row_map(iRow);
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
@@ -436,7 +436,7 @@ struct BSPMV_Functor_View {
             const ordinal_type& iMatrix = iTemp%n_matrices;
             const int iGlobalMatrix = first_matrix + iMatrix;
 
-            const ordinal_type row_length = m_A_row_ptr(iRow+1) - m_A_row_ptr(iRow);
+            const ordinal_type row_length = row_map(iRow+1) - row_map(iRow);
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
@@ -495,7 +495,7 @@ struct BSPMV_Functor_View {
             const ordinal_type& iMatrix = iTemp/n_rows;
             const int iGlobalMatrix = first_matrix + iMatrix;
 
-            const ordinal_type row_length = m_A_row_ptr(iRow+1) - m_A_row_ptr(iRow);
+            const ordinal_type row_length = row_map(iRow+1) - row_map(iRow);
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
