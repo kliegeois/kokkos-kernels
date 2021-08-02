@@ -232,7 +232,7 @@ struct BSPMV_Functor_View {
       const ordinal_type n_rows = m_A_row_ptr.extent(0)-1;
       const ordinal_type nnz = m_A_col_indices.extent(0);
 
-      ScratchPadIntView cols(dev.team_scratch(1), nnz);
+      ScratchPadIntView cols(dev.team_scratch(0), nnz);
       ScratchPadIntView row_map(dev.team_scratch(0), n_rows+1);
  
       Kokkos::parallel_for(
@@ -288,7 +288,7 @@ struct BSPMV_Functor_View {
       const ordinal_type n_rows = m_A_row_ptr.extent(0)-1;
       const ordinal_type nnz = m_A_col_indices.extent(0);
 
-      ScratchPadIntView cols(dev.team_scratch(1), nnz);
+      ScratchPadIntView cols(dev.team_scratch(0), nnz);
       ScratchPadIntView row_map(dev.team_scratch(0), n_rows+1);
 
       Kokkos::parallel_for(
@@ -345,7 +345,7 @@ struct BSPMV_Functor_View {
       const ordinal_type n_rows = m_A_row_ptr.extent(0)-1;
       const ordinal_type nnz = m_A_col_indices.extent(0);
 
-      ScratchPadIntView cols(dev.team_scratch(1), nnz);
+      ScratchPadIntView cols(dev.team_scratch(0), nnz);
       ScratchPadIntView row_map(dev.team_scratch(0), n_rows+1);
 
       Kokkos::parallel_for(
@@ -402,7 +402,7 @@ struct BSPMV_Functor_View {
       const ordinal_type n_rows = m_A_row_ptr.extent(0)-1;
       const ordinal_type nnz = m_A_col_indices.extent(0);
 
-      ScratchPadIntView cols(dev.team_scratch(1), nnz);
+      ScratchPadIntView cols(dev.team_scratch(0), nnz);
       ScratchPadIntView row_map(dev.team_scratch(0), n_rows+1);
 
       Kokkos::parallel_for(
@@ -461,7 +461,7 @@ struct BSPMV_Functor_View {
       const ordinal_type n_rows = m_A_row_ptr.extent(0)-1;
       const ordinal_type nnz = m_A_col_indices.extent(0);
 
-      ScratchPadIntView cols(dev.team_scratch(1), nnz);
+      ScratchPadIntView cols(dev.team_scratch(0), nnz);
       ScratchPadIntView row_map(dev.team_scratch(0), n_rows+1);
 
       Kokkos::parallel_for(

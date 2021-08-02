@@ -650,8 +650,8 @@ int main(int argc, char *argv[]) {
             policy_type policy(N / vector_length, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk+1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0));
-            policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
+            policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0+bytes_1));
+            //policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
             Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy, func);
           }
           if (layout_right) {
@@ -665,8 +665,8 @@ int main(int argc, char *argv[]) {
             policy_type policy(N / vector_length, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk+1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0));
-            policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
+            policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0+bytes_1));
+            //policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
             Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", policy, func);
           }
           exec_space().fence();
