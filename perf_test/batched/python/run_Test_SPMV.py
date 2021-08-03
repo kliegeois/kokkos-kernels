@@ -47,7 +47,7 @@ def main():
     n=100
     rows_per_thread=1
     team_size=8
-    n_implementations=10
+    n_implementations=15
 
     CPU_time_left = np.zeros((n_implementations, len(Bs), n_quantiles))
     throughput_left = np.zeros((n_implementations, len(Bs), n_quantiles))
