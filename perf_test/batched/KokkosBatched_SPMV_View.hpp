@@ -21,12 +21,11 @@ struct BSPMV_Functor_View {
 
   const ordinal_type matrices_per_team;
 
-  const int max_nrows = 201;
+  const int max_nrows = 401;
   const int max_nnz   = 5000;
 
-  Kokkos::View<ordinal_type[201], Kokkos::DefaultExecutionSpace> global_row_ptr;
-  Kokkos::View<ordinal_type[5000], Kokkos::DefaultExecutionSpace>
-      global_col_ind;
+  ordinal_type global_row_ptr[401];
+  ordinal_type global_col_ind[5000];
 
   BSPMV_Functor_View(const value_type* alpha_, const AMatrix m_A_values_,
                      const IntView m_A_row_ptr_, const IntView m_A_col_indices_,
@@ -57,19 +56,19 @@ struct BSPMV_Functor_View {
         implementation -= 10;
 
     if (implementation > 9) {
-      global_row_ptr =
-          Kokkos::View<ordinal_type[201], Kokkos::DefaultExecutionSpace>("aaa");
-      global_col_ind =
-          Kokkos::View<ordinal_type[5000], Kokkos::DefaultExecutionSpace>(
-              "aaa");
-      Kokkos::deep_copy(
-          Kokkos::subview(global_row_ptr,
-                          std::pair<int, int>(0, m_A_row_ptr.extent(0))),
-          m_A_row_ptr);
-      Kokkos::deep_copy(
-          Kokkos::subview(global_col_ind,
-                          std::pair<int, int>(0, m_A_col_indices.extent(0))),
-          m_A_col_indices);
+      Kokkos::View<ordinal_type[401], Kokkos::MemoryTraits<Kokkos::Unmanaged>> 
+        m_A_row_ptr_h(global_row_ptr);
+
+      Kokkos::View<ordinal_type[5000], Kokkos::MemoryTraits<Kokkos::Unmanaged>> 
+        m_A_col_indices_h(global_col_ind);
+
+      auto m_A_row_ptr_sv_h = Kokkos::subview(m_A_row_ptr_h,
+                          std::pair<int, int>(0, m_A_row_ptr.extent(0)));
+      auto m_A_col_indices_sv_h = Kokkos::subview(m_A_col_indices_h,
+                          std::pair<int, int>(0, m_A_col_indices.extent(0)));
+
+      Kokkos::deep_copy(m_A_row_ptr_sv_h, m_A_row_ptr);
+      Kokkos::deep_copy(m_A_col_indices_sv_h, m_A_col_indices);
     }
   }
 
@@ -556,17 +555,17 @@ struct BSPMV_Functor_View {
             Kokkos::TeamThreadRange(dev, 0, n_rows),
             [&](const ordinal_type& iRow) {
               const ordinal_type row_length =
-                  global_row_ptr(iRow + 1) - global_row_ptr(iRow);
+                  global_row_ptr[iRow + 1] - global_row_ptr[iRow];
               value_type sum = 0;
 
               Kokkos::parallel_reduce(
                   Kokkos::ThreadVectorRange(dev, row_length),
                   [&](const ordinal_type& iEntry, value_type& lsum) {
                     const value_type val =
-                        m_A_values(i_matrix, global_row_ptr(iRow) + iEntry);
+                        m_A_values(i_matrix, global_row_ptr[iRow] + iEntry);
                     lsum += val *
                             m_x(i_matrix,
-                                global_col_ind(global_row_ptr(iRow) + iEntry));
+                                global_col_ind[global_row_ptr[iRow] + iEntry]);
                   },
                   sum);
 
@@ -601,14 +600,14 @@ struct BSPMV_Functor_View {
                 Kokkos::TeamThreadRange(dev, 0, n_rows),
                 [&](const ordinal_type& iRow) {
                   const ordinal_type row_length =
-                      global_row_ptr(iRow + 1) - global_row_ptr(iRow);
+                      global_row_ptr[iRow + 1] - global_row_ptr[iRow];
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
                     sum += m_A_values(iGlobalMatrix,
-                                      global_row_ptr(iRow) + iEntry) *
+                                      global_row_ptr[iRow] + iEntry) *
                            m_x(iGlobalMatrix,
-                               global_col_ind(global_row_ptr(iRow) + iEntry));
+                               global_col_ind[global_row_ptr[iRow] + iEntry]);
                   }
 
                   sum *= alpha[iGlobalMatrix];
@@ -640,14 +639,14 @@ struct BSPMV_Functor_View {
                   const int iGlobalMatrix = first_matrix + iMatrix;
 
                   const ordinal_type row_length =
-                      global_row_ptr(iRow + 1) - global_row_ptr(iRow);
+                      global_row_ptr[iRow + 1] - global_row_ptr[iRow];
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
                     sum += m_A_values(iGlobalMatrix,
-                                      global_row_ptr(iRow) + iEntry) *
+                                      global_row_ptr[iRow] + iEntry) *
                            m_x(iGlobalMatrix,
-                               global_col_ind(global_row_ptr(iRow) + iEntry));
+                               global_col_ind[global_row_ptr[iRow] + iEntry]);
                   }
 
                   sum *= alpha[iGlobalMatrix];
@@ -682,13 +681,13 @@ struct BSPMV_Functor_View {
             const int iGlobalMatrix     = first_matrix + iMatrix;
 
             const ordinal_type row_length =
-                global_row_ptr(iRow + 1) - global_row_ptr(iRow);
+                global_row_ptr[iRow + 1] - global_row_ptr[iRow];
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, global_row_ptr(iRow) + iEntry) *
+              sum += m_A_values(iGlobalMatrix, global_row_ptr[iRow] + iEntry) *
                      m_x(iGlobalMatrix,
-                         global_col_ind(global_row_ptr(iRow) + iEntry));
+                         global_col_ind[global_row_ptr[iRow] + iEntry]);
             }
 
             sum *= alpha[iGlobalMatrix];
@@ -722,13 +721,13 @@ struct BSPMV_Functor_View {
             const int iGlobalMatrix     = first_matrix + iMatrix;
 
             const ordinal_type row_length =
-                global_row_ptr(iRow + 1) - global_row_ptr(iRow);
+                global_row_ptr[iRow + 1] - global_row_ptr[iRow];
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, global_row_ptr(iRow) + iEntry) *
+              sum += m_A_values(iGlobalMatrix, global_row_ptr[iRow] + iEntry) *
                      m_x(iGlobalMatrix,
-                         global_col_ind(global_row_ptr(iRow) + iEntry));
+                         global_col_ind[global_row_ptr[iRow] + iEntry]);
             }
 
             sum *= alpha[iGlobalMatrix];

@@ -300,6 +300,17 @@ int main(int argc, char *argv[]) {
         myfile.close();
       }
 
+      {
+        std::ofstream myfile;
+        std::string name = "nnz.txt";
+
+        myfile.open(name);
+
+        myfile << nnz << std::endl;
+
+        myfile.close();
+      }
+
       if (layout_left)
         writeArrayTofile(yLL, "y_" + std::to_string(i_impl) + "_l.txt");
       if (layout_right)
