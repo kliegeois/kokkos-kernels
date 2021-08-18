@@ -75,40 +75,35 @@ struct BSPMV_Functor_View {
   KOKKOS_INLINE_FUNCTION void operator()(const team_member& dev) const {
     if (implementation == 0) {
       const ordinal_type n_rows = m_A_row_ptr.extent(0) - 1;
-      for (int i_matrix =
-               static_cast<int>(dev.league_rank()) * matrices_per_team;
-           i_matrix <
-           min(static_cast<int>(dev.league_rank() + 1) * matrices_per_team, N);
-           ++i_matrix) {
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(dev, 0, n_rows),
-            [&](const ordinal_type& iRow) {
-              const ordinal_type row_length =
-                  m_A_row_ptr(iRow + 1) - m_A_row_ptr(iRow);
-              value_type sum = 0;
+      int i_matrix = static_cast<int>(dev.league_rank());
+      Kokkos::parallel_for(
+          Kokkos::TeamThreadRange(dev, 0, n_rows),
+          [&](const ordinal_type& iRow) {
+            const ordinal_type row_length =
+                m_A_row_ptr(iRow + 1) - m_A_row_ptr(iRow);
+            value_type sum = 0;
 
-              Kokkos::parallel_reduce(
-                  Kokkos::ThreadVectorRange(dev, row_length),
-                  [&](const ordinal_type& iEntry, value_type& lsum) {
-                    const value_type val =
-                        m_A_values(m_A_row_ptr(iRow) + iEntry, i_matrix);
-                    lsum +=
-                        val * m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), i_matrix);
-                  },
-                  sum);
+            Kokkos::parallel_reduce(
+                Kokkos::ThreadVectorRange(dev, row_length),
+                [&](const ordinal_type& iEntry, value_type& lsum) {
+                  const value_type val =
+                      m_A_values(m_A_row_ptr(iRow) + iEntry, i_matrix);
+                  lsum +=
+                      val * m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), i_matrix);
+                },
+                sum);
 
-              Kokkos::single(Kokkos::PerThread(dev), [&]() {
-                sum *= alpha[i_matrix];
+            Kokkos::single(Kokkos::PerThread(dev), [&]() {
+              sum *= alpha[i_matrix];
 
-                if (dobeta == 0) {
-                  m_y(iRow, i_matrix) = sum;
-                } else {
-                  m_y(iRow, i_matrix) =
-                      beta[i_matrix] * m_y(iRow, i_matrix) + sum;
-                }
-              });
+              if (dobeta == 0) {
+                m_y(iRow, i_matrix) = sum;
+              } else {
+                m_y(iRow, i_matrix) =
+                    beta[i_matrix] * m_y(iRow, i_matrix) + sum;
+              }
             });
-      }
+          });
     }
     if (implementation == 1) {
       const int first_matrix =

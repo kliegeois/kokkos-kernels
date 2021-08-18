@@ -46,36 +46,39 @@ def compute_n_ops(nrows, nnz_per_row, number_of_matrices, bytes_per_entry=8):
 def main():
     tic = time.perf_counter()
     N = 12800
-    Bs = np.arange(10,401)
+    Bs = np.arange(10,501)
     nnz_per_row=10
     n=100
     rows_per_thread=1
     team_size=8
-    implementations = [0, 3, 4, 8, 9]
-    n_implementations = len(implementations)
+    implementations_left = [0, 4, 9]
+    implementations_right = [0, 3, 8]
+    n_implementations_left = len(implementations_left)
+    n_implementations_right = len(implementations_right)
 
-    CPU_time_left = np.zeros((n_implementations, len(Bs), n_quantiles))
-    throughput_left = np.zeros((n_implementations, len(Bs), n_quantiles))
-    CPU_time_right = np.zeros((n_implementations, len(Bs), n_quantiles))
-    throughput_right = np.zeros((n_implementations, len(Bs), n_quantiles))
+    CPU_time_left = np.zeros((n_implementations_left, len(Bs), n_quantiles))
+    throughput_left = np.zeros((n_implementations_left, len(Bs), n_quantiles))
+    CPU_time_right = np.zeros((n_implementations_right, len(Bs), n_quantiles))
+    throughput_right = np.zeros((n_implementations_right, len(Bs), n_quantiles))
     nnzs = np.zeros((len(Bs), ))
     for i in range(0, len(Bs)):
         n_ops = compute_n_ops(Bs[i], nnz_per_row, N)
-        data, nnz = run_test_spmv(N, Bs[i], nnz_per_row, n, rows_per_thread, team_size, implementations, layout='Left')
+        data, nnz = run_test_spmv(N, Bs[i], nnz_per_row, n, rows_per_thread, team_size, implementations_left, layout='Left')
         nnzs[i] = nnz
-        for j in range(0, n_implementations):
+        for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data, nnz = run_test_spmv(N, Bs[i], nnz_per_row, n, rows_per_thread, team_size, implementations, layout='Right')
-        for j in range(0, n_implementations):
+        data, nnz = run_test_spmv(N, Bs[i], nnz_per_row, n, rows_per_thread, team_size, implementations_right, layout='Right')
+        for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
 
-        for j in range(0, n_implementations):
-            np.savetxt('CPU_time_'+str(implementations[j])+'_l.txt', CPU_time_left[j,:,:])
-            np.savetxt('throughput_'+str(implementations[j])+'_l.txt', throughput_left[j,:,:])
-            np.savetxt('CPU_time_'+str(implementations[j])+'_r.txt', CPU_time_right[j,:,:])
-            np.savetxt('throughput_'+str(implementations[j])+'_r.txt', throughput_right[j,:,:])
+        for j in range(0, n_implementations_left):
+            np.savetxt('CPU_time_'+str(implementations_left[j])+'_l.txt', CPU_time_left[j,:,:])
+            np.savetxt('throughput_'+str(implementations_left[j])+'_l.txt', throughput_left[j,:,:])
+        for j in range(0, n_implementations_right):
+            np.savetxt('CPU_time_'+str(implementations_right[j])+'_r.txt', CPU_time_right[j,:,:])
+            np.savetxt('throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
         np.savetxt('Bs.txt', Bs)
         np.savetxt('nnzs.txt', nnzs)
 
