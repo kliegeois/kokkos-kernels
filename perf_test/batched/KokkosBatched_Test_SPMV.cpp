@@ -140,18 +140,18 @@ int main(int argc, char *argv[]) {
 
     IntView rowOffsets("values", Blk + 1);
     IntView colIndices("values", nnz);
-    AMatrixValueViewLR valuesLR("values", N, nnz);
-    AMatrixValueViewLL valuesLL("values", N, nnz);
+    AMatrixValueViewLR valuesLR("values", nnz, N);
+    AMatrixValueViewLL valuesLL("values", nnz, N);
     matrix_type myMatrices[N];
     vector_matrix_type myVectorMatrices[N / vector_length];
 
-    XYTypeLR xLR("values", N, Blk);
-    XYTypeLR yLR("values", N, Blk);
+    XYTypeLR xLR("values", Blk, N);
+    XYTypeLR yLR("values", Blk, N);
     XYVTypeLR xvLR("values", N / vector_length, Blk);
     XYVTypeLR yvLR("values", N / vector_length, Blk);
 
-    XYTypeLL xLL("values", N, Blk);
-    XYTypeLL yLL("values", N, Blk);
+    XYTypeLL xLL("values", Blk, N);
+    XYTypeLL yLL("values", Blk, N);
     XYVTypeLL xvLL("values", N / vector_length, Blk);
     XYVTypeLL yvLL("values", N / vector_length, Blk);
 
@@ -207,10 +207,12 @@ int main(int argc, char *argv[]) {
           // BSPMV_Functor<matrix_type, XType, YType, 0> func(
           //    s_a, myMatrices, x, s_b, y, vector_length, N, i_impl);
 
+          int number_of_teams = N / vector_length;
+
           if (layout_left) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
             using member_type = typename policy_type::member_type;
-            policy_type policy(N / vector_length, team_size, vector_length);
+            policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
             if (i_impl > 4)
@@ -237,7 +239,7 @@ int main(int argc, char *argv[]) {
           if (layout_right) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
             using member_type = typename policy_type::member_type;
-            policy_type policy(N / vector_length, team_size, vector_length);
+            policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
             if (i_impl > 4)

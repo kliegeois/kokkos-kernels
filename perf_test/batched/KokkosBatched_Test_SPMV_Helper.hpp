@@ -99,8 +99,8 @@ void SPDSparseRandomMatrices(
       "row indices", nnz_lower_trig + nnz_d);
   typename entries_type::non_const_type col_ind_lower_trig(
       "column indices", nnz_lower_trig + nnz_d);
-  Kokkos::View<ScalarType **, Layout> value_lower_trig("values", N,
-                                                       nnz_lower_trig + nnz_d);
+  Kokkos::View<ScalarType **, Layout> value_lower_trig("values",
+                                                       nnz_lower_trig + nnz_d, N);
 
   srand(1);
 
@@ -137,7 +137,7 @@ void SPDSparseRandomMatrices(
       col_ind_lower_trig_h(current_nnz_lower_trig) = i2;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(i_matrix, current_nnz_lower_trig) =
+        value_lower_trig_h(current_nnz_lower_trig, i_matrix) =
             100.0 * rand() / INT_MAX - 50.0;
 
       ++current_nnz_lower_trig;
@@ -148,7 +148,7 @@ void SPDSparseRandomMatrices(
       col_ind_lower_trig_h(nnz_lower_trig + i) = i;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(i_matrix, nnz_lower_trig + i) =
+        value_lower_trig_h(nnz_lower_trig + i, i_matrix) =
             100.0 * rand() / INT_MAX - 50.0;
     }
 
@@ -219,7 +219,7 @@ void SPDSparseRandomMatrices(
       Kokkos::sort(colIndices, row_map_h(irow), row_map_h(irow + 1));
   }
 
-  Kokkos::resize(values, N, nnz);
+  Kokkos::resize(values, nnz, N);
 
   // Fill the view with the random values
   Kokkos::parallel_for(
@@ -234,7 +234,7 @@ void SPDSparseRandomMatrices(
               if (row == row_ind_lower_trig(ielem) &&
                   col == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
+                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
                 break;
               }
             }
@@ -243,14 +243,14 @@ void SPDSparseRandomMatrices(
               if (col == row_ind_lower_trig(ielem) &&
                   row == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
+                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
                 break;
               }
             }
           else
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(i_matrix, jcol) =
-                  value_lower_trig(i_matrix, nnz_lower_trig + irow);
+              values(jcol, i_matrix) =
+                  value_lower_trig(nnz_lower_trig + irow, i_matrix);
         }
       });
 
@@ -267,12 +267,12 @@ void SPDSparseRandomMatrices(
 
           if (row == col) {
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(i_matrix, jcol) = fabs(values(i_matrix, jcol));
+              values(jcol, i_matrix) = fabs(values(jcol, i_matrix));
             for (OrdinalType jjcol = rowOffsets(irow);
                  jjcol < rowOffsets(irow + 1); ++jjcol) {
               if (jjcol != jcol)
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(i_matrix, col) += fabs(values(i_matrix, jjcol));
+                  values(col, i_matrix) += fabs(values(jjcol, i_matrix));
             }
           }
         }
@@ -344,8 +344,8 @@ void SPDSparseMatrices(
       "row indices", nnz_lower_trig + nnz_d);
   typename entries_type::non_const_type col_ind_lower_trig(
       "column indices", nnz_lower_trig + nnz_d);
-  Kokkos::View<ScalarType **, Layout> value_lower_trig("values", N,
-                                                       nnz_lower_trig + nnz_d);
+  Kokkos::View<ScalarType **, Layout> value_lower_trig("values",
+                                                       nnz_lower_trig + nnz_d, N);
 
   srand(1);
 
@@ -366,7 +366,7 @@ void SPDSparseMatrices(
           col_ind_lower_trig_h(current_nnz_lower_trig) = current_col;
 
           for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-            value_lower_trig_h(i_matrix, current_nnz_lower_trig) =
+            value_lower_trig_h(current_nnz_lower_trig, i_matrix) =
                 100.0 * rand() / INT_MAX - 50.0;
 
           ++current_nnz_lower_trig;
@@ -379,7 +379,7 @@ void SPDSparseMatrices(
       col_ind_lower_trig_h(nnz_lower_trig + i) = i;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(i_matrix, nnz_lower_trig + i) =
+        value_lower_trig_h(nnz_lower_trig + i, i_matrix) =
             100.0 * rand() / INT_MAX - 50.0;
     }
 
@@ -450,7 +450,7 @@ void SPDSparseMatrices(
       Kokkos::sort(colIndices, row_map_h(irow), row_map_h(irow + 1));
   }
 
-  Kokkos::resize(values, N, nnz);
+  Kokkos::resize(values, nnz, N);
 
   // Fill the view with the random values
   Kokkos::parallel_for(
@@ -465,7 +465,7 @@ void SPDSparseMatrices(
               if (row == row_ind_lower_trig(ielem) &&
                   col == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
+                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
                 break;
               }
             }
@@ -474,14 +474,14 @@ void SPDSparseMatrices(
               if (col == row_ind_lower_trig(ielem) &&
                   row == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
+                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
                 break;
               }
             }
           else
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(i_matrix, jcol) =
-                  value_lower_trig(i_matrix, nnz_lower_trig + irow);
+              values(jcol, i_matrix) =
+                  value_lower_trig(nnz_lower_trig + irow, i_matrix);
         }
       });
 
@@ -498,12 +498,12 @@ void SPDSparseMatrices(
 
           if (row == col) {
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(i_matrix, jcol) = fabs(values(i_matrix, jcol));
+              values(jcol, i_matrix) = fabs(values(jcol, i_matrix));
             for (OrdinalType jjcol = rowOffsets(irow);
                  jjcol < rowOffsets(irow + 1); ++jjcol) {
               if (jjcol != jcol)
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(i_matrix, col) += fabs(values(i_matrix, jjcol));
+                  values(col, i_matrix) += fabs(values(jjcol, i_matrix));
             }
           }
         }
@@ -634,7 +634,7 @@ void getSPMVInputs(AMatrix *myMatrices, AVMatrix *myVectorMatrices,
       N / vector_length, KOKKOS_LAMBDA(int i) {
         for (int j = 0; j < nnz; ++j)
           for (int k = 0; k < vector_length; ++k)
-            vector_values_data(i, j, k) = values(i * vector_length + k, j);
+            vector_values_data(i, j, k) = values(j, i * vector_length + k);
       });
 
   graph_type myGraph(colIndices, rowOffsets);

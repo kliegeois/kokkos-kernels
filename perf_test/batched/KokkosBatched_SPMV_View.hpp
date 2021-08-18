@@ -91,10 +91,9 @@ struct BSPMV_Functor_View {
                   Kokkos::ThreadVectorRange(dev, row_length),
                   [&](const ordinal_type& iEntry, value_type& lsum) {
                     const value_type val =
-                        m_A_values(i_matrix, m_A_row_ptr(iRow) + iEntry);
+                        m_A_values(m_A_row_ptr(iRow) + iEntry, i_matrix);
                     lsum +=
-                        val * m_x(i_matrix,
-                                  m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
+                        val * m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), i_matrix);
                   },
                   sum);
 
@@ -102,10 +101,10 @@ struct BSPMV_Functor_View {
                 sum *= alpha[i_matrix];
 
                 if (dobeta == 0) {
-                  m_y(i_matrix, iRow) = sum;
+                  m_y(iRow, i_matrix) = sum;
                 } else {
-                  m_y(i_matrix, iRow) =
-                      beta[i_matrix] * m_y(i_matrix, iRow) + sum;
+                  m_y(iRow, i_matrix) =
+                      beta[i_matrix] * m_y(iRow, i_matrix) + sum;
                 }
               });
             });
@@ -134,18 +133,17 @@ struct BSPMV_Functor_View {
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
                     sum +=
-                        m_A_values(iGlobalMatrix, m_A_row_ptr(iRow) + iEntry) *
-                        m_x(iGlobalMatrix,
-                            m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
+                        m_A_values(m_A_row_ptr(iRow) + iEntry, iGlobalMatrix) *
+                        m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), iGlobalMatrix);
                   }
 
                   sum *= alpha[iGlobalMatrix];
 
                   if (dobeta == 0) {
-                    m_y(iGlobalMatrix, iRow) = sum;
+                    m_y(iRow, iGlobalMatrix) = sum;
                   } else {
-                    m_y(iGlobalMatrix, iRow) =
-                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                    m_y(iRow, iGlobalMatrix) =
+                        beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
                   }
                 });
           });
@@ -173,18 +171,17 @@ struct BSPMV_Functor_View {
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
                     sum +=
-                        m_A_values(iGlobalMatrix, m_A_row_ptr(iRow) + iEntry) *
-                        m_x(iGlobalMatrix,
-                            m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
+                        m_A_values(m_A_row_ptr(iRow) + iEntry, iGlobalMatrix) *
+                        m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), iGlobalMatrix);
                   }
 
                   sum *= alpha[iGlobalMatrix];
 
                   if (dobeta == 0) {
-                    m_y(iGlobalMatrix, iRow) = sum;
+                    m_y(iRow, iGlobalMatrix) = sum;
                   } else {
-                    m_y(iGlobalMatrix, iRow) =
-                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                    m_y(iRow, iGlobalMatrix) =
+                        beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
                   }
                 });
           });
@@ -213,7 +210,7 @@ struct BSPMV_Functor_View {
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, m_A_row_ptr(iRow) + iEntry) *
+              sum += m_A_values(m_A_row_ptr(iRow) + iEntry, iGlobalMatrix) *
                      m_x(iGlobalMatrix,
                          m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
             }
@@ -221,10 +218,10 @@ struct BSPMV_Functor_View {
             sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iGlobalMatrix, iRow) = sum;
+              m_y(iRow, iGlobalMatrix) = sum;
             } else {
-              m_y(iGlobalMatrix, iRow) =
-                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+              m_y(iRow, iGlobalMatrix) =
+                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
             }
           });
     }
@@ -252,7 +249,7 @@ struct BSPMV_Functor_View {
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, m_A_row_ptr(iRow) + iEntry) *
+              sum += m_A_values(m_A_row_ptr(iRow) + iEntry, iGlobalMatrix) *
                      m_x(iGlobalMatrix,
                          m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
             }
@@ -260,10 +257,10 @@ struct BSPMV_Functor_View {
             sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iGlobalMatrix, iRow) = sum;
+              m_y(iRow, iGlobalMatrix) = sum;
             } else {
-              m_y(iGlobalMatrix, iRow) =
-                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+              m_y(iRow, iGlobalMatrix) =
+                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
             }
           });
     }
@@ -312,10 +309,10 @@ struct BSPMV_Functor_View {
                 sum *= alpha[i_matrix];
 
                 if (dobeta == 0) {
-                  m_y(i_matrix, iRow) = sum;
+                  m_y(iRow, i_matrix) = sum;
                 } else {
-                  m_y(i_matrix, iRow) =
-                      beta[i_matrix] * m_y(i_matrix, iRow) + sum;
+                  m_y(iRow, i_matrix) =
+                      beta[i_matrix] * m_y(iRow, i_matrix) + sum;
                 }
               });
             });
@@ -361,17 +358,17 @@ struct BSPMV_Functor_View {
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-                    sum += m_A_values(iGlobalMatrix, row_map(iRow) + iEntry) *
-                           m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
+                    sum += m_A_values(row_map(iRow) + iEntry, iGlobalMatrix) *
+                           m_x(cols(row_map(iRow) + iEntry), iGlobalMatrix);
                   }
 
                   sum *= alpha[iGlobalMatrix];
 
                   if (dobeta == 0) {
-                    m_y(iGlobalMatrix, iRow) = sum;
+                    m_y(iRow, iGlobalMatrix) = sum;
                   } else {
-                    m_y(iGlobalMatrix, iRow) =
-                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                    m_y(iRow, iGlobalMatrix) =
+                        beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
                   }
                 });
           });
@@ -416,17 +413,17 @@ struct BSPMV_Functor_View {
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-                    sum += m_A_values(iGlobalMatrix, row_map(iRow) + iEntry) *
-                           m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
+                    sum += m_A_values(row_map(iRow) + iEntry, iGlobalMatrix) *
+                           m_x(cols(row_map(iRow) + iEntry), iGlobalMatrix);
                   }
 
                   sum *= alpha[iGlobalMatrix];
 
                   if (dobeta == 0) {
-                    m_y(iGlobalMatrix, iRow) = sum;
+                    m_y(iRow, iGlobalMatrix) = sum;
                   } else {
-                    m_y(iGlobalMatrix, iRow) =
-                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                    m_y(iRow, iGlobalMatrix) =
+                        beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
                   }
                 });
           });
@@ -473,17 +470,17 @@ struct BSPMV_Functor_View {
             value_type sum                = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, row_map(iRow) + iEntry) *
-                     m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
+              sum += m_A_values(row_map(iRow) + iEntry, iGlobalMatrix) *
+                     m_x(cols(row_map(iRow) + iEntry), iGlobalMatrix);
             }
 
             sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iGlobalMatrix, iRow) = sum;
+              m_y(iRow, iGlobalMatrix) = sum;
             } else {
-              m_y(iGlobalMatrix, iRow) =
-                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+              m_y(iRow, iGlobalMatrix) =
+                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
             }
           });
     }
@@ -529,17 +526,17 @@ struct BSPMV_Functor_View {
             value_type sum                = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, row_map(iRow) + iEntry) *
-                     m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
+              sum += m_A_values(row_map(iRow) + iEntry, iGlobalMatrix) *
+                     m_x(cols(row_map(iRow) + iEntry), iGlobalMatrix);
             }
 
             sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iGlobalMatrix, iRow) = sum;
+              m_y(iRow, iGlobalMatrix) = sum;
             } else {
-              m_y(iGlobalMatrix, iRow) =
-                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+              m_y(iRow, iGlobalMatrix) =
+                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
             }
           });
     }
@@ -573,10 +570,10 @@ struct BSPMV_Functor_View {
                 sum *= alpha[i_matrix];
 
                 if (dobeta == 0) {
-                  m_y(i_matrix, iRow) = sum;
+                  m_y(iRow, i_matrix) = sum;
                 } else {
-                  m_y(i_matrix, iRow) =
-                      beta[i_matrix] * m_y(i_matrix, iRow) + sum;
+                  m_y(iRow, i_matrix) =
+                      beta[i_matrix] * m_y(iRow, i_matrix) + sum;
                 }
               });
             });
@@ -604,19 +601,17 @@ struct BSPMV_Functor_View {
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-                    sum += m_A_values(iGlobalMatrix,
-                                      global_row_ptr[iRow] + iEntry) *
-                           m_x(iGlobalMatrix,
-                               global_col_ind[global_row_ptr[iRow] + iEntry]);
+                    sum += m_A_values(global_row_ptr[iRow] + iEntry, iGlobalMatrix) *
+                           m_x(global_col_ind[global_row_ptr[iRow] + iEntry], iGlobalMatrix);
                   }
 
                   sum *= alpha[iGlobalMatrix];
 
                   if (dobeta == 0) {
-                    m_y(iGlobalMatrix, iRow) = sum;
+                    m_y(iRow, iGlobalMatrix) = sum;
                   } else {
-                    m_y(iGlobalMatrix, iRow) =
-                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                    m_y(iRow, iGlobalMatrix) =
+                        beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
                   }
                 });
           });
@@ -643,19 +638,17 @@ struct BSPMV_Functor_View {
                   value_type sum = 0;
 
                   for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-                    sum += m_A_values(iGlobalMatrix,
-                                      global_row_ptr[iRow] + iEntry) *
-                           m_x(iGlobalMatrix,
-                               global_col_ind[global_row_ptr[iRow] + iEntry]);
+                    sum += m_A_values(global_row_ptr[iRow] + iEntry, iGlobalMatrix) *
+                           m_x(global_col_ind[global_row_ptr[iRow] + iEntry], iGlobalMatrix);
                   }
 
                   sum *= alpha[iGlobalMatrix];
 
                   if (dobeta == 0) {
-                    m_y(iGlobalMatrix, iRow) = sum;
+                    m_y(iRow, iGlobalMatrix) = sum;
                   } else {
-                    m_y(iGlobalMatrix, iRow) =
-                        beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+                    m_y(iRow, iGlobalMatrix) =
+                        beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
                   }
                 });
           });
@@ -685,18 +678,17 @@ struct BSPMV_Functor_View {
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, global_row_ptr[iRow] + iEntry) *
-                     m_x(iGlobalMatrix,
-                         global_col_ind[global_row_ptr[iRow] + iEntry]);
+              sum += m_A_values(global_row_ptr[iRow] + iEntry, iGlobalMatrix) *
+                     m_x(global_col_ind[global_row_ptr[iRow] + iEntry], iGlobalMatrix);
             }
 
             sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iGlobalMatrix, iRow) = sum;
+              m_y(iRow, iGlobalMatrix) = sum;
             } else {
-              m_y(iGlobalMatrix, iRow) =
-                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+              m_y(iRow, iGlobalMatrix) =
+                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
             }
           });
     }
@@ -725,18 +717,17 @@ struct BSPMV_Functor_View {
             value_type sum = 0;
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(iGlobalMatrix, global_row_ptr[iRow] + iEntry) *
-                     m_x(iGlobalMatrix,
-                         global_col_ind[global_row_ptr[iRow] + iEntry]);
+              sum += m_A_values(global_row_ptr[iRow] + iEntry, iGlobalMatrix) *
+                     m_x(global_col_ind[global_row_ptr[iRow] + iEntry], iGlobalMatrix);
             }
 
             sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iGlobalMatrix, iRow) = sum;
+              m_y(iRow, iGlobalMatrix) = sum;
             } else {
-              m_y(iGlobalMatrix, iRow) =
-                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
+              m_y(iRow, iGlobalMatrix) =
+                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
             }
           });
     }
