@@ -207,7 +207,8 @@ int main(int argc, char *argv[]) {
           // BSPMV_Functor<matrix_type, XType, YType, 0> func(
           //    s_a, myMatrices, x, s_b, y, vector_length, N, i_impl);
 
-          int number_of_teams = N / vector_length;
+          int number_of_teams = i_impl == 0 ? N : N / vector_length;
+          int N_team = i_impl == 0 ? 1 : vector_length;
 
           if (layout_left) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
@@ -227,14 +228,14 @@ int main(int argc, char *argv[]) {
                   BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
                                      XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
                                                   colIndices, xLL, s_b, yLL,
-                                                  vector_length, N, i_impl));
+                                                  N_team, N, i_impl));
             else
               Kokkos::parallel_for(
                   "KokkosSparse::PerfTest::BSpMV", policy,
                   BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
                                      XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
                                                   colIndices, xLL, s_b, yLL,
-                                                  vector_length, N, i_impl));
+                                                  N_team, N, i_impl));
           }
           if (layout_right) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
@@ -254,14 +255,14 @@ int main(int argc, char *argv[]) {
                   BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
                                      XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
                                                   colIndices, xLR, s_b, yLR,
-                                                  vector_length, N, i_impl));
+                                                  N_team, N, i_impl));
             else
               Kokkos::parallel_for(
                   "KokkosSparse::PerfTest::BSpMV", policy,
                   BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
                                      XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
                                                   colIndices, xLR, s_b, yLR,
-                                                  vector_length, N, i_impl));
+                                                  N_team, N, i_impl));
           }
           exec_space().fence();
           t_spmv += timer.seconds();

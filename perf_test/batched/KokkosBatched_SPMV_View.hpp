@@ -211,8 +211,7 @@ struct BSPMV_Functor_View {
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
               sum += m_A_values(m_A_row_ptr(iRow) + iEntry, iGlobalMatrix) *
-                     m_x(iGlobalMatrix,
-                         m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
+                     m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), iGlobalMatrix);
             }
 
             sum *= alpha[iGlobalMatrix];
@@ -250,8 +249,7 @@ struct BSPMV_Functor_View {
 
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
               sum += m_A_values(m_A_row_ptr(iRow) + iEntry, iGlobalMatrix) *
-                     m_x(iGlobalMatrix,
-                         m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
+                     m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), iGlobalMatrix);
             }
 
             sum *= alpha[iGlobalMatrix];

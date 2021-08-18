@@ -625,6 +625,7 @@ void getSPMVInputs(AMatrix *myMatrices, AVMatrix *myVectorMatrices,
     SPDSparseMatrices<value_type, local_ordinal_type>(
         Blk, max_offset, offset, N, rowOffsets, colIndices, values);
 
+/*
   Kokkos::View<vector_type **, layout> vector_values("values",
                                                      N / vector_length, nnz);
   Kokkos::View<value_type **[vector_length], layout> vector_values_data(
@@ -639,18 +640,18 @@ void getSPMVInputs(AMatrix *myMatrices, AVMatrix *myVectorMatrices,
 
   graph_type myGraph(colIndices, rowOffsets);
 
-  if (std::is_same<layout, Kokkos::LayoutRight>::value) {
+  if (std::is_same<layout, Kokkos::LayoutLeft>::value) {
     for (int i_matrix = 0; i_matrix < N; ++i_matrix)
       myMatrices[i_matrix] =
-          AMatrix("test matrix", Blk, subview(values, i_matrix, Kokkos::ALL()),
+          AMatrix("test matrix", Blk, subview(values, Kokkos::ALL(), i_matrix),
                   myGraph);
 
     for (int i_matrix = 0; i_matrix < N / vector_length; ++i_matrix)
       myVectorMatrices[i_matrix] =
           AVMatrix("test matrix", Blk,
-                   subview(vector_values, i_matrix, Kokkos::ALL()), myGraph);
+                   subview(vector_values, Kokkos::ALL(), i_matrix), myGraph);
   } else
-    std::cout << "Crs Matrices are not created when using the left layout."
+    std::cout << "Crs Matrices are not created when using the right layout."
               << std::endl;
 
   std::fill_n(s_a, N, 1.0);
@@ -670,8 +671,9 @@ void getSPMVInputs(AMatrix *myMatrices, AVMatrix *myVectorMatrices,
       N / vector_length, KOKKOS_LAMBDA(int i) {
         for (int j = 0; j < Blk; ++j)
           for (int k = 0; k < vector_length; ++k) {
-            xv_data(i, j, k) = x(i * vector_length + k, j);
-            yv_data(i, j, k) = y(i * vector_length + k, j);
+            xv_data(i, j, k) = x(j, i * vector_length + k);
+            yv_data(i, j, k) = y(j, i * vector_length + k);
           }
       });
+*/
 }
