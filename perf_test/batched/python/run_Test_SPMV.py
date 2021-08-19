@@ -50,7 +50,7 @@ def main():
     nnz_per_row=10
     n=100
     rows_per_thread=1
-    team_size=8
+    team_size=16
     implementations_left = [0, 1, 2]
     implementations_right = [0, 1, 2]
     n_implementations_left = len(implementations_left)
