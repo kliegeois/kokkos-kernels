@@ -23,7 +23,7 @@ def main():
     N = 12800
     Bs = [10, 20, 30, 40, 50, 100, 150, 200, 500]
     nnz_per_rows=[10]
-    implementations=[3]
+    implementations=[0, 1, 2]
     rows_per_thread=4
     team_size=8
 

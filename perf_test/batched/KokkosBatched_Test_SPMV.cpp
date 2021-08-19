@@ -216,26 +216,15 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl > 4)
+            if (i_impl > 1)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
-            if (i_impl > 9)
-              Kokkos::parallel_for(
-                  "KokkosSparse::PerfTest::BSpMV",
-                  Kokkos::Experimental::require(
-                      policy,
-                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                  BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
-                                     XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
-                                                  colIndices, xLL, s_b, yLL,
-                                                  N_team, N, i_impl));
-            else
-              Kokkos::parallel_for(
-                  "KokkosSparse::PerfTest::BSpMV", policy,
-                  BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
-                                     XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
-                                                  colIndices, xLL, s_b, yLL,
-                                                  N_team, N, i_impl));
+            Kokkos::parallel_for(
+                "KokkosSparse::PerfTest::BSpMV", policy,
+                BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
+                                    XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
+                                                colIndices, xLL, s_b, yLL,
+                                                N_team, N, i_impl));
           }
           if (layout_right) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
@@ -243,26 +232,15 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl > 4)
+            if (i_impl > 1)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
-            if (i_impl > 9)
-              Kokkos::parallel_for(
-                  "KokkosSparse::PerfTest::BSpMV",
-                  Kokkos::Experimental::require(
-                      policy,
-                      Kokkos::Experimental::WorkItemProperty::HintLightWeight),
-                  BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
-                                     XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
-                                                  colIndices, xLR, s_b, yLR,
-                                                  N_team, N, i_impl));
-            else
-              Kokkos::parallel_for(
-                  "KokkosSparse::PerfTest::BSpMV", policy,
-                  BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
-                                     XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
-                                                  colIndices, xLR, s_b, yLR,
-                                                  N_team, N, i_impl));
+            Kokkos::parallel_for(
+                "KokkosSparse::PerfTest::BSpMV", policy,
+                BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
+                                    XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
+                                                colIndices, xLR, s_b, yLR,
+                                                N_team, N, i_impl));
           }
           exec_space().fence();
           t_spmv += timer.seconds();
