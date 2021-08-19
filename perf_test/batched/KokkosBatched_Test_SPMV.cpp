@@ -216,7 +216,7 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl > 4)
+            if (i_impl > 4 && i_impl < 10)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
             if (i_impl > 9)
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl > 4)
+            if (i_impl > 4 && i_impl < 10)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
             if (i_impl > 9)
