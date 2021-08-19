@@ -47,7 +47,7 @@ struct BSPMV_Functor_View {
   }
 
   KOKKOS_INLINE_FUNCTION void getIndices(const ordinal_type iTemp, const ordinal_type n_rows, const ordinal_type n_matrices, ordinal_type &iRow, ordinal_type &iMatrix) const {
-    if (std::is_same<typename AMatrix::array_layout, Kokkos::LayoutLeft>::value) {
+    if (std::is_same<typename AMatrix::array_layout, Kokkos::LayoutRight>::value) {
       iRow    = iTemp / n_matrices;
       iMatrix = iTemp % n_matrices;
     }
