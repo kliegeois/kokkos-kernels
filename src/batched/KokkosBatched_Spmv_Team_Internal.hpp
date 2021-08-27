@@ -47,7 +47,7 @@ namespace KokkosBatched {
             typename layout>
   KOKKOS_INLINE_FUNCTION
   void
-  TeamSpmvInternal<Algo::Gemv::Unblocked>:: 
+  TeamSpmvInternal<Algo::Spmv::Unblocked>:: 
   getIndices(const OrdinalType iTemp,
              const OrdinalType n_rows,
              const OrdinalType n_matrices,
@@ -72,7 +72,7 @@ namespace KokkosBatched {
             int dobeta>
   KOKKOS_INLINE_FUNCTION
   int
-  TeamSpmvInternal<Algo::Gemv::Unblocked>::
+  TeamSpmvInternal<Algo::Spmv::Unblocked>::
   invoke(const MemberType &member,
          const int m, const int nrows, 
          const ScalarType *alpha,

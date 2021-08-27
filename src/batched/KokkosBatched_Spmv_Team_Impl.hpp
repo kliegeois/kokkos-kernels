@@ -9,8 +9,8 @@
 
 namespace KokkosBatched {
 
-  template<typename MemberType>
-  struct TeamSpmv<MemberType,Trans::NoTranspose,Algo::Gemv::Unblocked> {
+  template<typename MemberType, typename ArgAlgo>
+  struct TeamSpmv<MemberType,Trans::NoTranspose,ArgAlgo> {
           
     template<typename ScalarType,
              typename DViewType,
@@ -27,7 +27,7 @@ namespace KokkosBatched {
            const xViewType &X,
            const ScalarType *beta,
            const yViewType &Y) {
-      return TeamSpmvInternal<Algo::Gemv::Unblocked>::
+      return TeamSpmvInternal<ArgAlgo>::
         invoke(member, 
                X.extent(0), X.extent(1),
                alpha,
