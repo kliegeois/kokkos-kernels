@@ -35,7 +35,7 @@ namespace KokkosBatched {
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const int m, 
-           const ScalarType *__restrict__ alpha, 
+           const ScalarType *__restrict__ alpha, const int alphas0,
            /* */ ValueType *__restrict__ X, const int xs0,
            /* */ ValueType *__restrict__ Y, const int ys0) {
 
@@ -43,7 +43,7 @@ namespace KokkosBatched {
 #pragma unroll
 #endif
       for (int i=0;i<m;++i)
-        Y[i*ys0] += alpha[i]*X[i*xs0];
+        Y[i*ys0] += alpha[i*alphas0]*X[i*xs0];
         
       return 0;
     }
@@ -53,13 +53,13 @@ namespace KokkosBatched {
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const int m, const int n, 
-           const ScalarType *__restrict__ alpha, 
+           const ScalarType *__restrict__ alpha, const int alphas0,
            /* */ ValueType *__restrict__ X, const int xs0, const int xs1,
            /* */ ValueType *__restrict__ Y, const int ys0, const int ys1) {
 
       if (xs0 > xs1)
         for (int i=0;i<m;++i)
-          invoke(n, alpha[i], X+i*xs0, xs1, Y+i*ys0, ys1);
+          invoke(n, alpha[i*alphas0], X+i*xs0, xs1, Y+i*ys0, ys1);
       else
         for (int j=0;j<n;++j)
           invoke(m, alpha, X+j*xs1, xs0, Y+j*ys1, ys0);
@@ -99,14 +99,14 @@ namespace KokkosBatched {
     static int
     invoke(const MemberType &member, 
            const int m, 
-           const ScalarType *__restrict__ alpha, 
+           const ScalarType *__restrict__ alpha, const int alphas0, 
            /* */ ValueType *__restrict__ X, const int xs0,
            /* */ ValueType *__restrict__ Y, const int ys0) {
 
       Kokkos::parallel_for
         (Kokkos::TeamThreadRange(member,m),
          [&](const int &i) {
-          Y[i*ys0] += alpha[i]*X[i*xs0];
+          Y[i*ys0] += alpha[i*alphas0]*X[i*xs0];
         });
       //member.team_barrier();
       return 0;
@@ -119,14 +119,14 @@ namespace KokkosBatched {
     static int
     invoke(const MemberType &member, 
            const int m, const int n, 
-           const ScalarType alpha, 
+           const ScalarType *__restrict__ alpha, const int alphas0, 
            /* */ ValueType *__restrict__ X, const int xs0, const int xs1,
            /* */ ValueType *__restrict__ Y, const int ys0, const int ys1) {
       if (m > n) {
         Kokkos::parallel_for
           (Kokkos::TeamThreadRange(member,m),
            [&](const int &i) {
-            SerialAxpyInternal::invoke(n, alpha[i], X+i*xs0, xs1, Y+i*ys0, ys1);
+            SerialAxpyInternal::invoke(n, alpha[i*alphas0], X+i*xs0, xs1, Y+i*ys0, ys1);
           });
       } else {
         Kokkos::parallel_for
@@ -171,14 +171,14 @@ namespace KokkosBatched {
     static int
     invoke(const MemberType &member, 
            const int m, 
-           const ScalarType *__restrict__ alpha, 
+           const ScalarType *__restrict__ alpha, const int alphas0, 
            /* */ ValueType *__restrict__ X, const int xs0,
            /* */ ValueType *__restrict__ Y, const int ys0) {
 
       Kokkos::parallel_for
         (Kokkos::TeamVectorRange(member,m),
          [&](const int &i) {
-          Y[i*ys0] += alpha[i]*X[i*xs0];
+          Y[i*ys0] += alpha[i*alphas0]*X[i*xs0];
         });
       //member.team_barrier();
       return 0;
@@ -210,7 +210,7 @@ namespace KokkosBatched {
     static int
     invoke(const MemberType &member, 
            const int m, const int n, 
-           const ScalarType alpha, 
+           const ScalarType *__restrict__ alpha, const int alphas0, 
            /* */ ValueType *__restrict__ X, const int xs0, const int xs1,
            /* */ ValueType *__restrict__ Y, const int ys0, const int ys1) {
       Kokkos::parallel_for(
@@ -218,7 +218,7 @@ namespace KokkosBatched {
           [&](const int& iTemp) {
             int i, j;
             getIndices<layout>(iTemp, n, m, i, j);
-            Y[i*ys0+j*ys1] += alpha[i] * X[i*xs0+j*xs1];
+            Y[i*ys0+j*ys1] += alpha[i*alphas0] * X[i*xs0+j*xs1];
           });
       //member.team_barrier();
       return 0;

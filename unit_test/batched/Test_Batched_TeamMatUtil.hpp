@@ -10,12 +10,6 @@
 #include "KokkosBatched_Scale_Decl.hpp"
 #include "KokkosBatched_Scale_Impl.hpp"
 
-#include "KokkosBatched_Axpy_Decl.hpp"
-#include "KokkosBatched_Axpy_Impl.hpp"
-
-#include "KokkosBatched_Spmv_Decl.hpp"
-//#include "KokkosBatched_Spmv_Impl.hpp"
-
 #include "KokkosKernels_TestUtils.hpp"
 
 using namespace KokkosBatched;

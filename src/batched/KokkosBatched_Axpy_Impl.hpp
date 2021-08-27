@@ -13,16 +13,17 @@ namespace KokkosBatched {
   /// Serial Impl
   /// ===========
   template<typename ScalarType,
-           typename AViewType>
+           typename AViewType,
+           typename alphaViewType>
   KOKKOS_INLINE_FUNCTION
   int
   SerialAxpy::
-  invoke(const ScalarType *alpha,
+  invoke(const alphaViewType &alpha,
          const AViewType &X,
          const AViewType &Y) {
     return SerialAxpyInternal::
       invoke(X.extent(0), X.extent(1),
-             alpha,
+             alpha.data(), alpha.stride_0(),
              X.data(), X.stride_0(), X.stride_1(),
              Y.data(), Y.stride_0(), Y.stride_1());
   }
@@ -33,18 +34,19 @@ namespace KokkosBatched {
     
   template<typename MemberType>
   template<typename ScalarType,
-           typename AViewType>
+           typename AViewType,
+           typename alphaViewType>
   KOKKOS_INLINE_FUNCTION
   int
   TeamAxpy<MemberType>::
   invoke(const MemberType &member, 
-         const ScalarType *alpha,
+         const alphaViewType &alpha,
          const AViewType &X,
          const AViewType &Y) {
     return TeamAxpyInternal::
       invoke(member, 
              X.extent(0), X.extent(1),
-             alpha,
+             alpha.data(), alpha.stride_0(),
              X.data(), X.stride_0(), X.stride_1(),
              Y.data(), Y.stride_0(), Y.stride_1());
   }
@@ -55,12 +57,13 @@ namespace KokkosBatched {
     
   template<typename MemberType>
   template<typename ScalarType,
-           typename AViewType>
+           typename AViewType,
+           typename alphaViewType>
   KOKKOS_INLINE_FUNCTION
   int
   TeamVectorAxpy<MemberType>::
   invoke(const MemberType &member, 
-         const ScalarType *alpha,
+         const alphaViewType &alpha,
          const AViewType &X,
          const AViewType &Y) {
     return TeamVectorAxpyInternal::
@@ -70,7 +73,7 @@ namespace KokkosBatched {
              typename AViewType::array_layout>
              (member, 
              X.extent(0), X.extent(1),
-             alpha,
+             alpha.data(), alpha.stride_0(),
              X.data(), X.stride_0(), X.stride_1(),
              Y.data(), Y.stride_0(), Y.stride_1());
   }

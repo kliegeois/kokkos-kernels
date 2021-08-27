@@ -20,19 +20,20 @@ namespace KokkosBatched {
   template<typename ArgTrans,
            typename ArgAlgo>
   struct SerialSpmv {
-    template<typename ScalarType,
-             typename DViewType,
+    template<typename DViewType,
              typename IntView,
              typename xViewType,
-             typename yViewType>
+             typename yViewType,
+             typename alphaViewType,
+             typename betaViewType>
     KOKKOS_INLINE_FUNCTION
     static int
-    invoke(const ScalarType *alpha,
+    invoke(const alphaViewType &alpha,
            const DViewType &D,
            const IntView &r,
            const IntView &c,
            const xViewType &x,
-           const ScalarType *beta,
+           const betaViewType &beta,
            const yViewType &y);
   };
 
@@ -44,20 +45,21 @@ namespace KokkosBatched {
            typename ArgTrans,
            typename ArgAlgo>
   struct TeamSpmv {
-    template<typename ScalarType,
-             typename DViewType,
+    template<typename DViewType,
              typename IntView,
              typename xViewType,
-             typename yViewType>
+             typename yViewType,
+             typename alphaViewType,
+             typename betaViewType>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
-           const ScalarType *alpha,
+           const alphaViewType &alpha,
            const DViewType &D,
            const IntView &r,
            const IntView &c,
            const xViewType &x,
-           const ScalarType *beta,
+           const betaViewType &beta,
            const yViewType &y);
   };
 
@@ -69,20 +71,21 @@ namespace KokkosBatched {
            typename ArgTrans,
            typename ArgAlgo>
   struct TeamVectorSpmv {
-    template<typename ScalarType,
-             typename DViewType,
+    template<typename DViewType,
              typename IntView,
              typename xViewType,
-             typename yViewType>
+             typename yViewType,
+             typename alphaViewType,
+             typename betaViewType>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
-           const ScalarType *alpha,
+           const alphaViewType &alpha,
            const DViewType &D,
            const IntView &r,
            const IntView &c,
            const xViewType &x,
-           const ScalarType *beta,
+           const betaViewType &beta,
            const yViewType &y);
   };
 
@@ -93,20 +96,21 @@ namespace KokkosBatched {
            typename ArgTrans,
            typename ArgMode, typename ArgAlgo>
   struct Spmv {
-    template<typename ScalarType,
-             typename DViewType,
+    template<typename DViewType,
              typename IntView,
              typename xViewType,
-             typename yViewType>
+             typename yViewType,
+             typename alphaViewType,
+             typename betaViewType>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
-           const ScalarType *alpha,
+           const alphaViewType &alpha,
            const DViewType &D,
            const IntView &r,
            const IntView &c,
            const xViewType &x,
-           const ScalarType *beta,
+           const betaViewType &beta,
            const yViewType &y) {
       int r_val = 0;
       if (std::is_same<ArgMode,Mode::Serial>::value) {

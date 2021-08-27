@@ -50,6 +50,11 @@
 #include "quantiles.hpp"
 #include "KokkosBatched_Test_SPMV_Helper.hpp"
 
+#include "KokkosBatched_Axpy_Decl.hpp"
+#include "KokkosBatched_Axpy_Impl.hpp"
+
+#include "KokkosBatched_Spmv_Decl.hpp"
+
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
   {

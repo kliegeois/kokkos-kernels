@@ -12,28 +12,29 @@ namespace KokkosBatched {
   template<typename ArgAlgo>
   struct SerialSpmv<Trans::NoTranspose,ArgAlgo> {
           
-    template<typename ScalarType,
-             typename DViewType,
+    template<typename DViewType,
              typename IntView,
              typename xViewType,
-             typename yViewType>
+             typename yViewType,
+             typename alphaViewType,
+             typename betaViewType>
     KOKKOS_INLINE_FUNCTION
     static int
-    invoke(const ScalarType *alpha,
+    invoke(const alphaViewType &alpha,
            const DViewType &D,
            const IntView &r,
            const IntView &c,
            const xViewType &X,
-           const ScalarType *beta,
+           const betaViewType &beta,
            const yViewType &Y) {
       return SerialSpmvInternal<ArgAlgo>::
         invoke(X.extent(0), X.extent(1),
-               alpha,
+               alpha.data(), alpha.stride_0(),
                D.data(), D.stride_0(), D.stride_1(),
                r.data(), r.stride_0(),
                c.data(), c.stride_0(),
                X.data(), X.stride_0(), X.stride_1(),
-               beta,
+               beta.data(), beta.stride_0(),
                Y.data(), Y.stride_0(), Y.stride_1());
     }
   };
