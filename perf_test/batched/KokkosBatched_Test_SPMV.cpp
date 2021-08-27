@@ -55,6 +55,51 @@
 
 #include "KokkosBatched_Spmv_Decl.hpp"
 
+
+template <typename PolicyType,
+          typename DViewType,
+          typename IntView,
+          typename xViewType,
+          typename yViewType,
+          typename alphaViewType,
+          typename betaViewType,
+          int dobeta>
+struct Functor_TestBatchedTeamVectorSpmv {
+  PolicyType _policy;
+  const alphaViewType _alpha;
+  const DViewType _D;
+  const IntView _r;
+  const IntView _c;
+  const xViewType _X;
+  const betaViewType _beta;
+  const yViewType _Y;
+  int _matrices_per_team;
+
+  KOKKOS_INLINE_FUNCTION
+  Functor_TestBatchedTeamVectorSpmv(PolicyType policy,
+                                    const alphaViewType &alpha,
+                                    const DViewType &D,
+                                    const IntView &r,
+                                    const IntView &c,
+                                    const xViewType &X,
+                                    const betaViewType &beta,
+                                    const yViewType &Y,
+                                    const int matrices_per_team)
+    : _policy(policy), _alpha(alpha), _D(D), _r(r), _c(c), _X(X), _beta(beta), _Y(Y), _matrices_per_team(matrices_per_team) {} 
+
+  template<typename MemberType>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const MemberType &member) const {
+    KokkosBatched::TeamVectorSpmv<MemberType,Trans::NoTranspose,Algo::Gemv::Unblocked>::invoke(member, _alpha, _D, _r, _c, _X, _beta, _Y); 
+  }
+
+  inline
+  void run() {
+    Kokkos::parallel_for("KokkosSparse::PerfTest::BSpMV", _policy, *this);
+  }
+};
+
+
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
   {
@@ -143,6 +188,10 @@ int main(int argc, char *argv[]) {
     using XYVTypeLR          = Kokkos::View<vector_type **, LR>;
     using XYVTypeLL          = Kokkos::View<vector_type **, LL>;
 
+    using alphaViewType      = Kokkos::View<double *>;
+    alphaViewType alphaV("alpha", N);
+    alphaViewType betaV("alpha", N);
+
     IntView rowOffsets("values", Blk + 1);
     IntView colIndices("values", nnz);
     AMatrixValueViewLR valuesLR("values", nnz, N);
@@ -221,15 +270,20 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl > 1)
+            if (i_impl == 2)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
-            Kokkos::parallel_for(
-                "KokkosSparse::PerfTest::BSpMV", policy,
-                BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
-                                    XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
-                                                colIndices, xLL, s_b, yLL,
-                                                N_team, N, i_impl));
+            if (i_impl < 3)
+              Kokkos::parallel_for(
+                  "KokkosSparse::PerfTest::BSpMV", policy,
+                  BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
+                                      XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
+                                                  colIndices, xLL, s_b, yLL,
+                                                  N_team, N, i_impl));
+            else{
+              Functor_TestBatchedTeamVectorSpmv<policy_type, AMatrixValueViewLL, IntView, XYTypeLL,  XYTypeLL, alphaViewType, alphaViewType, 0>
+                (policy, alphaV, valuesLL, rowOffsets, colIndices, xLL, betaV, yLL, N_team).run();
+            }
           }
           if (layout_right) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
@@ -237,15 +291,20 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl > 1)
+            if (i_impl == 2)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
-            Kokkos::parallel_for(
-                "KokkosSparse::PerfTest::BSpMV", policy,
-                BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
-                                    XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
-                                                colIndices, xLR, s_b, yLR,
-                                                N_team, N, i_impl));
+            if (i_impl < 3)
+              Kokkos::parallel_for(
+                  "KokkosSparse::PerfTest::BSpMV", policy,
+                  BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
+                                      XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
+                                                  colIndices, xLR, s_b, yLR,
+                                                  N_team, N, i_impl));
+            else{
+              Functor_TestBatchedTeamVectorSpmv<policy_type, AMatrixValueViewLR, IntView, XYTypeLR,  XYTypeLR, alphaViewType, alphaViewType, 0>
+                (policy, alphaV, valuesLR, rowOffsets, colIndices, xLR, betaV, yLR, N_team).run();
+            }
           }
           exec_space().fence();
           t_spmv += timer.seconds();

@@ -28,16 +28,22 @@ namespace KokkosBatched {
            const xViewType &X,
            const betaViewType &beta,
            const yViewType &Y) {
-      return TeamVectorSpmvInternal<ArgAlgo>::
-        invoke(member, 
-               X.extent(0), X.extent(1),
-               alpha.data(), alpha.stride_0(),
-               D.data(), D.stride_0(), D.stride_1(),
-               r.data(), r.stride_0(),
-               c.data(), c.stride_0(),
-               X.data(), X.stride_0(), X.stride_1(),
-               beta.data(), beta.stride_0(),
-               Y.data(), Y.stride_0(), Y.stride_1());
+      return TeamVectorSpmvInternal<ArgAlgo>::template
+        invoke<MemberType, 
+               alphaViewType::non_const_value_type, 
+               DViewType::non_const_value_type, 
+               IntView::non_const_value_type, 
+               DViewType::array_layout, 
+               0>
+               (member, 
+                X.extent(0), X.extent(1),
+                alpha.data(), alpha.stride_0(),
+                D.data(), D.stride_0(), D.stride_1(),
+                r.data(), r.stride_0(),
+                c.data(), c.stride_0(),
+                X.data(), X.stride_0(), X.stride_1(),
+                beta.data(), beta.stride_0(),
+                Y.data(), Y.stride_0(), Y.stride_1());
     }
   };
 
