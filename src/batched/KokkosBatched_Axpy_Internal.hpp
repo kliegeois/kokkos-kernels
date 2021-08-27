@@ -183,10 +183,29 @@ namespace KokkosBatched {
       //member.team_barrier();
       return 0;
     }
-      
+
+    template<typename layout>
+    KOKKOS_INLINE_FUNCTION
+    static void
+    getIndices(const int iTemp,
+               const int n_rows,
+               const int n_matrices,
+               int &iRow,
+               int &iMatrix) {
+      if (std::is_same<layout, Kokkos::LayoutRight>::value) {
+        iRow    = iTemp / n_matrices;
+        iMatrix = iTemp % n_matrices;
+      }
+      else {
+        iRow    = iTemp % n_rows;
+        iMatrix = iTemp / n_rows;
+      }
+    }
+
     template<typename MemberType,
              typename ScalarType,
-             typename ValueType>
+             typename ValueType,
+             typename layout>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
@@ -194,27 +213,13 @@ namespace KokkosBatched {
            const ScalarType alpha, 
            /* */ ValueType *__restrict__ X, const int xs0, const int xs1,
            /* */ ValueType *__restrict__ Y, const int ys0, const int ys1) {
-      if (xs0 > xs1) {
-        Kokkos::parallel_for
-          (Kokkos::TeamThreadRange(member,m),
-           [&](const int &i) {
-            Kokkos::parallel_for
-              (Kokkos::ThreadVectorRange(member,n),
-               [&](const int &j) {
-                Y[i*ys0+j*ys1] += alpha[i] * X[i*xs0+j*xs1];
-              });
+      Kokkos::parallel_for(
+          Kokkos::TeamVectorRange(member, 0, m * n),
+          [&](const int& iTemp) {
+            int i, j;
+            getIndices<layout>(iTemp, n, m, i, j);
+            Y[i*ys0+j*ys1] += alpha[i] * X[i*xs0+j*xs1];
           });
-      } else {
-        Kokkos::parallel_for
-          (Kokkos::ThreadVectorRange(member,m),
-           [&](const int &i) {
-            Kokkos::parallel_for
-              (Kokkos::TeamThreadRange(member,n),
-               [&](const int &j) {
-                Y[i*ys0+j*ys1] += alpha[i] * X[i*xs0+j*xs1];
-              });
-          });
-      }
       //member.team_barrier();
       return 0;
     }

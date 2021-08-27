@@ -64,7 +64,11 @@ namespace KokkosBatched {
          const AViewType &X,
          const AViewType &Y) {
     return TeamVectorAxpyInternal::
-      invoke(member, 
+      invoke<MemberType,
+             ScalarType,
+             typename AViewType::non_const_value_type,
+             typename AViewType::array_layout>
+             (member, 
              X.extent(0), X.extent(1),
              alpha,
              X.data(), X.stride_0(), X.stride_1(),
