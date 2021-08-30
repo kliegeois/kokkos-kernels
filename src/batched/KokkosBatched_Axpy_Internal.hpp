@@ -192,7 +192,7 @@ namespace KokkosBatched {
                const int n_matrices,
                int &iRow,
                int &iMatrix) {
-      if (std::is_same<layout, Kokkos::LayoutRight>::value) {
+      if (std::is_same<layout, Kokkos::LayoutLeft>::value) {
         iRow    = iTemp / n_matrices;
         iMatrix = iTemp % n_matrices;
       }

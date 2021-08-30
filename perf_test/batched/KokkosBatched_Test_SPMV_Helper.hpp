@@ -100,7 +100,7 @@ void SPDSparseRandomMatrices(
   typename entries_type::non_const_type col_ind_lower_trig(
       "column indices", nnz_lower_trig + nnz_d);
   Kokkos::View<ScalarType **, Layout> value_lower_trig("values",
-                                                       nnz_lower_trig + nnz_d, N);
+                                                       N, nnz_lower_trig + nnz_d);
 
   srand(1);
 
@@ -137,7 +137,7 @@ void SPDSparseRandomMatrices(
       col_ind_lower_trig_h(current_nnz_lower_trig) = i2;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(current_nnz_lower_trig, i_matrix) =
+        value_lower_trig_h(i_matrix, current_nnz_lower_trig) =
             100.0 * rand() / INT_MAX - 50.0;
 
       ++current_nnz_lower_trig;
@@ -148,7 +148,7 @@ void SPDSparseRandomMatrices(
       col_ind_lower_trig_h(nnz_lower_trig + i) = i;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(nnz_lower_trig + i, i_matrix) =
+        value_lower_trig_h(i_matrix, nnz_lower_trig + i) =
             100.0 * rand() / INT_MAX - 50.0;
     }
 
@@ -219,7 +219,7 @@ void SPDSparseRandomMatrices(
       Kokkos::sort(colIndices, row_map_h(irow), row_map_h(irow + 1));
   }
 
-  Kokkos::resize(values, nnz, N);
+  Kokkos::resize(values, N, nnz);
 
   // Fill the view with the random values
   Kokkos::parallel_for(
@@ -234,7 +234,7 @@ void SPDSparseRandomMatrices(
               if (row == row_ind_lower_trig(ielem) &&
                   col == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
+                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
                 break;
               }
             }
@@ -243,14 +243,14 @@ void SPDSparseRandomMatrices(
               if (col == row_ind_lower_trig(ielem) &&
                   row == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
+                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
                 break;
               }
             }
           else
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(jcol, i_matrix) =
-                  value_lower_trig(nnz_lower_trig + irow, i_matrix);
+              values(i_matrix, jcol) =
+                  value_lower_trig(i_matrix, nnz_lower_trig + irow);
         }
       });
 
@@ -267,45 +267,16 @@ void SPDSparseRandomMatrices(
 
           if (row == col) {
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(jcol, i_matrix) = fabs(values(jcol, i_matrix));
+              values(i_matrix, jcol) = fabs(values(i_matrix, jcol));
             for (OrdinalType jjcol = rowOffsets(irow);
                  jjcol < rowOffsets(irow + 1); ++jjcol) {
               if (jjcol != jcol)
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(col, i_matrix) += fabs(values(jjcol, i_matrix));
+                  values(i_matrix, col) += fabs(values(i_matrix, jjcol));
             }
           }
         }
       });
-  /*
-  {
-    std::ofstream myfile;
-    myfile.open("matrices.txt");
-
-    typename row_map_type::HostMirror row_map_h =
-        Kokkos::create_mirror_view(rowOffsets);
-    typename entries_type::HostMirror entries_h =
-        Kokkos::create_mirror_view(colIndices);
-    typename Kokkos::View<ScalarType **, Layout>::HostMirror values_h =
-        Kokkos::create_mirror_view(values);
-
-    Kokkos::deep_copy(row_map_h, rowOffsets);
-    Kokkos::deep_copy(entries_h, colIndices);
-    Kokkos::deep_copy(values_h, values);
-
-    for (OrdinalType i = 0; i < nrows; ++i) {
-      for (OrdinalType j = row_map_h(i); j < row_map_h(i + 1); ++j) {
-        myfile << i << " " << entries_h(j) << " ";
-        for (int i_matrix = 0; i_matrix < N; ++i_matrix) {
-          myfile << values_h(i_matrix, j) << " ";
-        }
-        myfile << std::endl;
-      }
-    }
-
-    myfile.close();
-  }
-  */
 }
 
 template <typename OrdinalType>
@@ -345,7 +316,7 @@ void SPDSparseMatrices(
   typename entries_type::non_const_type col_ind_lower_trig(
       "column indices", nnz_lower_trig + nnz_d);
   Kokkos::View<ScalarType **, Layout> value_lower_trig("values",
-                                                       nnz_lower_trig + nnz_d, N);
+                                                       N, nnz_lower_trig + nnz_d);
 
   srand(1);
 
@@ -366,7 +337,7 @@ void SPDSparseMatrices(
           col_ind_lower_trig_h(current_nnz_lower_trig) = current_col;
 
           for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-            value_lower_trig_h(current_nnz_lower_trig, i_matrix) =
+            value_lower_trig_h(i_matrix, current_nnz_lower_trig) =
                 100.0 * rand() / INT_MAX - 50.0;
 
           ++current_nnz_lower_trig;
@@ -379,7 +350,7 @@ void SPDSparseMatrices(
       col_ind_lower_trig_h(nnz_lower_trig + i) = i;
 
       for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-        value_lower_trig_h(nnz_lower_trig + i, i_matrix) =
+        value_lower_trig_h(i_matrix, nnz_lower_trig + i) =
             100.0 * rand() / INT_MAX - 50.0;
     }
 
@@ -450,7 +421,7 @@ void SPDSparseMatrices(
       Kokkos::sort(colIndices, row_map_h(irow), row_map_h(irow + 1));
   }
 
-  Kokkos::resize(values, nnz, N);
+  Kokkos::resize(values, N, nnz);
 
   // Fill the view with the random values
   Kokkos::parallel_for(
@@ -465,7 +436,7 @@ void SPDSparseMatrices(
               if (row == row_ind_lower_trig(ielem) &&
                   col == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
+                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
                 break;
               }
             }
@@ -474,14 +445,14 @@ void SPDSparseMatrices(
               if (col == row_ind_lower_trig(ielem) &&
                   row == col_ind_lower_trig(ielem)) {
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(jcol, i_matrix) = value_lower_trig(ielem, i_matrix);
+                  values(i_matrix, jcol) = value_lower_trig(i_matrix, ielem);
                 break;
               }
             }
           else
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(jcol, i_matrix) =
-                  value_lower_trig(nnz_lower_trig + irow, i_matrix);
+              values(i_matrix, jcol) =
+                  value_lower_trig(i_matrix, nnz_lower_trig + irow);
         }
       });
 
@@ -498,17 +469,16 @@ void SPDSparseMatrices(
 
           if (row == col) {
             for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-              values(jcol, i_matrix) = fabs(values(jcol, i_matrix));
+              values(i_matrix, jcol) = fabs(values(i_matrix, jcol));
             for (OrdinalType jjcol = rowOffsets(irow);
                  jjcol < rowOffsets(irow + 1); ++jjcol) {
               if (jjcol != jcol)
                 for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-                  values(col, i_matrix) += fabs(values(jjcol, i_matrix));
+                  values(i_matrix, col) += fabs(values(i_matrix, jjcol));
             }
           }
         }
       });
-  /*
   {
     std::ofstream myfile;
     myfile.open("matrices.txt");
@@ -536,7 +506,6 @@ void SPDSparseMatrices(
 
     myfile.close();
   }
-  */
 }
 
 template <class XType>
@@ -625,55 +594,12 @@ void getSPMVInputs(AMatrix *myMatrices, AVMatrix *myVectorMatrices,
     SPDSparseMatrices<value_type, local_ordinal_type>(
         Blk, max_offset, offset, N, rowOffsets, colIndices, values);
 
-/*
-  Kokkos::View<vector_type **, layout> vector_values("values",
-                                                     N / vector_length, nnz);
-  Kokkos::View<value_type **[vector_length], layout> vector_values_data(
-      (value_type *)vector_values.data(), N / vector_length, nnz);
 
-  Kokkos::parallel_for(
-      N / vector_length, KOKKOS_LAMBDA(int i) {
-        for (int j = 0; j < nnz; ++j)
-          for (int k = 0; k < vector_length; ++k)
-            vector_values_data(i, j, k) = values(j, i * vector_length + k);
-      });
-
-  graph_type myGraph(colIndices, rowOffsets);
-
-  if (std::is_same<layout, Kokkos::LayoutLeft>::value) {
-    for (int i_matrix = 0; i_matrix < N; ++i_matrix)
-      myMatrices[i_matrix] =
-          AMatrix("test matrix", Blk, subview(values, Kokkos::ALL(), i_matrix),
-                  myGraph);
-
-    for (int i_matrix = 0; i_matrix < N / vector_length; ++i_matrix)
-      myVectorMatrices[i_matrix] =
-          AVMatrix("test matrix", Blk,
-                   subview(vector_values, Kokkos::ALL(), i_matrix), myGraph);
-  } else
-    std::cout << "Crs Matrices are not created when using the right layout."
-              << std::endl;
-
-  std::fill_n(s_a, N, 1.0);
-  std::fill_n(s_b, N, 0.0);
-  std::fill_n(s_av, N / vector_length, 1.0);
-  std::fill_n(s_bv, N / vector_length, 0.0);
-
-  Kokkos::View<value_type **[vector_length], layout> xv_data(
-      (value_type *)xv.data(), N / vector_length, Blk);
-  Kokkos::View<value_type **[vector_length], layout> yv_data(
-      (value_type *)yv.data(), N / vector_length, Blk);
-
-  Kokkos::deep_copy(x, 1.);
-  Kokkos::deep_copy(y, 0.);
-
-  Kokkos::parallel_for(
-      N / vector_length, KOKKOS_LAMBDA(int i) {
-        for (int j = 0; j < Blk; ++j)
-          for (int k = 0; k < vector_length; ++k) {
-            xv_data(i, j, k) = x(j, i * vector_length + k);
-            yv_data(i, j, k) = y(j, i * vector_length + k);
-          }
-      });
-*/
+  auto x_h = Kokkos::create_mirror_view(x);
+  for (int i = 0; i < x_h.extent(0); ++i) {
+    for (int j = 0; j < x_h.extent(1); ++j) {
+      x_h(i,j) = 100.0 * rand() / INT_MAX - 50.0;
+    }
+  }
+  Kokkos::deep_copy(x, x_h);
 }

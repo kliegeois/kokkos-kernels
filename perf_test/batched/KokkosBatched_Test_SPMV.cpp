@@ -95,10 +95,10 @@ struct Functor_TestBatchedTeamVectorSpmv {
     const int last_matrix = (static_cast<int>(member.league_rank() + 1) * _matrices_per_team < _D.extent(1) ? static_cast<int>(member.league_rank() + 1) * _matrices_per_team : _D.extent(1) );
 
     auto alpha_team = Kokkos::subview(_alpha,Kokkos::make_pair(first_matrix,last_matrix));
-    auto D_team = Kokkos::subview(_D,Kokkos::ALL,Kokkos::make_pair(first_matrix,last_matrix));
-    auto X_team = Kokkos::subview(_X,Kokkos::ALL,Kokkos::make_pair(first_matrix,last_matrix));
+    auto D_team = Kokkos::subview(_D,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+    auto X_team = Kokkos::subview(_X,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
     auto beta_team = Kokkos::subview(_beta,Kokkos::make_pair(first_matrix,last_matrix));
-    auto Y_team = Kokkos::subview(_Y,Kokkos::ALL,Kokkos::make_pair(first_matrix,last_matrix));
+    auto Y_team = Kokkos::subview(_Y,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
 
     using ScratchPadIntView =
         Kokkos::View<int*,
@@ -231,18 +231,18 @@ int main(int argc, char *argv[]) {
 
     IntView rowOffsets("values", Blk + 1);
     IntView colIndices("values", nnz);
-    AMatrixValueViewLR valuesLR("values", nnz, N);
-    AMatrixValueViewLL valuesLL("values", nnz, N);
+    AMatrixValueViewLR valuesLR("values", N, nnz);
+    AMatrixValueViewLL valuesLL("values", N, nnz);
     matrix_type myMatrices[N];
     vector_matrix_type myVectorMatrices[N / vector_length];
 
-    XYTypeLR xLR("values", Blk, N);
-    XYTypeLR yLR("values", Blk, N);
+    XYTypeLR xLR("values", N, Blk);
+    XYTypeLR yLR("values", N, Blk);
     XYVTypeLR xvLR("values", N / vector_length, Blk);
     XYVTypeLR yvLR("values", N / vector_length, Blk);
 
-    XYTypeLL xLL("values", Blk, N);
-    XYTypeLL yLL("values", Blk, N);
+    XYTypeLL xLL("values", N, Blk);
+    XYTypeLL yLL("values", N, Blk);
     XYVTypeLL xvLL("values", N / vector_length, Blk);
     XYVTypeLL yvLL("values", N / vector_length, Blk);
 
@@ -273,6 +273,19 @@ int main(int argc, char *argv[]) {
       getSPMVInputs(myMatrices, myVectorMatrices, valuesLL, rowOffsets,
                     colIndices, xLL, yLL, xvLL, yvLL, Blk, nnz, random,
                     max_offset, offset, N, s_a, s_b, s_av, s_bv);
+
+    auto alphaV_h = Kokkos::create_mirror_view(alphaV);
+    auto betaV_h = Kokkos::create_mirror_view(betaV);
+
+    for (int i = 0; i < N; ++i) {
+      s_a[i] = 1.;
+      s_b[i] = 0.;
+      alphaV_h(i) = s_a[i];
+      betaV_h(i) = s_b[i];
+    }
+
+    Kokkos::deep_copy(alphaV, alphaV_h);
+    Kokkos::deep_copy(betaV, betaV_h);
 
     using ScratchPadIntView =
         Kokkos::View<int *, exec_space::scratch_memory_space>;
@@ -393,10 +406,14 @@ int main(int argc, char *argv[]) {
         myfile.close();
       }
 
-      if (layout_left)
+      if (layout_left) {
         writeArrayTofile(yLL, "y_" + std::to_string(i_impl) + "_l.txt");
-      if (layout_right)
+        writeArrayTofile(xLL, "x_l.txt");
+      }
+      if (layout_right) {
         writeArrayTofile(yLR, "y_" + std::to_string(i_impl) + "_r.txt");
+        writeArrayTofile(xLR, "x_r.txt");
+      }
     }
   }
   Kokkos::finalize();

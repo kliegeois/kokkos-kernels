@@ -47,7 +47,7 @@ struct BSPMV_Functor_View {
   }
 
   KOKKOS_INLINE_FUNCTION void getIndices(const ordinal_type iTemp, const ordinal_type n_rows, const ordinal_type n_matrices, ordinal_type &iRow, ordinal_type &iMatrix) const {
-    if (std::is_same<typename AMatrix::array_layout, Kokkos::LayoutRight>::value) {
+    if (std::is_same<typename AMatrix::array_layout, Kokkos::LayoutLeft>::value) {
       iRow    = iTemp / n_matrices;
       iMatrix = iTemp % n_matrices;
     }
@@ -72,9 +72,9 @@ struct BSPMV_Functor_View {
                 Kokkos::ThreadVectorRange(dev, row_length),
                 [&](const ordinal_type& iEntry, value_type& lsum) {
                   const value_type val =
-                      m_A_values(m_A_row_ptr(iRow) + iEntry, i_matrix);
+                      m_A_values(i_matrix, m_A_row_ptr(iRow) + iEntry);
                   lsum +=
-                      val * m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), i_matrix);
+                      val * m_x(i_matrix, m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
                 },
                 sum);
 
@@ -82,10 +82,10 @@ struct BSPMV_Functor_View {
               sum *= alpha[i_matrix];
 
               if (dobeta == 0) {
-                m_y(iRow, i_matrix) = sum;
+                m_y(i_matrix, iRow) = sum;
               } else {
-                m_y(iRow, i_matrix) =
-                    beta[i_matrix] * m_y(iRow, i_matrix) + sum;
+                m_y(i_matrix, iRow) =
+                    beta[i_matrix] * m_y(i_matrix, iRow) + sum;
               }
             });
           });
@@ -111,17 +111,17 @@ struct BSPMV_Functor_View {
 
 #pragma unroll
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(m_A_row_ptr(iRow) + iEntry, iGlobalMatrix) *
-                     m_x(m_A_col_indices(m_A_row_ptr(iRow) + iEntry), iGlobalMatrix);
+              sum += m_A_values(iGlobalMatrix, m_A_row_ptr(iRow) + iEntry) *
+                     m_x(iGlobalMatrix, m_A_col_indices(m_A_row_ptr(iRow) + iEntry));
             }
 
             sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iRow, iGlobalMatrix) = sum;
+              m_y(iGlobalMatrix, iRow) = sum;
             } else {
-              m_y(iRow, iGlobalMatrix) =
-                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
+              m_y(iGlobalMatrix, iRow) =
+                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
             }
           });
     }
@@ -162,19 +162,22 @@ struct BSPMV_Functor_View {
             const ordinal_type row_length = row_map(iRow + 1) - row_map(iRow);
             value_type sum                = 0;
 
+            printf("1 - sum = %d, alpha = %d, \n", sum, alpha[iGlobalMatrix]);
 #pragma unroll
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += m_A_values(row_map(iRow) + iEntry, iGlobalMatrix) *
-                     m_x(cols(row_map(iRow) + iEntry), iGlobalMatrix);
+              sum += m_A_values(iGlobalMatrix, row_map(iRow) + iEntry) *
+                     m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
             }
 
-            sum *= alpha[iGlobalMatrix];
+            printf("2 - sum = %d, alpha = %d, \n", sum, alpha[iGlobalMatrix]);
+
+            sum *= 1.;//alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
-              m_y(iRow, iGlobalMatrix) = sum;
+              m_y(iGlobalMatrix, iRow) = sum;
             } else {
-              m_y(iRow, iGlobalMatrix) =
-                  beta[iGlobalMatrix] * m_y(iRow, iGlobalMatrix) + sum;
+              m_y(iGlobalMatrix, iRow) =
+                  beta[iGlobalMatrix] * m_y(iGlobalMatrix, iRow) + sum;
             }
           });
     }

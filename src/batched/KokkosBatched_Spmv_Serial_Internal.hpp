@@ -38,17 +38,17 @@ namespace KokkosBatched {
   #pragma unroll
   #endif
             for (OrdinalType iEntry = 0; iEntry < row_length; ++iEntry) {
-              sum += D[(r[iRow*rs0]+iEntry)*ds0+iMatrix*ds1]
-                      * X[c[(r[iRow*rs0]+iEntry)*cs0]*xs0+iMatrix*xs1];
+              sum += D[iMatrix*ds0+(r[iRow*rs0]+iEntry)*ds1]
+                      * X[iMatrix*xs0+c[(r[iRow*rs0]+iEntry)*cs0]*xs1];
             }
 
             sum *= alpha[iMatrix*alphas0];
 
             if (dobeta == 0) {
-              Y[iRow*ys0+iMatrix*ys1] = sum;
+              Y[iMatrix*ys0+iRow*ys1] = sum;
             } else {
-              Y[iRow*ys0+iMatrix*ys1] = 
-                  beta[iMatrix*betas0] * Y[iRow*ys0+iMatrix*ys1] + sum;
+              Y[iMatrix*ys0+iRow*ys1] = 
+                  beta[iMatrix*betas0] * Y[iMatrix*ys0+iRow*ys1] + sum;
             }
         }
       }
