@@ -90,7 +90,44 @@ struct Functor_TestBatchedTeamVectorSpmv {
   template<typename MemberType>
   KOKKOS_INLINE_FUNCTION
   void operator()(const MemberType &member) const {
-    KokkosBatched::TeamVectorSpmv<MemberType,Trans::NoTranspose,Algo::Gemv::Unblocked>::invoke(member, _alpha, _D, _r, _c, _X, _beta, _Y); 
+    const int first_matrix =
+        static_cast<int>(member.league_rank()) * _matrices_per_team;
+    const int last_matrix = (static_cast<int>(member.league_rank() + 1) * _matrices_per_team < _D.extent(1) ? static_cast<int>(member.league_rank() + 1) * _matrices_per_team : _D.extent(1) );
+
+    auto alpha_team = Kokkos::subview(_alpha,Kokkos::make_pair(first_matrix,last_matrix));
+    auto D_team = Kokkos::subview(_D,Kokkos::ALL,Kokkos::make_pair(first_matrix,last_matrix));
+    auto X_team = Kokkos::subview(_X,Kokkos::ALL,Kokkos::make_pair(first_matrix,last_matrix));
+    auto beta_team = Kokkos::subview(_beta,Kokkos::make_pair(first_matrix,last_matrix));
+    auto Y_team = Kokkos::subview(_Y,Kokkos::ALL,Kokkos::make_pair(first_matrix,last_matrix));
+
+    using ScratchPadIntView =
+        Kokkos::View<int*,
+                      Kokkos::DefaultExecutionSpace::scratch_memory_space>;
+
+    const int n_rows = _r.extent(0) - 1;
+    const int nnz    = _c.extent(0);
+
+    ScratchPadIntView cols(member.team_scratch(0), nnz);
+    ScratchPadIntView row_map(member.team_scratch(0), n_rows + 1);
+
+    Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(member, 0, n_rows + 1),
+        [&](const int& i) { row_map(i) = _r(i); });
+
+    Kokkos::parallel_for(
+        Kokkos::TeamVectorRange(member, 0, nnz),
+        [&](const int& i) { cols(i) = _c(i); });
+
+    member.team_barrier();
+
+    KokkosBatched::TeamVectorSpmv<MemberType,Trans::NoTranspose,Algo::Gemv::Unblocked>::invoke(member, 
+        alpha_team, 
+        D_team, 
+        row_map, 
+        cols, 
+        X_team,
+        beta_team,
+        Y_team); 
   }
 
   inline
@@ -270,7 +307,7 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl == 2)
+            if (i_impl > 1)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
             if (i_impl < 3)
@@ -291,7 +328,7 @@ int main(int argc, char *argv[]) {
             policy_type policy(number_of_teams, team_size, vector_length);
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
-            if (i_impl == 2)
+            if (i_impl > 1)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
             if (i_impl < 3)

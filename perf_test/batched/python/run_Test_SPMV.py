@@ -51,8 +51,8 @@ def main():
     n=100
     rows_per_thread=2
     team_size=16
-    implementations_left = [0, 1, 2]
-    implementations_right = [0, 1, 2]
+    implementations_left = [0, 1, 2, 3]
+    implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 

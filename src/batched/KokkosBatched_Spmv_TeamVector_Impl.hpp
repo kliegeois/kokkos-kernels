@@ -36,7 +36,7 @@ namespace KokkosBatched {
                DViewType::array_layout, 
                0>
                (member, 
-                X.extent(0), X.extent(1),
+                X.extent(1), X.extent(0),
                 alpha.data(), alpha.stride_0(),
                 D.data(), D.stride_0(), D.stride_1(),
                 r.data(), r.stride_0(),
