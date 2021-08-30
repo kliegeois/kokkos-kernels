@@ -1,6 +1,7 @@
 import numpy as np
 import subprocess
 import time
+import os
 
 n_quantiles = 7
 
@@ -17,6 +18,10 @@ def run_test_spmv(N=128, B=200, nnz_per_row=5, n=10000, rows_per_thread=1, team_
             exe += ' -r'
             y_name = '_r.txt'
             time_name = '_right.txt'
+    for i in range(0, n_implementations):
+        current_name = 'y_'+str(implementations[i])+y_name
+        if os.path.exists(current_name):
+            os.remove(current_name)
     subprocess.call(exe, shell=True)
     if verify:
         y_0 = np.loadtxt('y_0'+y_name)
