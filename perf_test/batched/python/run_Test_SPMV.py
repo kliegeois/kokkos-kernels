@@ -27,6 +27,9 @@ def run_test_spmv(N=128, B=200, nnz_per_row=5, n=10000, rows_per_thread=1, team_
         data[i, :] = np.loadtxt('timer_'+str(implementations[i])+time_name)
         if verify and i > 0:
             y_i = np.loadtxt('y_'+str(implementations[i])+y_name)
+            if np.linalg.norm(y_i) == 0.:
+                print("Strange, the norm is zero for i = " + str(i))
+                #data[i, :] = -1
             if len(y_i) != len(y_0):
                 print("Strange, one is of length "+str(len(y_i))+ " and the other "+str(len(y_0)) +" size = " + str(len(y_i)) + " i = " + str(i))
                 #data[i, :] = -1

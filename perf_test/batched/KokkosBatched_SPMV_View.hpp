@@ -162,16 +162,13 @@ struct BSPMV_Functor_View {
             const ordinal_type row_length = row_map(iRow + 1) - row_map(iRow);
             value_type sum                = 0;
 
-            printf("1 - sum = %d, alpha = %d, \n", sum, alpha[iGlobalMatrix]);
 #pragma unroll
             for (int iEntry = 0; iEntry < row_length; ++iEntry) {
               sum += m_A_values(iGlobalMatrix, row_map(iRow) + iEntry) *
                      m_x(iGlobalMatrix, cols(row_map(iRow) + iEntry));
             }
 
-            printf("2 - sum = %d, alpha = %d, \n", sum, alpha[iGlobalMatrix]);
-
-            sum *= 1.;//alpha[iGlobalMatrix];
+            sum *= alpha[iGlobalMatrix];
 
             if (dobeta == 0) {
               m_y(iGlobalMatrix, iRow) = sum;
