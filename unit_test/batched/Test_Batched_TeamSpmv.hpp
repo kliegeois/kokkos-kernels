@@ -66,7 +66,7 @@ namespace TeamSpmv {
       auto beta = Kokkos::subview(_beta,Kokkos::make_pair(first_matrix,last_matrix));
       auto y = Kokkos::subview(_Y,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
       
-      //KokkosBatched::TeamSpmv<typename ParamTagType::trans, AlgoTagType>::template invoke<MemberType, DViewType, IntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta> (member, alpha, d, _r, _c, x, beta, y);
+      KokkosBatched::TeamSpmv<MemberType, typename ParamTagType::trans, AlgoTagType>::template invoke<DViewType, IntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta> (member, alpha, d, _r, _c, x, beta, y);
     }
     
     inline

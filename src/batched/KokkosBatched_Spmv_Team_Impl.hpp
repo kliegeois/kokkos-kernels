@@ -30,7 +30,8 @@ namespace KokkosBatched {
            const betaViewType &beta,
            const yViewType &Y) {
       return TeamSpmvInternal<ArgAlgo>::template
-        invoke<typename alphaViewType::non_const_value_type, 
+        invoke<MemberType,
+               typename alphaViewType::non_const_value_type, 
                typename DViewType::non_const_value_type, 
                typename IntView::non_const_value_type, 
                typename DViewType::array_layout, 
