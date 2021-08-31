@@ -17,7 +17,8 @@ namespace KokkosBatched {
              typename xViewType,
              typename yViewType,
              typename alphaViewType,
-             typename betaViewType>
+             typename betaViewType,
+             int dobeta>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
@@ -28,16 +29,21 @@ namespace KokkosBatched {
            const xViewType &X,
            const betaViewType &beta,
            const yViewType &Y) {
-      return TeamSpmvInternal<ArgAlgo>::
-        invoke(member, 
-               X.extent(0), X.extent(1),
-               alpha.data(), alpha.stride_0(),
-               D.data(), D.stride_0(), D.stride_1(),
-               r.data(), r.stride_0(),
-               c.data(), c.stride_0(),
-               X.data(), X.stride_0(), X.stride_1(),
-               beta.data(), beta.stride_0(),
-               Y.data(), Y.stride_0(), Y.stride_1());
+      return TeamSpmvInternal<ArgAlgo>::template
+        invoke<typename alphaViewType::non_const_value_type, 
+               typename DViewType::non_const_value_type, 
+               typename IntView::non_const_value_type, 
+               typename DViewType::array_layout, 
+               dobeta>
+               (member, 
+                X.extent(0), X.extent(1),
+                alpha.data(), alpha.stride_0(),
+                D.data(), D.stride_0(), D.stride_1(),
+                r.data(), r.stride_0(),
+                c.data(), c.stride_0(),
+                X.data(), X.stride_0(), X.stride_1(),
+                beta.data(), beta.stride_0(),
+                Y.data(), Y.stride_0(), Y.stride_1());
     }
   };
 

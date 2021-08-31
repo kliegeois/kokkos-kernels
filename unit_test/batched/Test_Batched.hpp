@@ -59,6 +59,8 @@
 #include "Test_Batched_TeamSolveLU.hpp"
 #include "Test_Batched_TeamSolveLU_Real.hpp"
 #include "Test_Batched_TeamSolveLU_Complex.hpp"
+#include "Test_Batched_TeamSpmv.hpp"
+#include "Test_Batched_TeamSpmv_Real.hpp"
 #include "Test_Batched_TeamTrsm.hpp"
 #include "Test_Batched_TeamTrsm_Real.hpp"
 #include "Test_Batched_TeamTrsm_Complex.hpp"

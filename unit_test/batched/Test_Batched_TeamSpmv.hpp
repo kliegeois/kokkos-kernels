@@ -7,14 +7,14 @@
 //#include "KokkosBatched_Vector.hpp"
 
 #include "KokkosBatched_Spmv_Decl.hpp"
-#include "KokkosBatched_Spmv_Serial_Impl.hpp"
+#include "KokkosBatched_Spmv_Team_Impl.hpp"
 
 #include "KokkosKernels_TestUtils.hpp"
 
 using namespace KokkosBatched;
 
 namespace Test {
-namespace Spmv {
+namespace TeamSpmv {
 
   template<typename T>
   struct ParamTag { 
@@ -31,7 +31,7 @@ namespace Spmv {
            typename alphaViewType,
            typename betaViewType,
            int dobeta>
-  struct Functor_TestBatchedSerialSpmv {
+  struct Functor_TestBatchedTeamSpmv {
     const alphaViewType _alpha;
     const DViewType _D;
     const IntView _r;
@@ -39,40 +39,47 @@ namespace Spmv {
     const xViewType _X;
     const betaViewType _beta;
     const yViewType _Y;
+    const int _N_team;
     
     KOKKOS_INLINE_FUNCTION
-    Functor_TestBatchedSerialSpmv(const alphaViewType &alpha,
+    Functor_TestBatchedTeamSpmv(const alphaViewType &alpha,
       const DViewType &D,
       const IntView &r,
       const IntView &c,
       const xViewType &X,
       const betaViewType &beta,
-      const yViewType &Y)
-    : _alpha(alpha), _D(D), _r(r), _c(c), _X(X), _beta(beta), _Y(Y) {}
+      const yViewType &Y,
+      const int N_team)
+    : _alpha(alpha), _D(D), _r(r), _c(c), _X(X), _beta(beta), _Y(Y), _N_team(N_team) {}
     
+    template<typename MemberType>
     KOKKOS_INLINE_FUNCTION
-    void operator()(const ParamTagType &, const int k) const {
-      auto alpha = Kokkos::subview(_alpha,Kokkos::make_pair(k,k+1));
-      auto d = Kokkos::subview(_D,Kokkos::make_pair(k,k+1),Kokkos::ALL);
-      auto x = Kokkos::subview(_X,Kokkos::make_pair(k,k+1),Kokkos::ALL);
-      auto beta = Kokkos::subview(_beta,Kokkos::make_pair(k,k+1));
-      auto y = Kokkos::subview(_Y,Kokkos::make_pair(k,k+1),Kokkos::ALL);
+    void operator()(const ParamTagType &, const MemberType &member) const {
+      const int first_matrix =
+          static_cast<int>(member.league_rank()) * _N_team;
+      const int N = _D.extent(0);
+      const int last_matrix = (static_cast<int>(member.league_rank() + 1) * _N_team < N ? static_cast<int>(member.league_rank() + 1) * _N_team : N );
       
-      KokkosBatched::SerialSpmv<typename ParamTagType::trans, AlgoTagType>::template invoke<DViewType, IntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta>
-          (alpha, d, _r, _c, x, beta, y);
+      auto alpha = Kokkos::subview(_alpha,Kokkos::make_pair(first_matrix,last_matrix));
+      auto d = Kokkos::subview(_D,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+      auto x = Kokkos::subview(_X,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+      auto beta = Kokkos::subview(_beta,Kokkos::make_pair(first_matrix,last_matrix));
+      auto y = Kokkos::subview(_Y,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+      
+      //KokkosBatched::TeamSpmv<typename ParamTagType::trans, AlgoTagType>::template invoke<MemberType, DViewType, IntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta> (member, alpha, d, _r, _c, x, beta, y);
     }
     
     inline
     void run() {
       typedef typename DViewType::value_type value_type;
-      std::string name_region("KokkosBatched::Test::SerialSpmv");
+      std::string name_region("KokkosBatched::Test::TeamSpmv");
       std::string name_value_type = ( std::is_same<value_type,float>::value ? "::Float" : 
                                       std::is_same<value_type,double>::value ? "::Double" :
                                       std::is_same<value_type,Kokkos::complex<float> >::value ? "::ComplexFloat" :
                                       std::is_same<value_type,Kokkos::complex<double> >::value ? "::ComplexDouble" : "::UnknownValueType" );                               
       std::string name = name_region + name_value_type;
       Kokkos::Profiling::pushRegion(name.c_str() );
-      Kokkos::RangePolicy<DeviceType,ParamTagType> policy(0, _D.extent(0));
+      Kokkos::TeamPolicy<DeviceType,ParamTagType> policy(_D.extent(0)/_N_team, Kokkos::AUTO(), Kokkos::AUTO());
       Kokkos::parallel_for(name.c_str(), policy, *this);
       Kokkos::Profiling::popRegion();
     }
@@ -88,7 +95,7 @@ namespace Spmv {
            typename alphaViewType,
            typename betaViewType,
            int dobeta>
-  void impl_test_batched_spmv(const int N, const int BlkSize) {
+  void impl_test_batched_spmv(const int N, const int BlkSize, const int N_team) {
     typedef typename DViewType::value_type value_type;
     typedef Kokkos::Details::ArithTraits<value_type> ats;
 
@@ -175,8 +182,8 @@ namespace Spmv {
           Y0_host(l,i) += alpha_host(l)*(X0_host(l,i) + 0.5*X0_host(l,i-1));
       }
 
-    Functor_TestBatchedSerialSpmv<DeviceType,ParamTagType,AlgoTagType,DViewType,IntView,xViewType,yViewType,alphaViewType,betaViewType,dobeta>
-    (alpha, D, r, c, X1, beta, Y1).run();
+    Functor_TestBatchedTeamSpmv<DeviceType,ParamTagType,AlgoTagType,DViewType,IntView,xViewType,yViewType,alphaViewType,betaViewType,dobeta>
+    (alpha, D, r, c, X1, beta, Y1, N_team).run();
 
     Kokkos::fence();
 
@@ -205,20 +212,20 @@ template<typename DeviceType,
          typename ScalarType,
          typename ParamTagType,
          typename AlgoTagType>
-int test_batched_spmv() {
+int test_batched_team_spmv() {
 #if defined(KOKKOSKERNELS_INST_LAYOUTLEFT) 
   {
     typedef Kokkos::View<ValueType**,Kokkos::LayoutLeft,DeviceType> ViewType;
     typedef Kokkos::View<int*,Kokkos::LayoutLeft,DeviceType> IntView;
     typedef Kokkos::View<ValueType*,Kokkos::LayoutLeft,DeviceType> alphaViewType;
     
-    Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>( 0, 10);
+    Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>( 0, 10, 1);
     for (int i=0;i<10;++i) {                                                                                        
-      Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>(1024,  i);
+      Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>(1024,  i, 2);
     }
-    Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>( 0, 10);
+    Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>( 0, 10, 1);
     for (int i=0;i<10;++i) {                                                                                        
-      Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>(1024,  i);
+      Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>(1024,  i, 2);
     }
   }
 #endif
@@ -228,14 +235,14 @@ int test_batched_spmv() {
     typedef Kokkos::View<int*,Kokkos::LayoutRight,DeviceType> IntView;
     typedef Kokkos::View<ValueType*,Kokkos::LayoutRight,DeviceType> alphaViewType;
 
-    Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>( 0, 10);
+    Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>( 0, 10, 1);
     for (int i=0;i<10;++i) {                                                                                        
-      Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>(1024,  i);
+      Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>(1024,  i, 2);
     }
 
-    Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>( 0, 10);
+    Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>( 0, 10, 1);
     for (int i=0;i<10;++i) {                                                                                         
-      Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>(1024,  i);
+      Test::TeamSpmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>(1024,  i, 2);
     }
   }
 #endif
