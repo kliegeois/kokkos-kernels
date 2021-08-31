@@ -25,7 +25,8 @@ namespace KokkosBatched {
              typename xViewType,
              typename yViewType,
              typename alphaViewType,
-             typename betaViewType>
+             typename betaViewType,
+             int dobeta>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const alphaViewType &alpha,

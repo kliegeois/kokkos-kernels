@@ -25,6 +25,8 @@
 #include "Test_Batched_SerialSolveLU.hpp"
 #include "Test_Batched_SerialSolveLU_Real.hpp"
 #include "Test_Batched_SerialSolveLU_Complex.hpp"
+#include "Test_Batched_SerialSpmv.hpp"
+#include "Test_Batched_SerialSpmv_Real.hpp"
 #include "Test_Batched_SerialTrmm.hpp"
 #include "Test_Batched_SerialTrmm_Real.hpp"
 #include "Test_Batched_SerialTrmm_Complex.hpp"
