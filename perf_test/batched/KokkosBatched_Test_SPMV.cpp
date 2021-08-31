@@ -92,7 +92,8 @@ struct Functor_TestBatchedTeamVectorSpmv {
   void operator()(const MemberType &member) const {
     const int first_matrix =
         static_cast<int>(member.league_rank()) * _matrices_per_team;
-    const int last_matrix = (static_cast<int>(member.league_rank() + 1) * _matrices_per_team < _D.extent(1) ? static_cast<int>(member.league_rank() + 1) * _matrices_per_team : _D.extent(1) );
+    const int N = _D.extent(0);
+    const int last_matrix = (static_cast<int>(member.league_rank() + 1) * _matrices_per_team < N ? static_cast<int>(member.league_rank() + 1) * _matrices_per_team : N );
 
     auto alpha_team = Kokkos::subview(_alpha,Kokkos::make_pair(first_matrix,last_matrix));
     auto D_team = Kokkos::subview(_D,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
@@ -323,16 +324,17 @@ int main(int argc, char *argv[]) {
             if (i_impl > 1)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
-            if (i_impl < 3)
+            if (i_impl == 3) {
+              Functor_TestBatchedTeamVectorSpmv<policy_type, AMatrixValueViewLL, IntView, XYTypeLL,  XYTypeLL, alphaViewType, alphaViewType, 0>
+                (policy, alphaV, valuesLL, rowOffsets, colIndices, xLL, betaV, yLL, N_team).run();
+            }
+            else {
               Kokkos::parallel_for(
                   "KokkosSparse::PerfTest::BSpMV", policy,
                   BSPMV_Functor_View<AMatrixValueViewLL, IntView, XYTypeLL,
                                       XYTypeLL, 0>(s_a, valuesLL, rowOffsets,
                                                   colIndices, xLL, s_b, yLL,
                                                   N_team, N, i_impl));
-            else{
-              Functor_TestBatchedTeamVectorSpmv<policy_type, AMatrixValueViewLL, IntView, XYTypeLL,  XYTypeLL, alphaViewType, alphaViewType, 0>
-                (policy, alphaV, valuesLL, rowOffsets, colIndices, xLL, betaV, yLL, N_team).run();
             }
           }
           if (layout_right) {
@@ -344,16 +346,17 @@ int main(int argc, char *argv[]) {
             if (i_impl > 1)
               policy.set_scratch_size(0, Kokkos::PerTeam(bytes_0 + bytes_1));
             // policy.set_scratch_size(1, Kokkos::PerTeam(bytes_1));
-            if (i_impl < 3)
+            if (i_impl == 3) {
+              Functor_TestBatchedTeamVectorSpmv<policy_type, AMatrixValueViewLR, IntView, XYTypeLR,  XYTypeLR, alphaViewType, alphaViewType, 0>
+                (policy, alphaV, valuesLR, rowOffsets, colIndices, xLR, betaV, yLR, N_team).run();
+            }
+            else {
               Kokkos::parallel_for(
                   "KokkosSparse::PerfTest::BSpMV", policy,
                   BSPMV_Functor_View<AMatrixValueViewLR, IntView, XYTypeLR,
                                       XYTypeLR, 0>(s_a, valuesLR, rowOffsets,
                                                   colIndices, xLR, s_b, yLR,
                                                   N_team, N, i_impl));
-            else{
-              Functor_TestBatchedTeamVectorSpmv<policy_type, AMatrixValueViewLR, IntView, XYTypeLR,  XYTypeLR, alphaViewType, alphaViewType, 0>
-                (policy, alphaV, valuesLR, rowOffsets, colIndices, xLR, betaV, yLR, N_team).run();
             }
           }
           exec_space().fence();
