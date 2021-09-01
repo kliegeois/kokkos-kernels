@@ -17,7 +17,8 @@ namespace KokkosBatched {
              typename xViewType,
              typename yViewType,
              typename alphaViewType,
-             typename betaViewType>
+             typename betaViewType,
+             int dobeta>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
@@ -30,11 +31,11 @@ namespace KokkosBatched {
            const yViewType &Y) {
       return TeamVectorSpmvInternal<ArgAlgo>::template
         invoke<MemberType, 
-               alphaViewType::non_const_value_type, 
-               DViewType::non_const_value_type, 
-               IntView::non_const_value_type, 
-               DViewType::array_layout, 
-               0>
+               typename alphaViewType::non_const_value_type, 
+               typename DViewType::non_const_value_type, 
+               typename IntView::non_const_value_type, 
+               typename DViewType::array_layout, 
+               dobeta>
                (member, 
                 X.extent(0), X.extent(1),
                 alpha.data(), alpha.stride_0(),

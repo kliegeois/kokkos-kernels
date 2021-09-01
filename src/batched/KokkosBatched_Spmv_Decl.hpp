@@ -78,7 +78,8 @@ namespace KokkosBatched {
              typename xViewType,
              typename yViewType,
              typename alphaViewType,
-             typename betaViewType>
+             typename betaViewType,
+             int dobeta>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
@@ -103,7 +104,8 @@ namespace KokkosBatched {
              typename xViewType,
              typename yViewType,
              typename alphaViewType,
-             typename betaViewType>
+             typename betaViewType,
+             int dobeta>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const MemberType &member, 

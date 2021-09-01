@@ -82,6 +82,8 @@
 #include "Test_Batched_TeamVectorSolveUTV_Real.hpp"
 #include "Test_Batched_TeamVectorSolveUTV2.hpp"
 #include "Test_Batched_TeamVectorSolveUTV2_Real.hpp"
+#include "Test_Batched_TeamVectorSpmv.hpp"
+#include "Test_Batched_TeamVectorSpmv_Real.hpp"
 #include "Test_Batched_TeamVectorUTV.hpp"
 #include "Test_Batched_TeamVectorUTV_Real.hpp"
 
