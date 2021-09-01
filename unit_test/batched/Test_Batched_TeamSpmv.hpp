@@ -104,7 +104,7 @@ namespace TeamSpmv {
     xViewType  X0("x0", N, BlkSize), X1("x1", N, BlkSize);
     yViewType  Y0("y0", N, BlkSize), Y1("y1", N, BlkSize);
     DViewType  D("D", N, nnz);
-    IntView    r("r", BlkSize);
+    IntView    r("r", BlkSize+1);
     IntView    c("c", nnz);
 
     alphaViewType  alpha("alpha", N);
