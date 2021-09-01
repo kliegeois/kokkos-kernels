@@ -2,6 +2,9 @@
 #define TEST_BATCHED_HPP
 
 // Serial kernels
+#include "Test_Batched_SerialAxpy.hpp"
+#include "Test_Batched_SerialAxpy_Real.hpp"
+#include "Test_Batched_SerialAxpy_Complex.hpp"
 #include "Test_Batched_SerialEigendecomposition.hpp"
 #include "Test_Batched_SerialEigendecomposition_Real.hpp"
 #include "Test_Batched_SerialGemm.hpp"
@@ -25,6 +28,8 @@
 #include "Test_Batched_SerialSolveLU.hpp"
 #include "Test_Batched_SerialSolveLU_Real.hpp"
 #include "Test_Batched_SerialSolveLU_Complex.hpp"
+#include "Test_Batched_SerialSpmv.hpp"
+#include "Test_Batched_SerialSpmv_Real.hpp"
 #include "Test_Batched_SerialTrmm.hpp"
 #include "Test_Batched_SerialTrmm_Real.hpp"
 #include "Test_Batched_SerialTrmm_Complex.hpp"
@@ -39,6 +44,9 @@
 #include "Test_Batched_SerialTrtri_Complex.hpp"
 
 // Team Kernels
+#include "Test_Batched_TeamAxpy.hpp"
+#include "Test_Batched_TeamAxpy_Real.hpp"
+#include "Test_Batched_TeamAxpy_Complex.hpp"
 #include "Test_Batched_TeamGemm.hpp"
 #include "Test_Batched_TeamGemm_Real.hpp"
 #include "Test_Batched_TeamGemm_Complex.hpp"
@@ -57,6 +65,8 @@
 #include "Test_Batched_TeamSolveLU.hpp"
 #include "Test_Batched_TeamSolveLU_Real.hpp"
 #include "Test_Batched_TeamSolveLU_Complex.hpp"
+#include "Test_Batched_TeamSpmv.hpp"
+#include "Test_Batched_TeamSpmv_Real.hpp"
 #include "Test_Batched_TeamTrsm.hpp"
 #include "Test_Batched_TeamTrsm_Real.hpp"
 #include "Test_Batched_TeamTrsm_Complex.hpp"
@@ -65,6 +75,9 @@
 #include "Test_Batched_TeamTrsv_Complex.hpp"
 
 // TeamVector Kernels
+#include "Test_Batched_TeamVectorAxpy.hpp"
+#include "Test_Batched_TeamVectorAxpy_Real.hpp"
+#include "Test_Batched_TeamVectorAxpy_Complex.hpp"
 #include "Test_Batched_TeamVectorEigendecomposition.hpp"
 #include "Test_Batched_TeamVectorEigendecomposition_Real.hpp"
 #include "Test_Batched_TeamVectorGemm.hpp"
@@ -78,6 +91,8 @@
 #include "Test_Batched_TeamVectorSolveUTV_Real.hpp"
 #include "Test_Batched_TeamVectorSolveUTV2.hpp"
 #include "Test_Batched_TeamVectorSolveUTV2_Real.hpp"
+#include "Test_Batched_TeamVectorSpmv.hpp"
+#include "Test_Batched_TeamVectorSpmv_Real.hpp"
 #include "Test_Batched_TeamVectorUTV.hpp"
 #include "Test_Batched_TeamVectorUTV_Real.hpp"
 

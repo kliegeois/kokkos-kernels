@@ -390,6 +390,7 @@ namespace KokkosBatched {
     };
 
     using Gemv = Level2;
+    using Spmv = Level2;
     using Trsv = Level2;
     using ApplyQ = Level2;
 
