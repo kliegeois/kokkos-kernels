@@ -62,7 +62,7 @@ namespace KokkosBatched {
           invoke(n, alpha[i*alphas0], X+i*xs0, xs1, Y+i*ys0, ys1);
       else
         for (int j=0;j<n;++j)
-          invoke(m, alpha, X+j*xs1, xs0, Y+j*ys1, ys0);
+          invoke(m, alpha, alphas0, X+j*xs1, xs0, Y+j*ys1, ys0);
         
       return 0;
     }
@@ -132,7 +132,7 @@ namespace KokkosBatched {
         Kokkos::parallel_for
           (Kokkos::TeamThreadRange(member,n),
            [&](const int &j) {
-            SerialAxpyInternal::invoke(m, alpha, X+j*xs1, xs0, Y+j*ys1, ys0);
+            SerialAxpyInternal::invoke(m, alpha, alphas0, X+j*xs1, xs0, Y+j*ys1, ys0);
           });
       }
       //member.team_barrier();
@@ -217,7 +217,7 @@ namespace KokkosBatched {
           Kokkos::TeamVectorRange(member, 0, m * n),
           [&](const int& iTemp) {
             int i, j;
-            getIndices<layout>(iTemp, n, m, i, j);
+            getIndices<layout>(iTemp, n, m, j, i);
             Y[i*ys0+j*ys1] += alpha[i*alphas0] * X[i*xs0+j*xs1];
           });
       //member.team_barrier();
