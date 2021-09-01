@@ -121,7 +121,7 @@ struct Functor_TestBatchedTeamVectorSpmv {
 
     member.team_barrier();
 
-    KokkosBatched::TeamVectorSpmv<MemberType,Trans::NoTranspose,Algo::Gemv::Unblocked>::template invoke<DViewType, ScratchPadIntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta> (member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team); 
+    KokkosBatched::Spmv<MemberType,Trans::NoTranspose,Mode::TeamVector,Algo::Gemv::Unblocked>::template invoke<DViewType, ScratchPadIntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta> (member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team); 
   }
 
   inline

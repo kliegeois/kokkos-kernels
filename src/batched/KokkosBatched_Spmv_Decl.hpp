@@ -118,11 +118,11 @@ namespace KokkosBatched {
            const yViewType &y) {
       int r_val = 0;
       if (std::is_same<ArgMode,Mode::Serial>::value) {
-        r_val = SerialSpmv<ArgTrans,ArgAlgo>::invoke(alpha, D, r, c, x, beta, y);
+        r_val = SerialSpmv<ArgTrans,ArgAlgo>::template invoke<DViewType, IntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta>(alpha, D, r, c, x, beta, y);
       } else if (std::is_same<ArgMode,Mode::Team>::value) {
-        r_val = TeamSpmv<MemberType,ArgTrans,ArgAlgo>::invoke(member, alpha, D, r, c, x, beta, y);
+        r_val = TeamSpmv<MemberType,ArgTrans,ArgAlgo>::template invoke<DViewType, IntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta>(member, alpha, D, r, c, x, beta, y);
       } else if (std::is_same<ArgMode,Mode::TeamVector>::value) {
-        r_val = TeamVectorSpmv<MemberType,ArgTrans,ArgAlgo>::invoke(member, alpha, D, r, c, x, beta, y);
+        r_val = TeamVectorSpmv<MemberType,ArgTrans,ArgAlgo>::template invoke<DViewType, IntView, xViewType, yViewType, alphaViewType, betaViewType, dobeta>(member, alpha, D, r, c, x, beta, y);
       } 
       return r_val;
     }      
