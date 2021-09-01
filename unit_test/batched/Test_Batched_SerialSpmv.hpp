@@ -104,7 +104,7 @@ namespace Spmv {
     betaViewType   beta("beta", N);
 
     Kokkos::deep_copy(alpha, value_type(1.0));
-    Kokkos::deep_copy(beta, value_type(0.0));
+    Kokkos::deep_copy(beta, value_type(1.0));
 
     Kokkos::Random_XorShift64_Pool<typename DeviceType::execution_space> random(13718);
     Kokkos::fill_random(X0, random, value_type(1.0));
@@ -134,7 +134,7 @@ namespace Spmv {
           D_host(l,i) = value_type(0.5);
         }
         c_host(i) = current_col;
-        if ((i-1)%3 == 0)
+        if (i%3 == 1)
           --current_col;
         else
           ++current_col;
@@ -169,7 +169,7 @@ namespace Spmv {
           Y0_host(l,i) *= beta_host(l);
         if (i != 0 && i != (BlkSize-1))
           Y0_host(l,i) += alpha_host(l)*(X0_host(l,i) + 0.5*X0_host(l,i-1) + 0.5*X0_host(l,i+1));
-        else if (i != 0)
+        else if (i == 0)
           Y0_host(l,i) += alpha_host(l)*(X0_host(l,i) + 0.5*X0_host(l,i+1));
         else
           Y0_host(l,i) += alpha_host(l)*(X0_host(l,i) + 0.5*X0_host(l,i-1));
@@ -213,11 +213,11 @@ int test_batched_spmv() {
     typedef Kokkos::View<ValueType*,Kokkos::LayoutLeft,DeviceType> alphaViewType;
     
     Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>( 0, 10);
-    for (int i=0;i<10;++i) {                                                                                        
+    for (int i=3;i<10;++i) {                                                                                        
       Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>(1024,  i);
     }
     Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>( 0, 10);
-    for (int i=0;i<10;++i) {                                                                                        
+    for (int i=3;i<10;++i) {                                                                                        
       Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>(1024,  i);
     }
   }
@@ -229,12 +229,12 @@ int test_batched_spmv() {
     typedef Kokkos::View<ValueType*,Kokkos::LayoutRight,DeviceType> alphaViewType;
 
     Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>( 0, 10);
-    for (int i=0;i<10;++i) {                                                                                        
+    for (int i=3;i<10;++i) {                                                                                        
       Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,0>(1024,  i);
     }
 
     Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>( 0, 10);
-    for (int i=0;i<10;++i) {                                                                                         
+    for (int i=3;i<10;++i) {                                                                                         
       Test::Spmv::impl_test_batched_spmv<DeviceType,ParamTagType,AlgoTagType,ViewType,IntView,ViewType,ViewType,alphaViewType,alphaViewType,1>(1024,  i);
     }
   }
