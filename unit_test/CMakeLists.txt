@@ -14,8 +14,14 @@ KOKKOSKERNELS_INCLUDE_DIRECTORIES(REQUIRED_DURING_INSTALLATION_TESTING ${CMAKE_C
 KOKKOSKERNELS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/graph)
 KOKKOSKERNELS_INCLUDE_DIRECTORIES(REQUIRED_DURING_INSTALLATION_TESTING ${CMAKE_CURRENT_SOURCE_DIR}/graph)
 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/batched)
-INCLUDE_DIRECTORIES(REQUIRED_DURING_INSTALLATION_TESTING ${CMAKE_CURRENT_SOURCE_DIR}/batched)
+KOKKOSKERNELS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/batched)
+KOKKOSKERNELS_INCLUDE_DIRECTORIES(REQUIRED_DURING_INSTALLATION_TESTING ${CMAKE_CURRENT_SOURCE_DIR}/batched)
+
+KOKKOSKERNELS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/batched/dense)
+KOKKOSKERNELS_INCLUDE_DIRECTORIES(REQUIRED_DURING_INSTALLATION_TESTING ${CMAKE_CURRENT_SOURCE_DIR}/batched/dense)
+
+KOKKOSKERNELS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/batched/sparse)
+KOKKOSKERNELS_INCLUDE_DIRECTORIES(REQUIRED_DURING_INSTALLATION_TESTING ${CMAKE_CURRENT_SOURCE_DIR}/batched/sparse)
 
 KOKKOSKERNELS_INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/common)
 KOKKOSKERNELS_INCLUDE_DIRECTORIES(REQUIRED_DURING_INSTALLATION_TESTING ${CMAKE_CURRENT_SOURCE_DIR}/common)
@@ -52,6 +58,22 @@ IF (KOKKOS_ENABLE_CUDA)
       Test_Main.cpp
       cuda/Test_Cuda_Blas.cpp
     COMPONENTS blas
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_dense_dla_cuda
+    SOURCES
+      Test_Main.cpp
+      cuda/Test_Cuda_Batched_Dense.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_sparse_dla_cuda
+    SOURCES
+      Test_Main.cpp
+      cuda/Test_Cuda_Batched_Sparse.cpp
+    COMPONENTS batched
   )
 
   KOKKOSKERNELS_ADD_UNIT_TEST(
@@ -100,6 +122,22 @@ IF (KOKKOS_ENABLE_SYCL)
   )
 
   KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_dense_dla_sycl
+    SOURCES
+      Test_Main.cpp
+      sycl/Test_SYCL_Batched_Dense.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_sparse_dla_sycl
+    SOURCES
+      Test_Main.cpp
+      sycl/Test_SYCL_Batched_Sparse.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
     batched_dla_sycl
     SOURCES
       Test_Main.cpp
@@ -143,6 +181,22 @@ IF (KOKKOS_ENABLE_HIP)
       Test_Main.cpp
       hip/Test_HIP_Blas.cpp
     COMPONENTS blas
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_dense_dla_hip
+    SOURCES
+      Test_Main.cpp
+      hip/Test_HIP_Batched_Dense.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_sparse_dla_hip
+    SOURCES
+      Test_Main.cpp
+      hip/Test_HIP_Batched_Sparse.cpp
+    COMPONENTS batched
   )
 
   KOKKOSKERNELS_ADD_UNIT_TEST(
@@ -236,6 +290,22 @@ IF (KOKKOS_ENABLE_OPENMP)
   )
 
   KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_dense_dla_openmp
+    SOURCES
+      Test_Main.cpp
+      openmp/Test_OpenMP_Batched_Dense.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_sparse_dla_openmp
+    SOURCES
+      Test_Main.cpp
+      openmp/Test_OpenMP_Batched_Sparse.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
     batched_dla_openmp
     SOURCES
       Test_Main.cpp
@@ -283,7 +353,23 @@ IF (KOKKOS_ENABLE_SERIAL)
       serial/Test_Serial_Blas.cpp
     COMPONENTS blas
   )
-    
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_dense_dla_serial
+    SOURCES
+      Test_Main.cpp
+      serial/Test_Serial_Batched_Dense.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_sparse_dla_serial
+    SOURCES
+      Test_Main.cpp
+      serial/Test_Serial_Batched_Sparse.cpp
+    COMPONENTS batched
+  )
+
   KOKKOSKERNELS_ADD_UNIT_TEST(
     batched_dla_serial
     SOURCES
@@ -328,7 +414,23 @@ IF (KOKKOS_ENABLE_PTHREAD)
       threads/Test_Threads_Blas.cpp
     COMPONENTS blas
   )
-    
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_dense_dla_threads
+    SOURCES
+      Test_Main.cpp
+      threads/Test_Threads_Batched_Dense.cpp
+    COMPONENTS batched
+  )
+
+  KOKKOSKERNELS_ADD_UNIT_TEST(
+    batched_sparse_dla_threads
+    SOURCES
+      Test_Main.cpp
+      threads/Test_Threads_Batched_Sparse.cpp
+    COMPONENTS batched
+  )
+
   KOKKOSKERNELS_ADD_UNIT_TEST(
     batched_dla_threads
     SOURCES

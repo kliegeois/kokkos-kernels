@@ -1,5 +1,5 @@
-#ifndef __KOKKOSBATCHED_SPMV_SERIAL_INTERNAL_HPP__
-#define __KOKKOSBATCHED_SPMV_SERIAL_INTERNAL_HPP__
+#ifndef __KOKKOSBATCHED_SPMV_SERIAL_IMPL_HPP__
+#define __KOKKOSBATCHED_SPMV_SERIAL_IMPL_HPP__
 
 
 /// \author Kim Liegeois (knliege@sandia.gov)
@@ -11,7 +11,6 @@ namespace KokkosBatched {
   ///
   /// Serial Internal Impl
   /// ==================== 
-  template<typename ArgAlgo>
   struct SerialSpmvInternal {
     template <typename ScalarType,
               typename ValueType,
@@ -57,6 +56,43 @@ namespace KokkosBatched {
     }
   };
 
+  template<>
+  struct SerialSpmv<Trans::NoTranspose> {
+          
+    template<typename DViewType,
+             typename IntView,
+             typename xViewType,
+             typename yViewType,
+             typename alphaViewType,
+             typename betaViewType,
+             int dobeta>
+    KOKKOS_INLINE_FUNCTION
+    static int
+    invoke(const alphaViewType &alpha,
+           const DViewType &D,
+           const IntView &r,
+           const IntView &c,
+           const xViewType &X,
+           const betaViewType &beta,
+           const yViewType &Y) {
+      return SerialSpmvInternal::template
+        invoke<typename alphaViewType::non_const_value_type, 
+               typename DViewType::non_const_value_type, 
+               typename IntView::non_const_value_type, 
+               typename DViewType::array_layout, 
+               dobeta>
+               (X.extent(0), X.extent(1),
+                alpha.data(), alpha.stride_0(),
+                D.data(), D.stride_0(), D.stride_1(),
+                r.data(), r.stride_0(),
+                c.data(), c.stride_0(),
+                X.data(), X.stride_0(), X.stride_1(),
+                beta.data(), beta.stride_0(),
+                Y.data(), Y.stride_0(), Y.stride_1());
+    }
+  };
+
 }
+
 
 #endif

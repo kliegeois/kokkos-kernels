@@ -6,7 +6,7 @@
 
 //#include "KokkosBatched_Vector.hpp"
 
-#include "KokkosBatched_Axpy_Decl.hpp"
+#include "KokkosBatched_Axpy.hpp"
 #include "KokkosBatched_Axpy_Impl.hpp"
 
 #include "KokkosKernels_TestUtils.hpp"

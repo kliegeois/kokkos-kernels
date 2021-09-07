@@ -6,7 +6,7 @@
 
 //#include "KokkosBatched_Vector.hpp"
 
-#include "KokkosBatched_Axpy_Decl.hpp"
+#include "KokkosBatched_Axpy.hpp"
 #include "KokkosBatched_Axpy_Impl.hpp"
 
 #include "KokkosKernels_TestUtils.hpp"
@@ -14,43 +14,51 @@
 using namespace KokkosBatched;
 
 namespace Test {
-namespace Axpy {
+namespace TeamVectorAxpy {
  
   template<typename DeviceType,
            typename ViewType,
            typename alphaViewType>
-  struct Functor_TestBatchedSerialAxpy {
+  struct Functor_TestBatchedTeamVectorAxpy {
     const alphaViewType _alpha;
     const ViewType _X;
     const ViewType _Y;
+    const int _N_team;
     
     KOKKOS_INLINE_FUNCTION
-    Functor_TestBatchedSerialAxpy(const alphaViewType &alpha,
+    Functor_TestBatchedTeamVectorAxpy(const alphaViewType &alpha,
       const ViewType &X,
-      const ViewType &Y)
-    : _alpha(alpha), _X(X), _Y(Y) {}
+      const ViewType &Y,
+      const int N_team)
+    : _alpha(alpha), _X(X), _Y(Y), _N_team(N_team) {}
     
+    template<typename MemberType>
     KOKKOS_INLINE_FUNCTION
-    void operator()(const int k) const {
-      auto alpha = Kokkos::subview(_alpha,Kokkos::make_pair(k,k+1));
-      auto x = Kokkos::subview(_X,Kokkos::make_pair(k,k+1),Kokkos::ALL);
-      auto y = Kokkos::subview(_Y,Kokkos::make_pair(k,k+1),Kokkos::ALL);
+    void operator()(const MemberType &member) const {
+      const int first_matrix =
+          static_cast<int>(member.league_rank()) * _N_team;
+      const int N = _X.extent(0);
+      const int last_matrix = (static_cast<int>(member.league_rank() + 1) * _N_team < N ? static_cast<int>(member.league_rank() + 1) * _N_team : N );
+
+      auto alpha = Kokkos::subview(_alpha,Kokkos::make_pair(first_matrix,last_matrix));
+      auto x = Kokkos::subview(_X,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+      auto y = Kokkos::subview(_Y,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
       
-      KokkosBatched::SerialAxpy::template invoke<ViewType, alphaViewType>
-          (alpha, x, y);
+      KokkosBatched::TeamVectorAxpy<MemberType>::template invoke<ViewType, alphaViewType>
+          (member, alpha, x, y);
     }
     
     inline
     void run() {
       typedef typename ViewType::value_type value_type;
-      std::string name_region("KokkosBatched::Test::SerialAxpy");
+      std::string name_region("KokkosBatched::Test::TeamVectorAxpy");
       std::string name_value_type = ( std::is_same<value_type,float>::value ? "::Float" : 
                                       std::is_same<value_type,double>::value ? "::Double" :
                                       std::is_same<value_type,Kokkos::complex<float> >::value ? "::ComplexFloat" :
                                       std::is_same<value_type,Kokkos::complex<double> >::value ? "::ComplexDouble" : "::UnknownValueType" );                               
       std::string name = name_region + name_value_type;
       Kokkos::Profiling::pushRegion(name.c_str() );
-      Kokkos::RangePolicy<DeviceType> policy(0, _X.extent(0));
+      Kokkos::TeamPolicy<DeviceType> policy(_X.extent(0)/_N_team, Kokkos::AUTO(), Kokkos::AUTO());
       Kokkos::parallel_for(name.c_str(), policy, *this);
       Kokkos::Profiling::popRegion();
     }
@@ -59,7 +67,7 @@ namespace Axpy {
   template<typename DeviceType,
            typename ViewType,
            typename alphaViewType>
-  void impl_test_batched_axpy(const int N, const int BlkSize) {
+  void impl_test_batched_axpy(const int N, const int BlkSize, const int N_team) {
     typedef typename ViewType::value_type value_type;
     typedef Kokkos::Details::ArithTraits<value_type> ats;
 
@@ -90,8 +98,8 @@ namespace Axpy {
       for (int i=0;i<BlkSize;++i)
         Y0_host(l,i) += alpha_host(l)*X0_host(l,i);
 
-    Functor_TestBatchedSerialAxpy<DeviceType,ViewType,alphaViewType>
-    (alpha, X1, Y1).run();
+    Functor_TestBatchedTeamVectorAxpy<DeviceType,ViewType,alphaViewType>
+    (alpha, X1, Y1, N_team).run();
 
     Kokkos::fence();
 
@@ -118,15 +126,15 @@ namespace Axpy {
 template<typename DeviceType, 
          typename ValueType, 
          typename ScalarType>
-int test_batched_axpy() {
+int test_batched_teamvector_axpy() {
 #if defined(KOKKOSKERNELS_INST_LAYOUTLEFT) 
   {
     typedef Kokkos::View<ValueType**,Kokkos::LayoutLeft,DeviceType> ViewType;
     typedef Kokkos::View<ValueType*,Kokkos::LayoutLeft,DeviceType> alphaViewType;
     
-    Test::Axpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>( 0, 10);
+    Test::TeamVectorAxpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>( 0, 10, 2);
     for (int i=3;i<10;++i) {                                                                                        
-      Test::Axpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>(1024,  i);
+      Test::TeamVectorAxpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>(1024,  i, 2);
     }
   }
 #endif
@@ -135,9 +143,9 @@ int test_batched_axpy() {
     typedef Kokkos::View<ValueType**,Kokkos::LayoutRight,DeviceType> ViewType;
     typedef Kokkos::View<ValueType*,Kokkos::LayoutRight,DeviceType> alphaViewType;
 
-    Test::Axpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>( 0, 10);
+    Test::TeamVectorAxpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>( 0, 10, 2);
     for (int i=3;i<10;++i) {                                                                                        
-      Test::Axpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>(1024,  i);
+      Test::TeamVectorAxpy::impl_test_batched_axpy<DeviceType,ViewType,alphaViewType>(1024,  i, 2);
     }
   }
 #endif
