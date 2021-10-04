@@ -1,5 +1,5 @@
-#ifndef __KOKKOSBATCHED_DOT_INTERNAL_HPP__
-#define __KOKKOSBATCHED_DOT_INTERNAL_HPP__
+#ifndef __KOKKOSBATCHED_DOT_IMPL_HPP__
+#define __KOKKOSBATCHED_DOT_IMPL_HPP__
 
 
 /// \author Kyungjoo Kim (kyukim@sandia.gov)
@@ -115,6 +115,49 @@ namespace KokkosBatched {
       return 0;
     }
   };
+
+  ///
+  /// Serial Impl
+  /// ===========
+  template<typename VectorViewType,
+           typename NormViewType>
+  KOKKOS_INLINE_FUNCTION
+  int
+  SerialDot::
+  invoke(const VectorViewType &X,
+         const VectorViewType &Y,
+         const NormViewType &dot) {
+    return SerialDotInternal::template
+      invoke<typename VectorViewType::non_const_value_type>
+             (X.extent(0), X.extent(1),
+              X.data(), X.stride_0(), X.stride_1(),
+              Y.data(), Y.stride_0(), Y.stride_1(),
+              dot.data(), dot.stride_0());
+  }
+
+  ///
+  /// TeamVector Impl
+  /// ===============
+    
+  template<typename MemberType>
+  template<typename VectorViewType,
+           typename NormViewType>
+  KOKKOS_INLINE_FUNCTION
+  int
+  TeamVectorDot<MemberType>::
+  invoke(const MemberType &member, 
+         const VectorViewType &X,
+         const VectorViewType &Y,
+         const NormViewType &dot) {
+    return TeamVectorDotInternal::
+      invoke<MemberType,
+             typename VectorViewType::non_const_value_type>
+             (member, 
+              X.extent(0), X.extent(1),
+              X.data(), X.stride_0(), X.stride_1(),
+              Y.data(), Y.stride_0(), Y.stride_1(),
+              dot.data(), dot.stride_0());
+  }
 
 } // end namespace KokkosBatched
 
