@@ -6,6 +6,8 @@
 #include "Test_Batched_SerialSpmv_Real.hpp"
 
 // Team Kernels
+#include "Test_Batched_TeamCG.hpp"
+#include "Test_Batched_TeamCG_Real.hpp"
 #include "Test_Batched_TeamSpmv.hpp"
 #include "Test_Batched_TeamSpmv_Real.hpp"
 

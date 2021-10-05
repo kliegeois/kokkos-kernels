@@ -47,8 +47,10 @@
 
 #include "KokkosBatched_Util.hpp"
 
-#include "KokkosBatched_Dot.hpp"
 #include "KokkosBatched_Axpy.hpp"
+#include "KokkosBatched_Copy_Decl.hpp"
+#include "KokkosBatched_Dot.hpp"
+#include "KokkosBatched_Spmv.hpp"
 
 namespace KokkosBatched {
 
@@ -60,8 +62,7 @@ namespace KokkosBatched {
   struct SerialCG {
     template<typename ValuesViewType,
              typename IntView,
-             typename VectorViewType,
-             typename ScalarType>
+             typename VectorViewType>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const ValuesViewType &values,
@@ -70,9 +71,9 @@ namespace KokkosBatched {
            const VectorViewType &B,
            const VectorViewType &X,
            const size_t maximum_iteration = 200,
-           const typename Kokkos::Details::ArithTraits<ScalarType>::mag_type tolerance = Kokkos::Details::ArithTraits<ScalarType>::epsilon()) {
+           const typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type tolerance = Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::epsilon()) {
             typedef typename IntView::non_const_value_type OrdinalType;
-            typedef typename Kokkos::Details::ArithTraits<ScalarType>::mag_type MagnitudeType;
+            typedef typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type MagnitudeType;
             typedef Kokkos::View<MagnitudeType*,Kokkos::LayoutLeft,typename ValuesViewType::device_type> NormViewType;
 
             const OrdinalType numMatrices = X.extent(0);
@@ -89,20 +90,22 @@ namespace KokkosBatched {
             NormViewType beta("beta", numMatrices);
             NormViewType tmp("tmp", numMatrices);
 
-            Kokkos::deep_copy(alpha, MagnitudeType(-1.0));
-            Kokkos::deep_copy(beta, MagnitudeType(1.0));
+            for(size_t i = 0; i < numMatrices; ++i) {
+              alpha(i) = MagnitudeType(-1.0);
+              beta(i) = MagnitudeType(1.0);
+            }
 
             // Deep copy of b into r_0:
-            Kokkos::deep_copy(R, B);
+            SerialCopy<Trans::NoTranspose>::invoke(B, R);
 
             // r_0 := b - A x_0
             SerialSpmv<Trans::NoTranspose>::template invoke<ValuesViewType, IntView, VectorViewType, VectorViewType, NormViewType, NormViewType, 1>(alpha, values, row_ptr, colIndices, X, beta, R);
 
             // Deep copy of r_0 into p_0:
-            Kokkos::deep_copy(P, R);
+            SerialCopy<Trans::NoTranspose>::invoke(R, P);
 
             SerialDot::template invoke<VectorViewType, NormViewType>(R, R, sqr_norm_0);
-            Kokkos::deep_copy(sqr_norm_j, sqr_norm_0);
+            SerialCopy<Trans::NoTranspose>::invoke(sqr_norm_0, sqr_norm_j);
 
             int status = 1;
             bool verbose_print = true;
@@ -134,15 +137,15 @@ namespace KokkosBatched {
                 beta(i) = tmp(i) / sqr_norm_j(i);
               }
 
-              Kokkos::deep_copy(sqr_norm_j, tmp);
+              SerialCopy<Trans::NoTranspose>::invoke(tmp, sqr_norm_j);
 
               // Relative convergence check:
               all_converged = true;
               for(size_t i = 0; i < numMatrices; ++i) {
-                MagnitudeType norm_0 = sqrt(sqr_norm_0(i));
-                MagnitudeType norm_j = sqrt(sqr_norm_j(i));
+                MagnitudeType norm_0 = std::sqrt(sqr_norm_0(i));
+                MagnitudeType norm_j = std::sqrt(sqr_norm_j(i));
                 if(verbose_print) {
-                  printf("CG iteration %d, system %d: norm of the initial residual %f, norm of the curent residual %f, relative norm %f", j, i, norm_0, norm_j, norm_j/norm_0);
+                  //printf("CG iteration %d, system %d: norm of the initial residual %f, norm of the curent residual %f, relative norm %f\n", j, i, norm_0, norm_j, norm_j/norm_0);
                 }
                 if(norm_j/norm_0 > tolerance)
                   all_converged = false;
@@ -153,9 +156,9 @@ namespace KokkosBatched {
               }
 
               // p_{j+1} := beta p_j + r_{j+1}
-              Kokkos::deep_copy(Q, R);
+              SerialCopy<Trans::NoTranspose>::invoke(R, Q);
               SerialAxpy::template invoke<VectorViewType, NormViewType>(beta, P, Q);
-              Kokkos::deep_copy(P, Q);
+              SerialCopy<Trans::NoTranspose>::invoke(Q, P);
             }
 
             return status;

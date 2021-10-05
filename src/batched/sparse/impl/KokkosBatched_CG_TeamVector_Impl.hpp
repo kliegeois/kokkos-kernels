@@ -59,8 +59,7 @@ namespace KokkosBatched {
   struct TeamVectorCG {
     template<typename ValuesViewType,
              typename IntView,
-             typename VectorViewType,
-             typename ScalarType>
+             typename VectorViewType>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
@@ -70,9 +69,9 @@ namespace KokkosBatched {
            const VectorViewType &B,
            const VectorViewType &X,
            const size_t maximum_iteration = 200,
-           const typename Kokkos::Details::ArithTraits<ScalarType>::mag_type tolerance = Kokkos::Details::ArithTraits<ScalarType>::epsilon()) {
+           const typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type tolerance = Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::epsilon()) {
             typedef typename IntView::non_const_value_type OrdinalType;
-            typedef typename Kokkos::Details::ArithTraits<ScalarType>::mag_type MagnitudeType;
+            typedef typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type MagnitudeType;
             typedef Kokkos::View<MagnitudeType*,Kokkos::LayoutLeft,typename ValuesViewType::device_type> NormViewType;
 
             const OrdinalType numMatrices = X.extent(0);

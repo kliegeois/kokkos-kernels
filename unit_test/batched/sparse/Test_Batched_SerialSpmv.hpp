@@ -11,6 +11,8 @@
 
 #include "KokkosKernels_TestUtils.hpp"
 
+#include "KokkosBatched_CG.hpp"
+
 using namespace KokkosBatched;
 
 namespace Test {

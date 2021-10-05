@@ -73,8 +73,7 @@ namespace KokkosBatched {
   struct CG {
     template<typename ValuesViewType,
              typename IntView,
-             typename VectorViewType,
-             typename ScalarType>
+             typename VectorViewType>
     KOKKOS_INLINE_FUNCTION
     static int
     invoke(const MemberType &member, 
@@ -84,16 +83,16 @@ namespace KokkosBatched {
            const VectorViewType &B,
            const VectorViewType &X,
            const size_t maximum_iteration = 200,
-           const typename Kokkos::Details::ArithTraits<ScalarType>::mag_type tolerance = Kokkos::Details::ArithTraits<ScalarType>::epsilon()) {
-      int r_val = 0;
+           const typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type tolerance = Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::epsilon()) {
+      int status = 0;
       if (std::is_same<ArgMode,Mode::Serial>::value) {
-        r_val = SerialCG::template invoke<ValuesViewType, IntView, VectorViewType, ScalarType>(values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
+        status = SerialCG::template invoke<ValuesViewType, IntView, VectorViewType>(values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
       } else if (std::is_same<ArgMode,Mode::Team>::value) {
-        r_val = TeamCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType, ScalarType>(member, values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
+        status = TeamCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>(member, values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
       } else if (std::is_same<ArgMode,Mode::TeamVector>::value) {
-        r_val = TeamVectorCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType, ScalarType>(member, values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
+        status = TeamVectorCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>(member, values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
       } 
-      return r_val;
+      return status;
     }      
   };
 
