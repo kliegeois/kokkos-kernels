@@ -149,6 +149,8 @@ namespace KokkosBatched {
                 Kokkos::TeamThreadRange(member, 0, numMatrices),
                 [&](const OrdinalType& i) {
                   alpha(i) = sqr_norm_j(i) / tmp(i);
+
+                  printf("CG iteration %d, system %d: alpha %f, q.dot(r) %f \n", (int) j, (int) i, alpha(i), tmp(i));
               });
               member.team_barrier();
 
@@ -174,6 +176,9 @@ namespace KokkosBatched {
                 Kokkos::TeamThreadRange(member, 0, numMatrices),
                 [&](const OrdinalType& i) {
                   beta(i) = tmp(i) / sqr_norm_j(i);
+
+                  printf("CG iteration %d, system %d: beta %f\n", (int) j, (int) i, beta(i));
+
               });
 
               Kokkos::parallel_for(
@@ -196,6 +201,7 @@ namespace KokkosBatched {
 
               member.team_barrier();
 
+              
               if(number_not_converged == 0) {
                 status = 0;
                 break;
