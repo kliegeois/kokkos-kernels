@@ -14,26 +14,6 @@
 
 using namespace KokkosBatched;
 
-
-template <class XType>
-void writeArrayTofile(const XType x, std::string name) {
-  std::ofstream myfile;
-  myfile.open(name);
-
-  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
-
-  Kokkos::deep_copy(x_h, x);
-
-  for (int i = 0; i < x_h.extent(0); ++i) {
-    for (int j = 0; j < x_h.extent(1); ++j) {
-      myfile << x_h(i, j) << " ";
-    }
-    myfile << std::endl;
-  }
-
-  myfile.close();
-}
-
 namespace Test {
 namespace CG {
  
@@ -152,13 +132,18 @@ namespace CG {
     Kokkos::deep_copy(r, r_host);
     Kokkos::deep_copy(c, c_host);
 
-    writeArrayTofile(D, "D.txt");
-    writeArrayTofile(X, "X.txt");
-    writeArrayTofile(B, "B.txt");
+    write1DArrayTofile(r, "r.txt");
+    write1DArrayTofile(c, "c.txt");
+
+    write2DArrayTofile(D, "D.txt");
+    write2DArrayTofile(X, "X.txt");
+    write2DArrayTofile(B, "B.txt");
     
     Kokkos::fence();
 
     Functor_TestBatchedTeamCG<DeviceType,ValuesViewType,IntView,VectorViewType> (D, r, c, X, B, N_team).run();
+
+    write2DArrayTofile(X, "R_0.txt");
 
     Kokkos::fence();
   }

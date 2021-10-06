@@ -48,7 +48,6 @@
 #include "KokkosBatched_Util.hpp"
 
 namespace KokkosBatched {
-
   ///
   /// Team Internal Impl
   /// ==================== 

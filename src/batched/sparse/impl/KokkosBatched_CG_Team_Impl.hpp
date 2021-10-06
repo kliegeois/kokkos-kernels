@@ -54,6 +54,41 @@
 
 namespace KokkosBatched {
 
+template <class XType>
+void write1DArrayTofile(const XType x, std::string name) {
+  std::ofstream myfile;
+  myfile.open(name);
+
+  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
+
+  Kokkos::deep_copy(x_h, x);
+
+  for (int i = 0; i < x_h.extent(0); ++i) {
+    myfile << x_h(i) << " ";
+  }
+
+  myfile.close();
+}
+
+template <class XType>
+void write2DArrayTofile(const XType x, std::string name) {
+  std::ofstream myfile;
+  myfile.open(name);
+
+  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
+
+  Kokkos::deep_copy(x_h, x);
+
+  for (int i = 0; i < x_h.extent(0); ++i) {
+    for (int j = 0; j < x_h.extent(1); ++j) {
+      myfile << x_h(i, j) << " ";
+    }
+    myfile << std::endl;
+  }
+
+  myfile.close();
+}
+
   ///
   /// Team CG
   ///   A nested parallel_for with TeamThreadRange is used.
@@ -121,6 +156,9 @@ namespace KokkosBatched {
             member.team_barrier();
             TeamSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 1>(member, m_one, values, row_ptr, colIndices, X, one, R);
             member.team_barrier();
+
+
+            TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, _X);
 
             // Deep copy of r_0 into p_0:
             TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, P);
