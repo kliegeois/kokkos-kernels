@@ -51,7 +51,7 @@ namespace CG {
       auto b = Kokkos::subview(_B,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
       
       KokkosBatched::TeamCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>
-          (member, d, _r, _c, x, b);
+          (member, d, _r, _c, b, x);
     }
     
     inline

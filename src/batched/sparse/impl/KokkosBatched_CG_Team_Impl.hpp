@@ -157,13 +157,18 @@ void write2DArrayTofile(const XType x, std::string name) {
             TeamSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 1>(member, m_one, values, row_ptr, colIndices, X, one, R);
             member.team_barrier();
 
-
-            TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, _X);
-
             // Deep copy of r_0 into p_0:
             TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, P);
 
-            SerialDot::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(R, R, sqr_norm_0);
+            TeamVectorDotInternal::
+              invoke<MemberType,
+                    typename VectorViewType::non_const_value_type>
+                    (member, 
+                      numRows, numMatrices,
+                      R.data(), R.stride_1(), R.stride_0(),
+                      R.data(), R.stride_1(), R.stride_0(),
+                      sqr_norm_0.data(), sqr_norm_0.stride_0());
+
             member.team_barrier();
 
             Kokkos::parallel_for(
@@ -175,12 +180,32 @@ void write2DArrayTofile(const XType x, std::string name) {
             int status = 1;
             int number_not_converged = 0;
 
-            for(size_t j = 0; j < maximum_iteration; ++j) {
+            for(size_t j = 0; j < 5; ++j) {
               // q := A p_j (m_one has no influence as "NormViewType, 0>" )
               TeamSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 0>(member, one, values, row_ptr, colIndices, P, m_one, Q);
               member.team_barrier();
 
-              SerialDot::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(P, Q, tmp);
+              Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(member, 0, numMatrices),
+                [&](const OrdinalType& ii) {
+                  for(size_t jj = 0; jj < numRows; ++jj) {
+                    printf("Iteration %d, B, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, B(ii,jj));
+                    printf("Iteration %d, X, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, X(ii,jj));
+                    printf("Iteration %d, R, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, R(ii,jj));
+                    printf("Iteration %d, P, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, P(ii,jj));
+                    printf("Iteration %d, Q, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, Q(ii,jj));
+                  }
+              });
+
+              TeamVectorDotInternal::
+                invoke<MemberType,
+                      typename VectorViewType::non_const_value_type>
+                      (member, 
+                        numRows, numMatrices,
+                        P.data(), P.stride_1(), P.stride_0(),
+                        Q.data(), Q.stride_1(), Q.stride_0(),
+                        tmp.data(), tmp.stride_0());
+
               member.team_barrier();
 
               Kokkos::parallel_for(
@@ -207,7 +232,14 @@ void write2DArrayTofile(const XType x, std::string name) {
               TeamAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, alpha, Q, R);
               member.team_barrier();
 
-              SerialDot::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(R, R, tmp);
+              TeamVectorDotInternal::
+                invoke<MemberType,
+                      typename VectorViewType::non_const_value_type>
+                      (member, 
+                        numRows, numMatrices,
+                        R.data(), R.stride_1(), R.stride_0(),
+                        R.data(), R.stride_1(), R.stride_0(),
+                        tmp.data(), tmp.stride_0());
               member.team_barrier();
 
               Kokkos::parallel_for(

@@ -54,6 +54,7 @@ namespace KokkosBatched {
   /// Serial DOT
   ///
 
+  template<typename Transpose>
   struct SerialDot {
     template<typename VectorViewType,
              typename NormViewType>
