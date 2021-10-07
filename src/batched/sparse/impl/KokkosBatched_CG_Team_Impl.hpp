@@ -160,14 +160,7 @@ void write2DArrayTofile(const XType x, std::string name) {
             // Deep copy of r_0 into p_0:
             TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, P);
 
-            TeamVectorDotInternal::
-              invoke<MemberType,
-                    typename VectorViewType::non_const_value_type>
-                    (member, 
-                      numRows, numMatrices,
-                      R.data(), R.stride_1(), R.stride_0(),
-                      R.data(), R.stride_1(), R.stride_0(),
-                      sqr_norm_0.data(), sqr_norm_0.stride_0());
+            TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, sqr_norm_0);
 
             member.team_barrier();
 
@@ -197,14 +190,7 @@ void write2DArrayTofile(const XType x, std::string name) {
                   }
               });
 
-              TeamVectorDotInternal::
-                invoke<MemberType,
-                      typename VectorViewType::non_const_value_type>
-                      (member, 
-                        numRows, numMatrices,
-                        P.data(), P.stride_1(), P.stride_0(),
-                        Q.data(), Q.stride_1(), Q.stride_0(),
-                        tmp.data(), tmp.stride_0());
+              TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, P, Q, tmp);
 
               member.team_barrier();
 
@@ -232,14 +218,8 @@ void write2DArrayTofile(const XType x, std::string name) {
               TeamAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, alpha, Q, R);
               member.team_barrier();
 
-              TeamVectorDotInternal::
-                invoke<MemberType,
-                      typename VectorViewType::non_const_value_type>
-                      (member, 
-                        numRows, numMatrices,
-                        R.data(), R.stride_1(), R.stride_0(),
-                        R.data(), R.stride_1(), R.stride_0(),
-                        tmp.data(), tmp.stride_0());
+              TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, tmp);
+
               member.team_barrier();
 
               Kokkos::parallel_for(

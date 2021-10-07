@@ -49,7 +49,71 @@ namespace KokkosBatched {
       return 0;
     }
   };        
-    
+
+  ///
+  /// Team Internal Impl
+  /// ========================
+
+  // i \in [0,m)  
+  // C = conj(A(:))*B(:)  
+  struct TeamDotInternal {
+    template<typename MemberType,
+             typename ValueType>
+    KOKKOS_FORCEINLINE_FUNCTION
+    static int
+    invoke(const MemberType &member,
+           const int m, 
+           const ValueType *__restrict__ A, const int as0,
+	   const ValueType *__restrict__ B, const int bs0, 
+           /* */ ValueType *__restrict__ C) {
+      using ats = Kokkos::ArithTraits<ValueType>;
+      ValueType t(0);
+      Kokkos::parallel_reduce
+        (Kokkos::TeamThreadRange(member,m),
+	 [&](const int &i, ValueType &update) {
+	   const int idx_a = i*as0, idx_b = i*bs0; 
+	   update += ats::conj(A[idx_a])*B[idx_b];
+	 }, t);
+       Kokkos::single
+	 (Kokkos::PerThread(member),
+	  [&]() {
+	    C[0] = t;
+	  });
+      return 0;
+    }
+
+    // j \in [0,n), i \in [0,m)
+    // C(j) = conj(A(:,j))*B(:,j)
+    template<typename MemberType,
+             typename ValueType>
+    KOKKOS_FORCEINLINE_FUNCTION
+    static int
+    invoke(const MemberType &member,
+           const int m, const int n, 
+           const ValueType *__restrict__ A, const int as0, const int as1,
+	   const ValueType *__restrict__ B, const int bs0, const int bs1,
+           /* */ ValueType *__restrict__ C, const int cs) {
+      using ats = Kokkos::ArithTraits<ValueType>;
+      Kokkos::parallel_for
+	(Kokkos::TeamThreadRange(member,n),
+	 [&](const int &j) {
+	   ValueType t(0);
+	   const ValueType *__restrict__ A_at_j = A + j*as1;
+	   const ValueType *__restrict__ B_at_j = B + j*bs1;
+     for(int i=0; i< m; ++i) {
+        const int idx_a = i*as0, idx_b = i*bs0;
+        t += ats::conj(A_at_j[idx_a])*B_at_j[idx_b];
+     }
+	   Kokkos::single
+	     (Kokkos::PerThread(member),
+	      [&]() {
+		C[j*cs] = t;
+	      });
+	 });
+      return 0;
+    }
+  };
+
   ///
   /// TeamVector Internal Impl
   /// ========================
@@ -124,7 +188,7 @@ namespace KokkosBatched {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
-    int 
+    static int 
     invoke(const VectorViewType &X,
           const VectorViewType &Y,
           const NormViewType &dot) {
@@ -142,13 +206,56 @@ namespace KokkosBatched {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
-    int 
+    static int 
     invoke(const VectorViewType &X,
           const VectorViewType &Y,
           const NormViewType &dot) {
       return SerialDotInternal::template
         invoke<typename VectorViewType::non_const_value_type>
               (X.extent(1), X.extent(0),
+                X.data(), X.stride_1(), X.stride_0(),
+                Y.data(), Y.stride_1(), Y.stride_0(),
+                dot.data(), dot.stride_0());
+    }
+  };
+
+  ///
+  /// Team Impl
+  /// ===============
+  template<typename MemberType>
+  struct TeamDot<MemberType, Trans::NoTranspose> {
+    template<typename VectorViewType,
+            typename NormViewType>
+    KOKKOS_INLINE_FUNCTION
+    static int 
+    invoke(const MemberType &member,
+          const VectorViewType &X,
+          const VectorViewType &Y,
+          const NormViewType &dot) {
+      return TeamDotInternal::template
+        invoke<MemberType, typename VectorViewType::non_const_value_type>
+              (member, 
+                X.extent(0), X.extent(1),
+                X.data(), X.stride_0(), X.stride_1(),
+                Y.data(), Y.stride_0(), Y.stride_1(),
+                dot.data(), dot.stride_0());
+    }
+  };
+
+  template<typename MemberType>
+  struct TeamDot<MemberType, Trans::Transpose> {
+    template<typename VectorViewType,
+            typename NormViewType>
+    KOKKOS_INLINE_FUNCTION
+    static int 
+    invoke(const MemberType &member,
+          const VectorViewType &X,
+          const VectorViewType &Y,
+          const NormViewType &dot) {
+      return TeamDotInternal::template
+        invoke<MemberType, typename VectorViewType::non_const_value_type>
+              (member, 
+                X.extent(1), X.extent(0),
                 X.data(), X.stride_1(), X.stride_0(),
                 Y.data(), Y.stride_1(), Y.stride_0(),
                 dot.data(), dot.stride_0());
@@ -163,13 +270,13 @@ namespace KokkosBatched {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
-    int 
+    static int 
     invoke(const MemberType &member,
           const VectorViewType &X,
           const VectorViewType &Y,
           const NormViewType &dot) {
       return TeamVectorDotInternal::template
-        invoke<typename VectorViewType::non_const_value_type>
+        invoke<MemberType, typename VectorViewType::non_const_value_type>
               (member, 
                 X.extent(0), X.extent(1),
                 X.data(), X.stride_0(), X.stride_1(),
@@ -183,13 +290,13 @@ namespace KokkosBatched {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
-    int 
+    static int 
     invoke(const MemberType &member,
           const VectorViewType &X,
           const VectorViewType &Y,
           const NormViewType &dot) {
       return TeamVectorDotInternal::template
-        invoke<typename VectorViewType::non_const_value_type>
+        invoke<MemberType, typename VectorViewType::non_const_value_type>
               (member, 
                 X.extent(1), X.extent(0),
                 X.data(), X.stride_1(), X.stride_0(),

@@ -66,6 +66,22 @@ namespace KokkosBatched {
   };
 
   ///
+  /// Team DOT
+  ///
+
+  template<typename MemberType, typename ArgTrans>
+  struct TeamDot {
+    template<typename VectorViewType,
+             typename NormViewType>
+    KOKKOS_INLINE_FUNCTION
+    static int
+    invoke(const MemberType &member, 
+           const VectorViewType &X,
+           const VectorViewType &Y,
+           const NormViewType &dot);
+  };
+
+  ///
   /// TeamVector DOT
   ///
 
