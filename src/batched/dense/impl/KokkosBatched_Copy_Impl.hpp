@@ -12,13 +12,41 @@ namespace KokkosBatched {
   ///
   /// Serial Impl
   /// ===========
+
+  template<>
+  template<typename AViewType,
+           typename BViewType>
+  KOKKOS_INLINE_FUNCTION
+  int
+  SerialCopy<Trans::NoTranspose, 1>::
+  invoke(const AViewType &A,
+         const BViewType &B) {
+    return SerialCopyInternal::
+      invoke(A.extent(0), 
+             A.data(), A.stride_0(),
+             B.data(), B.stride_0());
+  }
+    
+  template<>
+  template<typename AViewType,
+           typename BViewType>
+  KOKKOS_INLINE_FUNCTION
+  int
+  SerialCopy<Trans::Transpose, 1>::
+  invoke(const AViewType &A,
+         const BViewType &B) {
+    return SerialCopyInternal::
+      invoke(A.extent(0), 
+             A.data(), A.stride_0(),
+             B.data(), B.stride_0());
+  }
       
   template<>
   template<typename AViewType,
            typename BViewType>
   KOKKOS_INLINE_FUNCTION
   int
-  SerialCopy<Trans::NoTranspose>::
+  SerialCopy<Trans::NoTranspose, 2>::
   invoke(const AViewType &A,
          const BViewType &B) {
     return SerialCopyInternal::
@@ -33,7 +61,7 @@ namespace KokkosBatched {
            typename BViewType>
   KOKKOS_INLINE_FUNCTION
   int
-  SerialCopy<Trans::Transpose>::
+  SerialCopy<Trans::Transpose, 2>::
   invoke(const AViewType &A,
          const BViewType &B) {
     return SerialCopyInternal::
@@ -47,9 +75,43 @@ namespace KokkosBatched {
   ///
   /// Team Impl
   /// =========
+
+  template<typename MemberType>
+  struct TeamCopy<MemberType,Trans::NoTranspose,1> {
+    template<typename AViewType,
+             typename BViewType>
+    KOKKOS_INLINE_FUNCTION
+    static int
+    invoke(const MemberType &member, 
+           const AViewType &A,
+           const BViewType &B) {
+      return TeamCopyInternal::
+        invoke(member,
+               A.extent(0), 
+               A.data(), A.stride_0(),
+               B.data(), B.stride_0());
+    }
+  };
     
   template<typename MemberType>
-  struct TeamCopy<MemberType,Trans::NoTranspose> {
+  struct TeamCopy<MemberType,Trans::Transpose,1> {
+    template<typename AViewType,
+             typename BViewType>
+    KOKKOS_INLINE_FUNCTION
+    static int
+    invoke(const MemberType &member, 
+           const AViewType &A,
+           const BViewType &B) {
+      return TeamCopyInternal::
+        invoke(member,
+               A.extent(0), 
+               A.data(), A.stride_0(),
+               B.data(), B.stride_0());
+    }
+  };
+
+  template<typename MemberType>
+  struct TeamCopy<MemberType,Trans::NoTranspose,2> {
     template<typename AViewType,
              typename BViewType>
     KOKKOS_INLINE_FUNCTION
@@ -67,7 +129,7 @@ namespace KokkosBatched {
   };
     
   template<typename MemberType>
-  struct TeamCopy<MemberType,Trans::Transpose> {
+  struct TeamCopy<MemberType,Trans::Transpose,2> {
     template<typename AViewType,
              typename BViewType>
     KOKKOS_INLINE_FUNCTION
@@ -87,9 +149,43 @@ namespace KokkosBatched {
   ///
   /// TeamVector Impl
   /// =========
+
+  template<typename MemberType>
+  struct TeamVectorCopy<MemberType,Trans::NoTranspose,1> {
+    template<typename AViewType,
+             typename BViewType>
+    KOKKOS_INLINE_FUNCTION
+    static int
+    invoke(const MemberType &member, 
+           const AViewType &A,
+           const BViewType &B) {
+      return TeamVectorCopyInternal::
+        invoke(member,
+               A.extent(0), 
+               A.data(), A.stride_0(),
+               B.data(), B.stride_0());
+    }
+  };
     
   template<typename MemberType>
-  struct TeamVectorCopy<MemberType,Trans::NoTranspose> {
+  struct TeamVectorCopy<MemberType,Trans::Transpose,1> {
+    template<typename AViewType,
+             typename BViewType>
+    KOKKOS_INLINE_FUNCTION
+    static int
+    invoke(const MemberType &member, 
+           const AViewType &A,
+           const BViewType &B) {
+      return TeamVectorCopyInternal::
+        invoke(member,
+               A.extent(0), 
+               A.data(), A.stride_0(),
+               B.data(), B.stride_0());
+    }
+  };
+
+  template<typename MemberType>
+  struct TeamVectorCopy<MemberType,Trans::NoTranspose,2> {
     template<typename AViewType,
              typename BViewType>
     KOKKOS_INLINE_FUNCTION
@@ -107,7 +203,7 @@ namespace KokkosBatched {
   };
     
   template<typename MemberType>
-  struct TeamVectorCopy<MemberType,Trans::Transpose> {
+  struct TeamVectorCopy<MemberType,Trans::Transpose,2> {
     template<typename AViewType,
              typename BViewType>
     KOKKOS_INLINE_FUNCTION

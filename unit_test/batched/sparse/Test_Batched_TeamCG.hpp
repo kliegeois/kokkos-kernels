@@ -15,7 +15,7 @@
 using namespace KokkosBatched;
 
 namespace Test {
-namespace CG {
+namespace TeamCG {
  
   template<typename DeviceType,
            typename ValuesViewType,
@@ -131,19 +131,10 @@ namespace CG {
     Kokkos::deep_copy(D, D_host);
     Kokkos::deep_copy(r, r_host);
     Kokkos::deep_copy(c, c_host);
-
-    write1DArrayTofile(r, "r.txt");
-    write1DArrayTofile(c, "c.txt");
-
-    write2DArrayTofile(D, "D.txt");
-    write2DArrayTofile(X, "X.txt");
-    write2DArrayTofile(B, "B.txt");
     
     Kokkos::fence();
 
     Functor_TestBatchedTeamCG<DeviceType,ValuesViewType,IntView,VectorViewType> (D, r, c, X, B, N_team).run();
-
-    write2DArrayTofile(X, "R_0.txt");
 
     Kokkos::fence();
   }
@@ -159,8 +150,8 @@ int test_batched_team_CG() {
     typedef Kokkos::View<int*,Kokkos::LayoutLeft,DeviceType> IntView;
     typedef Kokkos::View<ValueType**,Kokkos::LayoutLeft,DeviceType> VectorViewType;
     
-    for (int i=3;i<4;++i) {                                                                                        
-      Test::CG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(2, i, 2);
+    for (int i=3;i<10;++i) {
+      Test::TeamCG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(1024,  i, 2);
     }
   }
 #endif
@@ -170,8 +161,8 @@ int test_batched_team_CG() {
     typedef Kokkos::View<int*,Kokkos::LayoutRight,DeviceType> IntView;
     typedef Kokkos::View<ValueType**,Kokkos::LayoutRight,DeviceType> VectorViewType;
 
-    for (int i=3;i<4;++i) {                                                                                        
-      Test::CG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(2, i, 2);
+    for (int i=3;i<10;++i) {
+      Test::TeamCG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(1024,  i, 2);
     }
   }
 #endif

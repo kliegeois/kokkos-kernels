@@ -12,6 +12,8 @@
 #include "Test_Batched_TeamSpmv_Real.hpp"
 
 // TeamVector Kernels
+#include "Test_Batched_TeamVectorCG.hpp"
+#include "Test_Batched_TeamVectorCG_Real.hpp"
 #include "Test_Batched_TeamVectorSpmv.hpp"
 #include "Test_Batched_TeamVectorSpmv_Real.hpp"
 

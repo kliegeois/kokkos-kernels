@@ -66,57 +66,75 @@ namespace KokkosBatched {
            const ValuesViewType &values,
            const IntView &row_ptr,
            const IntView &colIndices,
-           const VectorViewType &B,
-           const VectorViewType &X,
+           const VectorViewType &_B,
+           const VectorViewType &_X,
            const size_t maximum_iteration = 200,
            const typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type tolerance = Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::epsilon()) {
             typedef typename IntView::non_const_value_type OrdinalType;
             typedef typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type MagnitudeType;
             typedef Kokkos::View<MagnitudeType*,Kokkos::LayoutLeft,typename ValuesViewType::device_type> NormViewType;
 
-            const OrdinalType numMatrices = X.extent(0);
-            const OrdinalType numRows = X.extent(1);
+            using ScratchPadNormViewType =
+                Kokkos::View<MagnitudeType*,
+                            typename VectorViewType::execution_space::scratch_memory_space>;
+            using ScratchPadVectorViewType =
+                Kokkos::View<typename ValuesViewType::non_const_value_type **, typename VectorViewType::array_layout, typename VectorViewType::execution_space::scratch_memory_space>;                                   
 
-            VectorViewType P("directions", numMatrices, numRows);
-            VectorViewType R("residuals", numMatrices, numRows);
-            VectorViewType Q("tmp", numMatrices, numRows);
+            const OrdinalType numMatrices = _X.extent(0);
+            const OrdinalType numRows = _X.extent(1);
 
-            NormViewType sqr_norm_0("squared norm 0", numMatrices);
-            NormViewType sqr_norm_j("squared norm j", numMatrices);
+            ScratchPadVectorViewType X(member.team_scratch(0), numMatrices, numRows);
+            ScratchPadVectorViewType B(member.team_scratch(0), numMatrices, numRows);
 
-            NormViewType alpha("alpha", numMatrices);
-            NormViewType beta("beta", numMatrices);
-            NormViewType tmp("tmp", numMatrices);
+            TeamVectorCopy<MemberType, Trans::NoTranspose>::invoke(member, _X, X);
+            TeamVectorCopy<MemberType, Trans::NoTranspose>::invoke(member, _B, B);
 
-            Kokkos::deep_copy(alpha, MagnitudeType(-1.0));
-            Kokkos::deep_copy(beta, MagnitudeType(1.0));
+            ScratchPadVectorViewType P(member.team_scratch(0), numMatrices, numRows);
+            ScratchPadVectorViewType R(member.team_scratch(0), numMatrices, numRows);
+            ScratchPadVectorViewType Q(member.team_scratch(0), numMatrices, numRows);
+
+            ScratchPadNormViewType sqr_norm_0(member.team_scratch(0), numMatrices);
+            ScratchPadNormViewType sqr_norm_j(member.team_scratch(0), numMatrices);
+
+            ScratchPadNormViewType alpha(member.team_scratch(0), numMatrices);
+            ScratchPadNormViewType beta(member.team_scratch(0), numMatrices);
+            ScratchPadNormViewType tmp(member.team_scratch(0), numMatrices);
+
+            ScratchPadNormViewType one(member.team_scratch(0), numMatrices);
+            ScratchPadNormViewType m_one(member.team_scratch(0), numMatrices);
+
+            Kokkos::parallel_for(
+              Kokkos::TeamVectorRange(member, 0, numMatrices),
+              [&](const OrdinalType& i) {
+                one(i) = MagnitudeType(1.0);
+                m_one(i) = MagnitudeType(-1.0);
+            });
 
             // Deep copy of b into r_0:
-            Kokkos::deep_copy(R, B);
+            TeamVectorCopy<MemberType, Trans::NoTranspose>::invoke(member, B, R);
 
             // r_0 := b - A x_0
             member.team_barrier();
-            TeamVectorSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, VectorViewType, VectorViewType, NormViewType, NormViewType, 1>(member, alpha, values, row_ptr, colIndices, X, beta, R);
+            TeamVectorSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 1>(member, m_one, values, row_ptr, colIndices, X, one, R);
             member.team_barrier();
 
             // Deep copy of r_0 into p_0:
-            Kokkos::deep_copy(P, R);
+            TeamVectorCopy<MemberType, Trans::NoTranspose>::invoke(member, R, P);
 
-            TeamVectorDot<MemberType,Trans::Transpose>::template invoke<VectorViewType, NormViewType>(member, R, R, sqr_norm_0);
+            TeamVectorDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, sqr_norm_0);
             member.team_barrier();
 
-            Kokkos::deep_copy(sqr_norm_j, sqr_norm_0);
+            TeamVectorCopy<MemberType, Trans::NoTranspose, 1>::invoke(member, sqr_norm_0, sqr_norm_j);
 
             int status = 1;
-            bool verbose_print = true;
             int number_not_converged = 0;
 
-            for(size_t j = 0; j < maximum_iteration; ++j) {
-              // q := A p_j (alpha has no influence as "NormViewType, 0>" )
-              TeamVectorSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, VectorViewType, VectorViewType, NormViewType, NormViewType, 0>(member, beta, values, row_ptr, colIndices, P, alpha, Q);
+            for(size_t j = 0; j < 5; ++j) {
+              // q := A p_j (m_one has no influence as "NormViewType, 0>" )
+              TeamVectorSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 0>(member, one, values, row_ptr, colIndices, P, m_one, Q);
               member.team_barrier();
 
-              TeamVectorDot<MemberType,Trans::Transpose>::template invoke<VectorViewType, NormViewType>(member, Q, P, tmp);
+              TeamVectorDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, P, Q, tmp);
               member.team_barrier();
 
               Kokkos::parallel_for(
@@ -127,7 +145,7 @@ namespace KokkosBatched {
               member.team_barrier();
 
               // x_{j+1} := alpha p_j + x_j 
-              TeamVectorAxpy<MemberType>::template invoke<VectorViewType, NormViewType>(member, alpha, P, X);
+              TeamVectorAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, alpha, P, X);
               member.team_barrier();
 
               // r_{j+1} := - alpha q + r_j 
@@ -138,10 +156,10 @@ namespace KokkosBatched {
               });
               member.team_barrier();
 
-              TeamVectorAxpy<MemberType>::template invoke<VectorViewType, NormViewType>(member, alpha, Q, R);
+              TeamVectorAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, alpha, Q, R);
               member.team_barrier();
 
-              TeamVectorDot<MemberType,Trans::Transpose>::template invoke<VectorViewType, NormViewType>(member, R, R, tmp);
+              TeamVectorDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, tmp);
               member.team_barrier();
 
               Kokkos::parallel_for(
@@ -150,7 +168,7 @@ namespace KokkosBatched {
                   beta(i) = tmp(i) / sqr_norm_j(i);
               });
 
-              Kokkos::deep_copy(sqr_norm_j, tmp);
+              TeamVectorCopy<MemberType, Trans::NoTranspose, 1>::invoke(member, tmp, sqr_norm_j);
 
               // Relative convergence check:
               number_not_converged = 0;
@@ -169,11 +187,11 @@ namespace KokkosBatched {
               }
 
               // p_{j+1} := beta p_j + r_{j+1}
-              Kokkos::deep_copy(Q, R);
+              TeamVectorCopy<MemberType, Trans::NoTranspose>::invoke(member, R, Q);
               member.team_barrier();
-              TeamVectorAxpy<MemberType>::template invoke<VectorViewType, NormViewType>(member, beta, P, Q);
+              TeamVectorAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, beta, P, Q);
               member.team_barrier();
-              Kokkos::deep_copy(P, Q);
+              TeamVectorCopy<MemberType, Trans::NoTranspose>::invoke(member, Q, P);
               member.team_barrier();
             }
 

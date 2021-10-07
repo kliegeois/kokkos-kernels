@@ -7,7 +7,6 @@
 //#include "KokkosBatched_Vector.hpp"
 
 #include "KokkosBatched_CG.hpp"
-#include "KokkosBatched_CG_Serial_Impl.hpp"
 
 #include "KokkosKernels_TestUtils.hpp"
 
@@ -16,48 +15,61 @@
 using namespace KokkosBatched;
 
 namespace Test {
-namespace CG {
+namespace TeamVectorCG {
  
   template<typename DeviceType,
            typename ValuesViewType,
            typename IntView,
            typename VectorViewType>
-  struct Functor_TestBatchedSerialCG {
+  struct Functor_TestBatchedTeamVectorCG {
     const ValuesViewType _D;
     const IntView _r;
     const IntView _c;
     const VectorViewType _X;
     const VectorViewType _B;
+    const int _N_team;
     
     KOKKOS_INLINE_FUNCTION
-    Functor_TestBatchedSerialCG(const ValuesViewType &D,
+    Functor_TestBatchedTeamVectorCG(const ValuesViewType &D,
       const IntView &r,
       const IntView &c,
       const VectorViewType &X,
-      const VectorViewType &B)
-    : _D(D), _r(r), _c(c), _X(X), _B(B) {}
+      const VectorViewType &B,
+      const int N_team)
+    : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team) {}
     
+    template<typename MemberType>
     KOKKOS_INLINE_FUNCTION
-    void operator()(const int k) const {
-      auto d = Kokkos::subview(_D,Kokkos::make_pair(k,k+1),Kokkos::ALL);
-      auto x = Kokkos::subview(_X,Kokkos::make_pair(k,k+1),Kokkos::ALL);
-      auto b = Kokkos::subview(_B,Kokkos::make_pair(k,k+1),Kokkos::ALL);
+    void operator()(const MemberType &member) const {
+      const int first_matrix =
+          static_cast<int>(member.league_rank()) * _N_team;
+      const int N = _D.extent(0);
+      const int last_matrix = (static_cast<int>(member.league_rank() + 1) * _N_team < N ? static_cast<int>(member.league_rank() + 1) * _N_team : N );
       
-      KokkosBatched::SerialCG::template invoke<ValuesViewType, IntView, VectorViewType>
-          (d, _r, _c, x, b);
+      auto d = Kokkos::subview(_D,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+      auto x = Kokkos::subview(_X,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+      auto b = Kokkos::subview(_B,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
+      
+      KokkosBatched::TeamVectorCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>
+          (member, d, _r, _c, b, x);
     }
     
     inline
     void run() {
       typedef typename ValuesViewType::value_type value_type;
-      std::string name_region("KokkosBatched::Test::SerialCG");
+      std::string name_region("KokkosBatched::Test::TeamVectorCG");
       std::string name_value_type = ( std::is_same<value_type,float>::value ? "::Float" : 
                                       std::is_same<value_type,double>::value ? "::Double" :
                                       std::is_same<value_type,Kokkos::complex<float> >::value ? "::ComplexFloat" :
                                       std::is_same<value_type,Kokkos::complex<double> >::value ? "::ComplexDouble" : "::UnknownValueType" );                               
       std::string name = name_region + name_value_type;
       Kokkos::Profiling::pushRegion(name.c_str() );
-      Kokkos::RangePolicy<DeviceType> policy(0, _D.extent(0));
+      Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0)/_N_team, Kokkos::AUTO(), Kokkos::AUTO());
+
+      size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _D.extent(1));
+      size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
+      policy.set_scratch_size(0, Kokkos::PerTeam(5 * bytes_0 + 7 * bytes_1));
+
       Kokkos::parallel_for(name.c_str(), policy, *this);
       Kokkos::Profiling::popRegion();
     }
@@ -67,7 +79,7 @@ namespace CG {
            typename ValuesViewType,
            typename IntView,
            typename VectorViewType>
-  void impl_test_batched_CG(const int N, const int BlkSize) {
+  void impl_test_batched_CG(const int N, const int BlkSize, const int N_team) {
     typedef typename ValuesViewType::value_type value_type;
     typedef Kokkos::Details::ArithTraits<value_type> ats;
 
@@ -116,7 +128,13 @@ namespace CG {
 
     Kokkos::fence();
 
-    Functor_TestBatchedSerialCG<DeviceType,ValuesViewType,IntView,VectorViewType> (D, r, c, X, B).run();
+    Kokkos::deep_copy(D, D_host);
+    Kokkos::deep_copy(r, r_host);
+    Kokkos::deep_copy(c, c_host);
+    
+    Kokkos::fence();
+
+    Functor_TestBatchedTeamVectorCG<DeviceType,ValuesViewType,IntView,VectorViewType> (D, r, c, X, B, N_team).run();
 
     Kokkos::fence();
   }
@@ -125,15 +143,15 @@ namespace CG {
 
 template<typename DeviceType, 
          typename ValueType>
-int test_batched_CG() {
+int test_batched_teamvector_CG() {
 #if defined(KOKKOSKERNELS_INST_LAYOUTLEFT) 
   {
     typedef Kokkos::View<ValueType**,Kokkos::LayoutLeft,DeviceType> ViewType;
     typedef Kokkos::View<int*,Kokkos::LayoutLeft,DeviceType> IntView;
     typedef Kokkos::View<ValueType**,Kokkos::LayoutLeft,DeviceType> VectorViewType;
     
-    for (int i=3;i<10;++i) {                                                                                        
-      Test::CG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(1024,  i);
+    for (int i=3;i<10;++i) {
+      Test::TeamVectorCG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(1024,  i, 2);
     }
   }
 #endif
@@ -143,8 +161,8 @@ int test_batched_CG() {
     typedef Kokkos::View<int*,Kokkos::LayoutRight,DeviceType> IntView;
     typedef Kokkos::View<ValueType**,Kokkos::LayoutRight,DeviceType> VectorViewType;
 
-    for (int i=3;i<10;++i) {                                                                                        
-      Test::CG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(1024,  i);
+    for (int i=3;i<10;++i) {
+      Test::TeamVectorCG::impl_test_batched_CG<DeviceType,ViewType,IntView,VectorViewType>(1024,  i, 2);
     }
   }
 #endif

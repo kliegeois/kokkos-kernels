@@ -54,41 +54,6 @@
 
 namespace KokkosBatched {
 
-template <class XType>
-void write1DArrayTofile(const XType x, std::string name) {
-  std::ofstream myfile;
-  myfile.open(name);
-
-  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
-
-  Kokkos::deep_copy(x_h, x);
-
-  for (int i = 0; i < x_h.extent(0); ++i) {
-    myfile << x_h(i) << " ";
-  }
-
-  myfile.close();
-}
-
-template <class XType>
-void write2DArrayTofile(const XType x, std::string name) {
-  std::ofstream myfile;
-  myfile.open(name);
-
-  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
-
-  Kokkos::deep_copy(x_h, x);
-
-  for (int i = 0; i < x_h.extent(0); ++i) {
-    for (int j = 0; j < x_h.extent(1); ++j) {
-      myfile << x_h(i, j) << " ";
-    }
-    myfile << std::endl;
-  }
-
-  myfile.close();
-}
-
   ///
   /// Team CG
   ///   A nested parallel_for with TeamThreadRange is used.
@@ -161,14 +126,9 @@ void write2DArrayTofile(const XType x, std::string name) {
             TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, P);
 
             TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, sqr_norm_0);
-
             member.team_barrier();
 
-            Kokkos::parallel_for(
-              Kokkos::TeamThreadRange(member, 0, numMatrices),
-              [&](const OrdinalType& i) {
-                sqr_norm_j(i) = sqr_norm_0(i);
-            });
+            TeamCopy<MemberType, Trans::NoTranspose, 1>::invoke(member, sqr_norm_0, sqr_norm_j);
 
             int status = 1;
             int number_not_converged = 0;
@@ -178,28 +138,13 @@ void write2DArrayTofile(const XType x, std::string name) {
               TeamSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 0>(member, one, values, row_ptr, colIndices, P, m_one, Q);
               member.team_barrier();
 
-              Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(member, 0, numMatrices),
-                [&](const OrdinalType& ii) {
-                  for(size_t jj = 0; jj < numRows; ++jj) {
-                    printf("Iteration %d, B, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, B(ii,jj));
-                    printf("Iteration %d, X, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, X(ii,jj));
-                    printf("Iteration %d, R, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, R(ii,jj));
-                    printf("Iteration %d, P, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, P(ii,jj));
-                    printf("Iteration %d, Q, system %d, entry %d, %f\n", (int) j, (int) ii, (int) jj, Q(ii,jj));
-                  }
-              });
-
               TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, P, Q, tmp);
-
               member.team_barrier();
 
               Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(member, 0, numMatrices),
                 [&](const OrdinalType& i) {
                   alpha(i) = sqr_norm_j(i) / tmp(i);
-
-                  printf("CG iteration %d, system %d: alpha %f, q.dot(r) %f \n", (int) j, (int) i, alpha(i), tmp(i));
               });
               member.team_barrier();
 
@@ -219,26 +164,15 @@ void write2DArrayTofile(const XType x, std::string name) {
               member.team_barrier();
 
               TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, tmp);
-
               member.team_barrier();
 
               Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(member, 0, numMatrices),
                 [&](const OrdinalType& i) {
                   beta(i) = tmp(i) / sqr_norm_j(i);
-
-                  printf("CG iteration %d, system %d: beta %f\n", (int) j, (int) i, beta(i));
-
               });
 
-              Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(member, 0, numMatrices),
-                [&](const OrdinalType& i) {
-                  sqr_norm_j(i) = tmp(i);
-
-
-                  printf("CG iteration %d, system %d: sqr norm of the initial residual %f, sqr norm of the curent residual %f\n", (int) j, (int) i, sqr_norm_0(i), sqr_norm_j(i));
-              });
+              TeamCopy<MemberType, Trans::NoTranspose, 1>::invoke(member, tmp, sqr_norm_j);
 
               // Relative convergence check:
               number_not_converged = 0;
@@ -251,7 +185,6 @@ void write2DArrayTofile(const XType x, std::string name) {
 
               member.team_barrier();
 
-              
               if(number_not_converged == 0) {
                 status = 0;
                 break;
