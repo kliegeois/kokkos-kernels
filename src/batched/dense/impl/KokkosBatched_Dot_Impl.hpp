@@ -16,13 +16,13 @@ namespace KokkosBatched {
 
     // i \in [0,m)  
     // C = conj(A(:))*B(:)  
-    template<typename ValueType>
+    template<typename ValueType, typename MagnitudeType>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const int m, 
            const ValueType *__restrict__ A, const int as0,
 	   const ValueType *__restrict__ B, const int bs0, 
-           /* */ ValueType *__restrict__ C) {
+           /* */ MagnitudeType *__restrict__ C) {
       using ats = Kokkos::ArithTraits<ValueType>;
       C[0] = ValueType(0);
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
@@ -37,13 +37,13 @@ namespace KokkosBatched {
 
     // j \in [0,n), i \in [0,m)
     // C(j) = conj(A(:,j))*B(:,j)
-    template<typename ValueType>
+    template<typename ValueType, typename MagnitudeType>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const int m, const int n, 
            const ValueType *__restrict__ A, const int as0, const int as1,
 	   const ValueType *__restrict__ B, const int bs0, const int bs1,
-           /* */ ValueType *__restrict__ C, const int cs) {
+           /* */ MagnitudeType *__restrict__ C, const int cs) {
       for (int j=0;j<n;++j)               
 	invoke(m, A+j*as1, as0, B+j*bs1, bs0, C+j*cs);
       return 0;
@@ -58,14 +58,15 @@ namespace KokkosBatched {
   // C = conj(A(:))*B(:)  
   struct TeamDotInternal {
     template<typename MemberType,
-             typename ValueType>
+             typename ValueType,
+             typename MagnitudeType>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const MemberType &member,
            const int m, 
            const ValueType *__restrict__ A, const int as0,
 	   const ValueType *__restrict__ B, const int bs0, 
-           /* */ ValueType *__restrict__ C) {
+           /* */ MagnitudeType *__restrict__ C) {
       using ats = Kokkos::ArithTraits<ValueType>;
       ValueType t(0);
       Kokkos::parallel_reduce
@@ -85,14 +86,15 @@ namespace KokkosBatched {
     // j \in [0,n), i \in [0,m)
     // C(j) = conj(A(:,j))*B(:,j)
     template<typename MemberType,
-             typename ValueType>
+             typename ValueType,
+             typename MagnitudeType>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const MemberType &member,
            const int m, const int n, 
            const ValueType *__restrict__ A, const int as0, const int as1,
 	   const ValueType *__restrict__ B, const int bs0, const int bs1,
-           /* */ ValueType *__restrict__ C, const int cs) {
+           /* */ MagnitudeType *__restrict__ C, const int cs) {
       using ats = Kokkos::ArithTraits<ValueType>;
       Kokkos::parallel_for
 	(Kokkos::TeamThreadRange(member,n),
@@ -122,14 +124,15 @@ namespace KokkosBatched {
   // C = conj(A(:))*B(:)  
   struct TeamVectorDotInternal {
     template<typename MemberType,
-             typename ValueType>
+             typename ValueType,
+             typename MagnitudeType>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const MemberType &member,
            const int m, 
            const ValueType *__restrict__ A, const int as0,
 	   const ValueType *__restrict__ B, const int bs0, 
-           /* */ ValueType *__restrict__ C) {
+           /* */ MagnitudeType *__restrict__ C) {
       using ats = Kokkos::ArithTraits<ValueType>;
       ValueType t(0);
       Kokkos::parallel_reduce
@@ -149,14 +152,15 @@ namespace KokkosBatched {
     // j \in [0,n), i \in [0,m)
     // C(j) = conj(A(:,j))*B(:,j)
     template<typename MemberType,
-             typename ValueType>
+             typename ValueType,
+             typename MagnitudeType>
     KOKKOS_FORCEINLINE_FUNCTION
     static int
     invoke(const MemberType &member,
            const int m, const int n, 
            const ValueType *__restrict__ A, const int as0, const int as1,
 	   const ValueType *__restrict__ B, const int bs0, const int bs1,
-           /* */ ValueType *__restrict__ C, const int cs) {
+           /* */ MagnitudeType *__restrict__ C, const int cs) {
       using ats = Kokkos::ArithTraits<ValueType>;
       Kokkos::parallel_for
 	(Kokkos::TeamThreadRange(member,n),
@@ -193,7 +197,8 @@ namespace KokkosBatched {
           const VectorViewType &Y,
           const NormViewType &dot) {
       return SerialDotInternal::template
-        invoke<typename VectorViewType::non_const_value_type>
+        invoke<typename VectorViewType::non_const_value_type,
+               typename NormViewType::non_const_value_type>
               (X.extent(0), X.extent(1),
                 X.data(), X.stride_0(), X.stride_1(),
                 Y.data(), Y.stride_0(), Y.stride_1(),
@@ -211,7 +216,8 @@ namespace KokkosBatched {
           const VectorViewType &Y,
           const NormViewType &dot) {
       return SerialDotInternal::template
-        invoke<typename VectorViewType::non_const_value_type>
+        invoke<typename VectorViewType::non_const_value_type,
+               typename NormViewType::non_const_value_type>
               (X.extent(1), X.extent(0),
                 X.data(), X.stride_1(), X.stride_0(),
                 Y.data(), Y.stride_1(), Y.stride_0(),
@@ -233,7 +239,9 @@ namespace KokkosBatched {
           const VectorViewType &Y,
           const NormViewType &dot) {
       return TeamDotInternal::template
-        invoke<MemberType, typename VectorViewType::non_const_value_type>
+        invoke<MemberType,
+               typename VectorViewType::non_const_value_type,
+               typename NormViewType::non_const_value_type>
               (member, 
                 X.extent(0), X.extent(1),
                 X.data(), X.stride_0(), X.stride_1(),
@@ -253,7 +261,9 @@ namespace KokkosBatched {
           const VectorViewType &Y,
           const NormViewType &dot) {
       return TeamDotInternal::template
-        invoke<MemberType, typename VectorViewType::non_const_value_type>
+        invoke<MemberType,
+               typename VectorViewType::non_const_value_type,
+               typename NormViewType::non_const_value_type>
               (member, 
                 X.extent(1), X.extent(0),
                 X.data(), X.stride_1(), X.stride_0(),
@@ -276,7 +286,9 @@ namespace KokkosBatched {
           const VectorViewType &Y,
           const NormViewType &dot) {
       return TeamVectorDotInternal::template
-        invoke<MemberType, typename VectorViewType::non_const_value_type>
+        invoke<MemberType,
+               typename VectorViewType::non_const_value_type,
+               typename NormViewType::non_const_value_type>
               (member, 
                 X.extent(0), X.extent(1),
                 X.data(), X.stride_0(), X.stride_1(),
@@ -296,7 +308,9 @@ namespace KokkosBatched {
           const VectorViewType &Y,
           const NormViewType &dot) {
       return TeamVectorDotInternal::template
-        invoke<MemberType, typename VectorViewType::non_const_value_type>
+        invoke<MemberType,
+               typename VectorViewType::non_const_value_type,
+               typename NormViewType::non_const_value_type>
               (member, 
                 X.extent(1), X.extent(0),
                 X.data(), X.stride_1(), X.stride_0(),
