@@ -119,45 +119,84 @@ namespace KokkosBatched {
   ///
   /// Serial Impl
   /// ===========
-  template<typename VectorViewType,
-           typename NormViewType>
-  KOKKOS_INLINE_FUNCTION
-  int
-  SerialDot::
-  invoke(const VectorViewType &X,
-         const VectorViewType &Y,
-         const NormViewType &dot) {
-    return SerialDotInternal::template
-      invoke<typename VectorViewType::non_const_value_type>
-             (X.extent(0), X.extent(1),
-              X.data(), X.stride_0(), X.stride_1(),
-              Y.data(), Y.stride_0(), Y.stride_1(),
-              dot.data(), dot.stride_0());
-  }
+  template<>
+  struct SerialDot<Trans::NoTranspose> {
+    template<typename VectorViewType,
+            typename NormViewType>
+    KOKKOS_INLINE_FUNCTION
+    int 
+    invoke(const VectorViewType &X,
+          const VectorViewType &Y,
+          const NormViewType &dot) {
+      return SerialDotInternal::template
+        invoke<typename VectorViewType::non_const_value_type>
+              (X.extent(0), X.extent(1),
+                X.data(), X.stride_0(), X.stride_1(),
+                Y.data(), Y.stride_0(), Y.stride_1(),
+                dot.data(), dot.stride_0());
+    }
+  };
+
+  template<>
+  struct SerialDot<Trans::Transpose> {
+    template<typename VectorViewType,
+            typename NormViewType>
+    KOKKOS_INLINE_FUNCTION
+    int 
+    invoke(const VectorViewType &X,
+          const VectorViewType &Y,
+          const NormViewType &dot) {
+      return SerialDotInternal::template
+        invoke<typename VectorViewType::non_const_value_type>
+              (X.extent(1), X.extent(0),
+                X.data(), X.stride_1(), X.stride_0(),
+                Y.data(), Y.stride_1(), Y.stride_0(),
+                dot.data(), dot.stride_0());
+    }
+  };
 
   ///
   /// TeamVector Impl
   /// ===============
-    
   template<typename MemberType>
-  template<typename VectorViewType,
-           typename NormViewType>
-  KOKKOS_INLINE_FUNCTION
-  int
-  TeamVectorDot<MemberType>::
-  invoke(const MemberType &member, 
-         const VectorViewType &X,
-         const VectorViewType &Y,
-         const NormViewType &dot) {
-    return TeamVectorDotInternal::
-      invoke<MemberType,
-             typename VectorViewType::non_const_value_type>
-             (member, 
-              X.extent(0), X.extent(1),
-              X.data(), X.stride_0(), X.stride_1(),
-              Y.data(), Y.stride_0(), Y.stride_1(),
-              dot.data(), dot.stride_0());
-  }
+  struct TeamVectorDot<MemberType, Trans::NoTranspose> {
+    template<typename VectorViewType,
+            typename NormViewType>
+    KOKKOS_INLINE_FUNCTION
+    int 
+    invoke(const MemberType &member,
+          const VectorViewType &X,
+          const VectorViewType &Y,
+          const NormViewType &dot) {
+      return TeamVectorDotInternal::template
+        invoke<typename VectorViewType::non_const_value_type>
+              (member, 
+                X.extent(0), X.extent(1),
+                X.data(), X.stride_0(), X.stride_1(),
+                Y.data(), Y.stride_0(), Y.stride_1(),
+                dot.data(), dot.stride_0());
+    }
+  };
+
+  template<typename MemberType>
+  struct TeamVectorDot<MemberType, Trans::Transpose> {
+    template<typename VectorViewType,
+            typename NormViewType>
+    KOKKOS_INLINE_FUNCTION
+    int 
+    invoke(const MemberType &member,
+          const VectorViewType &X,
+          const VectorViewType &Y,
+          const NormViewType &dot) {
+      return TeamVectorDotInternal::template
+        invoke<typename VectorViewType::non_const_value_type>
+              (member, 
+                X.extent(1), X.extent(0),
+                X.data(), X.stride_1(), X.stride_0(),
+                Y.data(), Y.stride_1(), Y.stride_0(),
+                dot.data(), dot.stride_0());
+    }
+  };
 
 } // end namespace KokkosBatched
 

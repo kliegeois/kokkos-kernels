@@ -102,7 +102,7 @@ namespace KokkosBatched {
             // Deep copy of r_0 into p_0:
             Kokkos::deep_copy(P, R);
 
-            TeamVectorDot<MemberType>::template invoke<VectorViewType, NormViewType>(member, R, R, sqr_norm_0);
+            TeamVectorDot<MemberType,Trans::Transpose>::template invoke<VectorViewType, NormViewType>(member, R, R, sqr_norm_0);
             member.team_barrier();
 
             Kokkos::deep_copy(sqr_norm_j, sqr_norm_0);
@@ -116,7 +116,7 @@ namespace KokkosBatched {
               TeamVectorSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, VectorViewType, VectorViewType, NormViewType, NormViewType, 0>(member, beta, values, row_ptr, colIndices, P, alpha, Q);
               member.team_barrier();
 
-              TeamVectorDot<MemberType>::template invoke<VectorViewType, NormViewType>(member, Q, P, tmp);
+              TeamVectorDot<MemberType,Trans::Transpose>::template invoke<VectorViewType, NormViewType>(member, Q, P, tmp);
               member.team_barrier();
 
               Kokkos::parallel_for(
@@ -141,7 +141,7 @@ namespace KokkosBatched {
               TeamVectorAxpy<MemberType>::template invoke<VectorViewType, NormViewType>(member, alpha, Q, R);
               member.team_barrier();
 
-              TeamVectorDot<MemberType>::template invoke<VectorViewType, NormViewType>(member, R, R, tmp);
+              TeamVectorDot<MemberType,Trans::Transpose>::template invoke<VectorViewType, NormViewType>(member, R, R, tmp);
               member.team_barrier();
 
               Kokkos::parallel_for(

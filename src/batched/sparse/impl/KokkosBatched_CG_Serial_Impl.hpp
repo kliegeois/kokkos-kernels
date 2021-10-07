@@ -104,7 +104,7 @@ namespace KokkosBatched {
             // Deep copy of r_0 into p_0:
             SerialCopy<Trans::NoTranspose>::invoke(R, P);
 
-            SerialDot::template invoke<VectorViewType, NormViewType>(R, R, sqr_norm_0);
+            SerialDot<Trans::Transpose>::template invoke<VectorViewType, NormViewType>(R, R, sqr_norm_0);
             SerialCopy<Trans::NoTranspose>::invoke(sqr_norm_0, sqr_norm_j);
 
             int status = 1;
@@ -115,7 +115,7 @@ namespace KokkosBatched {
               // q := A p_j (alpha has no influence as "NormViewType, 0>" )
               SerialSpmv<Trans::NoTranspose>::template invoke<ValuesViewType, IntView, VectorViewType, VectorViewType, NormViewType, NormViewType, 0>(beta, values, row_ptr, colIndices, P, alpha, Q);
 
-              SerialDot::template invoke<VectorViewType, NormViewType>(Q, P, tmp);
+              SerialDot<Trans::Transpose>::template invoke<VectorViewType, NormViewType>(Q, P, tmp);
 
               for(size_t i = 0; i < numMatrices; ++i) {
                 alpha(i) = sqr_norm_j(i) / tmp(i);
@@ -131,7 +131,7 @@ namespace KokkosBatched {
 
               SerialAxpy::template invoke<VectorViewType, NormViewType>(alpha, Q, R);
 
-              SerialDot::template invoke<VectorViewType, NormViewType>(R, R, tmp);
+              SerialDot<Trans::Transpose>::template invoke<VectorViewType, NormViewType>(R, R, tmp);
 
               for(size_t i = 0; i < numMatrices; ++i) {
                 beta(i) = tmp(i) / sqr_norm_j(i);
