@@ -145,7 +145,7 @@ namespace KokkosBatched {
                 MagnitudeType norm_0 = std::sqrt(sqr_norm_0(i));
                 MagnitudeType norm_j = std::sqrt(sqr_norm_j(i));
                 if(verbose_print) {
-                  //printf("CG iteration %d, system %d: norm of the initial residual %f, norm of the curent residual %f, relative norm %f\n", j, i, norm_0, norm_j, norm_j/norm_0);
+                  printf("CG iteration %d, system %d: norm of the initial residual %f, norm of the curent residual %f, relative norm %f\n", (int) j, (int) i, norm_0, norm_j, norm_j/norm_0);
                 }
                 if(norm_j/norm_0 > tolerance)
                   all_converged = false;

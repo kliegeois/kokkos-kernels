@@ -129,7 +129,7 @@ namespace KokkosBatched {
             int status = 1;
             int number_not_converged = 0;
 
-            for(size_t j = 0; j < 5; ++j) {
+            for(size_t j = 0; j < maximum_iteration; ++j) {
               // q := A p_j (m_one has no influence as "NormViewType, 0>" )
               TeamVectorSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 0>(member, one, values, row_ptr, colIndices, P, m_one, Q);
               member.team_barrier();
