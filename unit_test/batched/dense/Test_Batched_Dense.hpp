@@ -40,6 +40,7 @@
 #include "Test_Batched_SerialTrtri.hpp"
 #include "Test_Batched_SerialTrtri_Real.hpp"
 #include "Test_Batched_SerialTrtri_Complex.hpp"
+#include "Test_Batched_SerialSVD.hpp"
 
 // Team Kernels
 #include "Test_Batched_TeamAxpy.hpp"
