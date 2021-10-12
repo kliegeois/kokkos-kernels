@@ -188,7 +188,7 @@ namespace KokkosBatched {
   /// Serial Impl
   /// ===========
   template<>
-  struct SerialDot<Trans::NoTranspose> {
+  struct SerialDot<Trans::Transpose> {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
@@ -207,7 +207,7 @@ namespace KokkosBatched {
   };
 
   template<>
-  struct SerialDot<Trans::Transpose> {
+  struct SerialDot<Trans::NoTranspose> {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
@@ -229,7 +229,7 @@ namespace KokkosBatched {
   /// Team Impl
   /// ===============
   template<typename MemberType>
-  struct TeamDot<MemberType, Trans::NoTranspose> {
+  struct TeamDot<MemberType, Trans::Transpose> {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
@@ -251,7 +251,7 @@ namespace KokkosBatched {
   };
 
   template<typename MemberType>
-  struct TeamDot<MemberType, Trans::Transpose> {
+  struct TeamDot<MemberType, Trans::NoTranspose> {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
@@ -276,7 +276,7 @@ namespace KokkosBatched {
   /// TeamVector Impl
   /// ===============
   template<typename MemberType>
-  struct TeamVectorDot<MemberType, Trans::NoTranspose> {
+  struct TeamVectorDot<MemberType, Trans::Transpose> {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION
@@ -298,7 +298,7 @@ namespace KokkosBatched {
   };
 
   template<typename MemberType>
-  struct TeamVectorDot<MemberType, Trans::Transpose> {
+  struct TeamVectorDot<MemberType, Trans::NoTranspose> {
     template<typename VectorViewType,
             typename NormViewType>
     KOKKOS_INLINE_FUNCTION

@@ -90,8 +90,8 @@ namespace KokkosBatched {
             ScratchPadVectorViewType X(member.team_scratch(0), numMatrices, numRows);
             ScratchPadVectorViewType B(member.team_scratch(0), numMatrices, numRows);
 
-            TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, _X, X);
-            TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, _B, B);
+            TeamCopy<MemberType>::invoke(member, _X, X);
+            TeamCopy<MemberType>::invoke(member, _B, B);
 
             ScratchPadVectorViewType P(member.team_scratch(0), numMatrices, numRows);
             ScratchPadVectorViewType R(member.team_scratch(0), numMatrices, numRows);
@@ -115,17 +115,17 @@ namespace KokkosBatched {
             });
 
             // Deep copy of b into r_0:
-            TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, B, R);
+            TeamCopy<MemberType>::invoke(member, B, R);
 
             // r_0 := b - A x_0
             member.team_barrier();
-            TeamSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 1>(member, m_one, values, row_ptr, colIndices, X, one, R);
+            TeamSpmv<MemberType>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 1>(member, m_one, values, row_ptr, colIndices, X, one, R);
             member.team_barrier();
 
             // Deep copy of r_0 into p_0:
-            TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, P);
+            TeamCopy<MemberType>::invoke(member, R, P);
 
-            TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, sqr_norm_0);
+            TeamDot<MemberType>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, sqr_norm_0);
             member.team_barrier();
 
             TeamCopy<MemberType, Trans::NoTranspose, 1>::invoke(member, sqr_norm_0, sqr_norm_j);
@@ -135,10 +135,10 @@ namespace KokkosBatched {
 
             for(size_t j = 0; j < maximum_iteration; ++j) {
               // q := A p_j (m_one has no influence as "NormViewType, 0>" )
-              TeamSpmv<MemberType,Trans::NoTranspose>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 0>(member, one, values, row_ptr, colIndices, P, m_one, Q);
+              TeamSpmv<MemberType>::template invoke<ValuesViewType, IntView, ScratchPadVectorViewType, ScratchPadVectorViewType, ScratchPadNormViewType, ScratchPadNormViewType, 0>(member, one, values, row_ptr, colIndices, P, m_one, Q);
               member.team_barrier();
 
-              TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, P, Q, tmp);
+              TeamDot<MemberType>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, P, Q, tmp);
               member.team_barrier();
 
               Kokkos::parallel_for(
@@ -163,7 +163,7 @@ namespace KokkosBatched {
               TeamAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, alpha, Q, R);
               member.team_barrier();
 
-              TeamDot<MemberType,Trans::Transpose>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, tmp);
+              TeamDot<MemberType>::template invoke<ScratchPadVectorViewType,ScratchPadNormViewType>(member, R, R, tmp);
               member.team_barrier();
 
               Kokkos::parallel_for(
@@ -191,11 +191,11 @@ namespace KokkosBatched {
               }
 
               // p_{j+1} := beta p_j + r_{j+1}
-              TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, R, Q);
+              TeamCopy<MemberType>::invoke(member, R, Q);
               member.team_barrier();
               TeamAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, beta, P, Q);
               member.team_barrier();
-              TeamCopy<MemberType, Trans::NoTranspose>::invoke(member, Q, P);
+              TeamCopy<MemberType>::invoke(member, Q, P);
               member.team_barrier();
             }
 

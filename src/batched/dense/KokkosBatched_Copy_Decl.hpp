@@ -26,7 +26,7 @@ namespace KokkosBatched {
   /// Team Copy
   ///
 
-  template<typename MemberType, typename ArgTrans, int rank=2>
+  template<typename MemberType, typename ArgTrans = Trans::NoTranspose, int rank=2>
   struct TeamCopy {
     template<typename AViewType,
              typename BViewType>
@@ -41,7 +41,7 @@ namespace KokkosBatched {
   /// TeamVector Copy
   ///
 
-  template<typename MemberType, typename ArgTrans, int rank=2>
+  template<typename MemberType, typename ArgTrans = Trans::NoTranspose, int rank=2>
   struct TeamVectorCopy {
     template<typename AViewType,
              typename BViewType>

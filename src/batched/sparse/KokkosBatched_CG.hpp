@@ -62,7 +62,6 @@
 ///   Albuquerque, NM (United States).
 ///
 
-#include "KokkosBatched_CG_Serial_Impl.hpp"
 #include "KokkosBatched_CG_Team_Impl.hpp"
 #include "KokkosBatched_CG_TeamVector_Impl.hpp"
 
@@ -85,9 +84,7 @@ namespace KokkosBatched {
            const size_t maximum_iteration = 200,
            const typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type tolerance = Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::epsilon()) {
       int status = 0;
-      if (std::is_same<ArgMode,Mode::Serial>::value) {
-        status = SerialCG::template invoke<ValuesViewType, IntView, VectorViewType>(values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
-      } else if (std::is_same<ArgMode,Mode::Team>::value) {
+      if (std::is_same<ArgMode,Mode::Team>::value) {
         status = TeamCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>(member, values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
       } else if (std::is_same<ArgMode,Mode::TeamVector>::value) {
         status = TeamVectorCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>(member, values, row_ptr, colIndices, B, X, maximum_iteration, tolerance);
