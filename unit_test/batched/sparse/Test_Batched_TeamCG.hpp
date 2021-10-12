@@ -28,6 +28,7 @@ namespace TeamCG {
     const VectorViewType _X;
     const VectorViewType _B;
     const int _N_team;
+    CGHandle<typename ValuesViewType::value_type>* handle;
     
     KOKKOS_INLINE_FUNCTION
     Functor_TestBatchedTeamCG(const ValuesViewType &D,
@@ -36,7 +37,9 @@ namespace TeamCG {
       const VectorViewType &X,
       const VectorViewType &B,
       const int N_team)
-    : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team) {}
+    : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team) {
+      handle = new CGHandle<typename ValuesViewType::value_type>();
+    }
     
     template<typename MemberType>
     KOKKOS_INLINE_FUNCTION
@@ -49,9 +52,9 @@ namespace TeamCG {
       auto d = Kokkos::subview(_D,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
       auto x = Kokkos::subview(_X,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
       auto b = Kokkos::subview(_B,Kokkos::make_pair(first_matrix,last_matrix),Kokkos::ALL);
-      
+
       KokkosBatched::TeamCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>
-          (member, d, _r, _c, b, x);
+          (member, d, _r, _c, b, x, handle);
     }
     
     inline

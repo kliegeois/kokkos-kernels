@@ -51,6 +51,7 @@
 #include "KokkosBatched_Copy_Decl.hpp"
 #include "KokkosBatched_Dot.hpp"
 #include "KokkosBatched_Spmv.hpp"
+#include "KokkosBatched_Xpay.hpp"
 
 namespace KokkosBatched {
 
@@ -72,11 +73,13 @@ namespace KokkosBatched {
            const IntView &colIndices,
            const VectorViewType &_B,
            const VectorViewType &_X,
-           const size_t maximum_iteration = 200,
-           const typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type tolerance = Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::epsilon()) {
+           CGHandle<typename ValuesViewType::non_const_value_type> *handle) {
             typedef typename IntView::non_const_value_type OrdinalType;
             typedef typename Kokkos::Details::ArithTraits<typename ValuesViewType::non_const_value_type>::mag_type MagnitudeType;
             typedef Kokkos::View<MagnitudeType*,Kokkos::LayoutLeft,typename ValuesViewType::device_type> NormViewType;
+
+            int maximum_iteration = handle->get_max_iteration();
+            const MagnitudeType tolerance = handle->get_tolerance();
 
             using ScratchPadNormViewType =
                 Kokkos::View<MagnitudeType*,
@@ -191,11 +194,7 @@ namespace KokkosBatched {
               }
 
               // p_{j+1} := beta p_j + r_{j+1}
-              TeamCopy<MemberType>::invoke(member, R, Q);
-              member.team_barrier();
-              TeamAxpy<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, beta, P, Q);
-              member.team_barrier();
-              TeamCopy<MemberType>::invoke(member, Q, P);
+              TeamXpay<MemberType>::template invoke<ScratchPadVectorViewType, ScratchPadNormViewType>(member, beta, R, P);
               member.team_barrier();
             }
 

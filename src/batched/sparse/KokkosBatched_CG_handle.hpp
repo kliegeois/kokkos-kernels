@@ -1,8 +1,9 @@
+/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.4
-//       Copyright (2021) National Technology & Engineering
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
@@ -39,59 +40,61 @@
 //
 // ************************************************************************
 //@HEADER
-#ifndef __KOKKOSBATCHED_CG_HPP__
-#define __KOKKOSBATCHED_CG_HPP__
+*/
 
+#include <Kokkos_MemoryTraits.hpp>
+#include <Kokkos_Core.hpp>
+#include <iostream>
+#include <string>
 
-/// \author Kim Liegeois (knliege@sandia.gov)
+#ifndef __KOKKOSBATCHED_CG_HANDLE_HPP__
+#define __KOKKOSBATCHED_CG_HANDLE_HPP__
+//#define VERBOSE
 
-#include "KokkosBatched_Util.hpp"
-#include "KokkosBatched_Vector.hpp"
+namespace KokkosBatched{
 
+template <class scalar_type>
+class CGHandle{
+public:
+  using norm_type = typename Kokkos::Details::ArithTraits<scalar_type>::mag_type;
 
-/// Batched CG
-///
-/// 3 implementations are currently provided:
-///  * SerialCG,
-///  * TeamCG,
-///  * TeamVectorCG.
-///
-/// The naming of those implementations follows the logic of: 
-///   Kim, K. (2019). Solving Many Small Matrix Problems using Kokkos and 
-///   KokkosKernels (No. SAND2019-4542PE). Sandia National Lab.(SNL-NM),
-///   Albuquerque, NM (United States).
-///
+private:
+  norm_type tolerance;
+  int max_iteration;
 
-#include "KokkosBatched_CG_handle.hpp"
-#include "KokkosBatched_CG_Team_Impl.hpp"
-#include "KokkosBatched_CG_TeamVector_Impl.hpp"
+public:
+  KOKKOS_INLINE_FUNCTION
+  CGHandle() {
+    tolerance = Kokkos::Details::ArithTraits<norm_type>::epsilon();
+    max_iteration = 200;
+  }
 
-namespace KokkosBatched {
+  KOKKOS_INLINE_FUNCTION
+  void set_tolerance(norm_type _tolerance)
+  {
+    tolerance = _tolerance;
+  }
 
-  template<typename MemberType,
-           typename ArgMode>
-  struct CG {
-    template<typename ValuesViewType,
-             typename IntView,
-             typename VectorViewType>
-    KOKKOS_INLINE_FUNCTION
-    static int
-    invoke(const MemberType &member, 
-           const ValuesViewType &values,
-           const IntView &row_ptr,
-           const IntView &colIndices,
-           const VectorViewType &B,
-           const VectorViewType &X,
-           const CGHandle<typename ValuesViewType::non_const_value_type> handle) {
-      int status = 0;
-      if (std::is_same<ArgMode,Mode::Team>::value) {
-        status = TeamCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>(member, values, row_ptr, colIndices, B, X, handle);
-      } else if (std::is_same<ArgMode,Mode::TeamVector>::value) {
-        status = TeamVectorCG<MemberType>::template invoke<ValuesViewType, IntView, VectorViewType>(member, values, row_ptr, colIndices, B, X, handle);
-      } 
-      return status;
-    }      
-  };
+  KOKKOS_INLINE_FUNCTION
+  norm_type get_tolerance() const
+  {
+    return tolerance;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void set_max_iteration(norm_type _max_iteration)
+  {
+    max_iteration = _max_iteration;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int get_max_iteration() const
+  {
+    return max_iteration;
+  }
+
+};
 
 }
+
 #endif
