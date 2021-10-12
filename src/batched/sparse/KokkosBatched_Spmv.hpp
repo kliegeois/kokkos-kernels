@@ -87,7 +87,7 @@ namespace KokkosBatched {
   /// No nested parallel_for is used inside of the function.
   ///
 
-  template<typename ArgTrans>
+  template<typename ArgTrans = Trans::NoTranspose>
   struct SerialSpmv {
     template<typename ValuesViewType,
              typename IntView,
@@ -146,7 +146,7 @@ namespace KokkosBatched {
   ///
 
   template<typename MemberType,
-           typename ArgTrans>
+           typename ArgTrans = Trans::NoTranspose>
   struct TeamSpmv {
     template<typename ValuesViewType,
              typename IntView,
@@ -207,7 +207,7 @@ namespace KokkosBatched {
   ///
 
   template<typename MemberType,
-           typename ArgTrans>
+           typename ArgTrans = Trans::NoTranspose>
   struct TeamVectorSpmv {
     template<typename ValuesViewType,
              typename IntView,
