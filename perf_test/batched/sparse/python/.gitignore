@@ -1,0 +1,4 @@
+*.txt
+*.mm
+__pycache__
+data
