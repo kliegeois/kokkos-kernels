@@ -73,7 +73,7 @@ struct TeamCG {
                          typename VectorViewType::device_type>
         NormViewType;
 
-    int maximum_iteration         = handle->get_max_iteration();
+    size_t maximum_iteration      = handle->get_max_iteration();
     const MagnitudeType tolerance = handle->get_tolerance();
 
     using ScratchPadNormViewType = Kokkos::View<

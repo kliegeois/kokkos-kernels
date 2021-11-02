@@ -77,7 +77,7 @@ struct TeamVectorGMRES {
                          typename VectorViewType::device_type>
         NormViewType;
 
-    int maximum_iteration         = handle->get_max_iteration();
+    size_t maximum_iteration      = handle->get_max_iteration();
     const MagnitudeType tolerance = handle->get_tolerance();
 
     using ScratchPadNormViewType = Kokkos::View<
@@ -166,8 +166,9 @@ struct TeamVectorGMRES {
         TeamVectorCopy1D::invoke(member, tmp,
                                  Kokkos::subview(H, Kokkos::ALL, i, j));
 
-        Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
-                             [&](const OrdinalType& i) { tmp(i) = -tmp(i); });
+        Kokkos::parallel_for(
+            Kokkos::TeamVectorRange(member, 0, numMatrices),
+            [&](const OrdinalType& ii) { tmp(ii) = -tmp(ii); });
 
         TeamVectorAxpy<MemberType>::invoke(member, tmp, V_i, W);
       }
