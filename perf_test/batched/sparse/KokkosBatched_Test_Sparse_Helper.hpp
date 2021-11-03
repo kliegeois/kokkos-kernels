@@ -12,7 +12,7 @@ void writeArrayToMM(std::string name, const XType x) {
 
   for (size_t i = 0; i < x_h.extent(0); ++i) {
     for (size_t j = 0; j < x_h.extent(1); ++j) {
-      myfile << x_h(i, j) << " ";
+      myfile << std::setprecision (15) << x_h(i, j) << " ";
     }
     myfile << std::endl;
   }

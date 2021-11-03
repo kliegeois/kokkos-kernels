@@ -1,7 +1,7 @@
 import numpy as np
 
 import time
-from test_io import mmwrite
+from test_io import mmwrite, mmread
 from run_Test import run_test
 from create_matrices import *
 import os
@@ -10,6 +10,28 @@ import os
 def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
     # 1 "+" and 1 "*" per entry of A and 1 "+" and 1 "*" per row
     return 2*(nnz+nrows)*number_of_matrices*bytes_per_entry
+
+
+def verify_SPMV(name_A, name_B, name_X, implementation, layout):
+    
+    B = mmread(name_B)
+    N = np.shape(B)[1]
+
+    if layout == 'Left':
+        X = mmread(name_X+str(implementation)+'_l.mm')
+    if layout == 'Right':
+        X = mmread(name_X+str(implementation)+'_r.mm')
+        
+    for i in range(0, N):
+        b = B[:, i]
+        A = mmread(name_A, i)
+
+        x = X[:, i]
+
+        res = np.linalg.norm(A.dot(b.transpose())-x.transpose())
+        if res > 1e-10:
+            return False
+    return True
 
 
 def main():
@@ -59,10 +81,16 @@ def main():
 
         data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
         for j in range(0, n_implementations_left):
+            res = verify_SPMV(name_A, name_B, name_X, implementations_left[j], 'Left')
+            if res == False:
+                data[j,:] *= 0
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
         data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
         for j in range(0, n_implementations_right):
+            res = verify_SPMV(name_A, name_B, name_X, implementations_right[j], 'Right')
+            if res == False:
+                data[j,:] *= 0
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
 
