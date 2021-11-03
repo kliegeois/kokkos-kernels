@@ -94,7 +94,7 @@ ax.set_xlim(50, 350)
 
 legend = ax.legend(loc='best', shadow=True)
 
-plt.savefig('wall-clock time.png')
+plt.savefig(base+'wall-clock time.png')
 
 fig = plt.figure()
 ax = plt.gca()
@@ -126,6 +126,6 @@ legend = ax.legend(loc='best', shadow=True)
 for i in range(56, 256, 8):
     ax.plot([i,i], [0,3e11], 'k--')
 '''
-plt.savefig('throughput.png')
+plt.savefig(base+'throughput.png')
 
 plt.show()
