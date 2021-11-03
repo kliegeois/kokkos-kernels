@@ -14,14 +14,14 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    N = 2*12800
+    N = 1
     Bs = np.arange(10,501, 10)
 
     with open('binary_dir.txt') as f:
         directory = f.read()
 
     rows_per_thread=2
-    team_size=16
+    team_size=1
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)

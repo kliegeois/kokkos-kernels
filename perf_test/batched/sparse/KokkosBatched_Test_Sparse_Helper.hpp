@@ -78,13 +78,29 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
   typename IntType::HostMirror r_h = Kokkos::create_mirror_view(r);
   typename IntType::HostMirror c_h = Kokkos::create_mirror_view(c);
 
-  for (size_t i = 0; i < r_h.extent(0); ++i) {
-    input >> r_h(i) >> c_h(i);
+  int current_row = 0;
+  int read_row;
+
+  int nnz = c_h.extent(0);
+  int nrows = r_h.extent(0)-1;
+
+  r_h(0) = 0;
+
+  for (size_t i = 0; i < nnz; ++i) {
+    input >> read_row >> c_h(i);
+    --read_row;
+    --c_h(i);
+    for (int tmp_row = current_row+1; tmp_row <= read_row; ++tmp_row)
+      r_h(tmp_row) = i;
+    current_row = read_row;
+
     // if (VType::Rank == 1)
     //  input >> V_h(i);
     if (VType::Rank == 2)
       for (size_t j = 0; j < V_h.extent(0); ++j) input >> V_h(j, i);
   }
+
+  r_h(nrows) = nnz;
 
   input.close();
 
