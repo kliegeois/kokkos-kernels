@@ -53,12 +53,12 @@ def compute_n_ops(nrows, nnz_per_row, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    N = 2*12800
     Bs = np.arange(10,501, 10)
     nnz_per_row=10
     n=100
-    rows_per_thread=2
-    team_size=16
+    rows_per_thread=1
+    team_size=32
+    N = team_size*1600
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
