@@ -36,14 +36,14 @@ def verify_SPMV(name_A, name_B, name_X, implementation, layout):
 
 def main():
     tic = time.perf_counter()
-    N = 1
+    N = 25600
     Bs = np.arange(10,501, 10)
 
     with open('binary_dir.txt') as f:
         directory = f.read()
 
     rows_per_thread=2
-    team_size=1
+    team_size=16
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
