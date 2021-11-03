@@ -370,6 +370,23 @@ int main(int argc, char *argv[]) {
         myfile.close();
       }
 
+      double average_time = 0.;
+
+      for (size_t i = 0; i < timers.size(); ++i)
+        average_time += timers[i]/timers.size();
+
+
+      if (layout_left)
+        printf(
+            "Left layout: Implementation %d: solve time = %f , # of SPMV per "
+            "min = %f\n",
+            i_impl, average_time, 1.0 / average_time * 60 * N);
+      if (layout_right)
+        printf(
+            "Right layout: Implementation %d: solve time = %f , # of SPMV per "
+            "min = %f\n",
+            i_impl, average_time, 1.0 / average_time * 60 * N);
+
       if (layout_left) {
         writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", yLL);
       }
