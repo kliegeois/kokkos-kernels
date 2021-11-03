@@ -46,9 +46,9 @@ def run_test_spmv(N=128, B=200, nnz_per_row=5, n=10000, rows_per_thread=1, team_
     return data, nnz
 
 
-def compute_n_ops(nrows, nnz_per_row, number_of_matrices, bytes_per_entry=8):
+def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
     # 1 "+" and 1 "*" per entry of A and 1 "+" and 1 "*" per row
-    return 2*nrows*(nnz_per_row+1)*number_of_matrices*bytes_per_entry
+    return (2*nnz+2*nrows)*number_of_matrices*bytes_per_entry
 
 
 def main():
@@ -70,9 +70,9 @@ def main():
     throughput_right = np.zeros((n_implementations_right, len(Bs), n_quantiles))
     nnzs = np.zeros((len(Bs), ))
     for i in range(0, len(Bs)):
-        n_ops = compute_n_ops(Bs[i], nnz_per_row, N)
         data, nnz = run_test_spmv(N, Bs[i], nnz_per_row, n, rows_per_thread, team_size, implementations_left, layout='Left')
         nnzs[i] = nnz
+        n_ops = compute_n_ops(Bs[i], nnz, N)
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
