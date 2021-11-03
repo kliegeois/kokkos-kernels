@@ -40,6 +40,7 @@
 #include "Test_Batched_SerialTrtri.hpp"
 #include "Test_Batched_SerialTrtri_Real.hpp"
 #include "Test_Batched_SerialTrtri_Complex.hpp"
+#include "Test_Batched_SerialSVD.hpp"
 
 // Team Kernels
 #include "Test_Batched_TeamAxpy.hpp"
@@ -90,7 +91,6 @@
 #include "Test_Batched_TeamVectorUTV.hpp"
 #include "Test_Batched_TeamVectorUTV_Real.hpp"
 
-
 // Vector Kernels
 #include "Test_Batched_VectorArithmatic.hpp"
 #include "Test_Batched_VectorLogical.hpp"
@@ -99,4 +99,4 @@
 #include "Test_Batched_VectorRelation.hpp"
 #include "Test_Batched_VectorView.hpp"
 
-#endif // TEST_BATCHED_DENSE_HPP
+#endif  // TEST_BATCHED_DENSE_HPP

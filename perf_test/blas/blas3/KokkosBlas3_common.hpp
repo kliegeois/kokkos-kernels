@@ -65,6 +65,7 @@
 #define DEFAULT_BATCH_SIZE_LAST_DIM 0
 #define DEFAULT_VERIFY 1
 #define DEFAULT_NINTER 4
+#define DEFAULT_USE_SIMD 0
 
 /************************ blas routine structure definitions **********/
 struct perf_test_trmm_args {
@@ -139,6 +140,7 @@ static std::string loop_e_str[LOOP_N] = {"serial", "parallel"};
  */
 typedef enum TEST {
   BLAS,
+  BATCHED_HEURISTIC,
   BATCHED_SERIAL,
   BATCHED_SERIAL_BLOCKED,
   BATCHED_SERIAL_SIMD,
@@ -156,10 +158,10 @@ typedef enum TEST {
 } test_e;
 
 static std::string test_e_str[TEST_N]{
-    "blas", "batched_serial", "batched_serial_blocked", "batched_serial_simd",
-    "batched_serial_simd_blocked", "batched_serial_compact_mkl", "batched_team",
-    "batched_team_blocked", "batched_team_vector",
-    "batched_team_vector_blocked", "batched_team_simd",
+    "blas", "batched_heuristic", "batched_serial", "batched_serial_blocked",
+    "batched_serial_simd", "batched_serial_simd_blocked",
+    "batched_serial_compact_mkl", "batched_team", "batched_team_blocked",
+    "batched_team_vector", "batched_team_vector_blocked", "batched_team_simd",
     "batched_team_simd_blocked",
     // ADD MORE TEST TYPES HERE
     "experiment"};
@@ -212,6 +214,7 @@ struct perf_test_options {
   std::string blas_routines;
   bool verify;
   int ninter;
+  bool use_simd;
 };
 typedef struct perf_test_options options_t;
 
