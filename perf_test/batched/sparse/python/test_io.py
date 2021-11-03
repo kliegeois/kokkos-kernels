@@ -1,6 +1,10 @@
 import numpy as np
-from scipy.sparse import csr_matrix
-
+try:
+    from scipy.sparse import csr_matrix
+    support_scipy = True
+except:
+    support_scipy = False
+    
 def mmwrite_crs(name, m, n, r, c, v):
     with open(name, 'w') as f:
         print('%%MatrixMarket CRS matrix\n%', file=f)
@@ -87,8 +91,13 @@ def mmread(filename, batched_id=0):
         mask = data != 0.
         m = np.amax(row)+1
         n = np.amax(col)+1
-        A = csr_matrix((data[mask], (row[mask], col[mask])), shape=(m, n))
-        B = A.tocsc()
+        if support_scipy:
+            A = csr_matrix((data[mask], (row[mask], col[mask])), shape=(m, n))
+            B = A.tocsc()
+        else:
+            B = np.zeros((m, n))
+            for i in range(0, len(row)):
+                B[row[i], col[i]] = data[i]
     else:
         X = np.loadtxt(filename, skiprows=skip_header+1)
         if n != 1:

@@ -30,27 +30,28 @@ def verify_SPMV(name_A, name_B, name_X, implementation, layout):
 
         res = np.linalg.norm(A.dot(b.transpose())-x.transpose())
         if res > 1e-10:
+            print('res = '+str(res))
             return False
     return True
 
 
 def main():
     tic = time.perf_counter()
-    N = 25600
     Bs = np.arange(10,501, 10)
 
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    rows_per_thread=2
-    team_size=16
+    rows_per_thread=1
+    team_size=8
+    N = 1600*team_size*rows_per_thread
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
-    n1 = 20
-    n2 = 2
+    n1 = 10
+    n2 = 100
 
     n_quantiles = 7
 
@@ -70,6 +71,7 @@ def main():
 
     max_offset = 3
     offset = 4
+    verify = False
 
     for i in range(0, len(Bs)):
         r, c = create_strided_graph(Bs[i], max_offset, offset)
@@ -84,16 +86,18 @@ def main():
 
         data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
         for j in range(0, n_implementations_left):
-            res = verify_SPMV(name_A, name_B, name_X, implementations_left[j], 'Left')
-            if res == False:
-                data[j,:] *= 0
+            if verify:
+                res = verify_SPMV(name_A, name_B, name_X, implementations_left[j], 'Left')
+                if res == False:
+                    data[j,:] *= 0
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
         data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
         for j in range(0, n_implementations_right):
-            res = verify_SPMV(name_A, name_B, name_X, implementations_right[j], 'Right')
-            if res == False:
-                data[j,:] *= 0
+            if verify:
+                res = verify_SPMV(name_A, name_B, name_X, implementations_right[j], 'Right')
+                if res == False:
+                    data[j,:] *= 0
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
 
