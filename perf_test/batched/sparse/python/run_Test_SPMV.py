@@ -54,7 +54,7 @@ def compute_n_ops(nrows, nnz_per_row, number_of_matrices, bytes_per_entry=8):
 def main():
     tic = time.perf_counter()
     N = 2*12800
-    Bs = np.arange(10,501)
+    Bs = np.arange(10,501, 10)
     nnz_per_row=10
     n=100
     rows_per_thread=2
