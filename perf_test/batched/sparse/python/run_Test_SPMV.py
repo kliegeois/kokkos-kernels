@@ -14,14 +14,14 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    N = 1
+    N = 25600
     Bs = np.arange(10,501, 10)
 
     with open('binary_dir.txt') as f:
         directory = f.read()
 
     rows_per_thread=2
-    team_size=1
+    team_size=16
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
@@ -46,8 +46,11 @@ def main():
     name_X = 'data/X'
     name_timers = 'data/timers'
 
+    max_offset = 3
+    offset = 4
+
     for i in range(0, len(Bs)):
-        r, c = create_strided_graph(Bs[i], 3, 3)
+        r, c = create_strided_graph(Bs[i], max_offset, offset)
         nnzs[i] = len(r)
         n_ops = compute_n_ops(Bs[i], nnzs[i], N)
 

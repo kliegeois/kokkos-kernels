@@ -81,7 +81,7 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
   int current_row = 0;
   int read_row;
 
-  int nnz = c_h.extent(0);
+  size_t nnz = c_h.extent(0);
   int nrows = r_h.extent(0)-1;
 
   r_h(0) = 0;
