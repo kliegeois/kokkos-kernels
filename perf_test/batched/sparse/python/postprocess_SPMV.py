@@ -56,7 +56,7 @@ def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False):
                         color=line[0].get_color(), alpha=alpha)
 
 
-base = 'data/'
+base = 'data_1/'
 n_implementations = 4
 n_quantiles = 7
 
@@ -128,4 +128,4 @@ for i in range(56, 256, 8):
 '''
 plt.savefig(base+'throughput.png')
 
-plt.show()
+#plt.show()

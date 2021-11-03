@@ -42,8 +42,10 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    rows_per_thread=2
-    team_size=16
+    data_d = 'data_1'
+
+    rows_per_thread=1
+    team_size=32
     N = 1600*team_size
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
@@ -61,13 +63,13 @@ def main():
     throughput_right = np.zeros((n_implementations_right, len(Bs), n_quantiles))
     nnzs = np.zeros((len(Bs), ))
 
-    if not os.path.isdir('data'):
-        os.mkdir('data')
+    if not os.path.isdir(data_d):
+        os.mkdir(data_d)
 
-    name_A = 'data/A.mm'
-    name_B = 'data/B.mm'
-    name_X = 'data/X'
-    name_timers = 'data/timers'
+    name_A = data_d+'/A.mm'
+    name_B = data_d+'/B.mm'
+    name_X = data_d+'/X'
+    name_timers = data_d+'/timers'
 
     max_offset = 3
     offset = 4
@@ -102,13 +104,13 @@ def main():
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
 
         for j in range(0, n_implementations_left):
-            np.savetxt('data/CPU_time_'+str(implementations_left[j])+'_l.txt', CPU_time_left[j,:,:])
-            np.savetxt('data/throughput_'+str(implementations_left[j])+'_l.txt', throughput_left[j,:,:])
+            np.savetxt(data_d+'/CPU_time_'+str(implementations_left[j])+'_l.txt', CPU_time_left[j,:,:])
+            np.savetxt(data_d+'/throughput_'+str(implementations_left[j])+'_l.txt', throughput_left[j,:,:])
         for j in range(0, n_implementations_right):
-            np.savetxt('data/CPU_time_'+str(implementations_right[j])+'_r.txt', CPU_time_right[j,:,:])
-            np.savetxt('data/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
-        np.savetxt('data/Bs.txt', Bs)
-        np.savetxt('data/nnzs.txt', nnzs)
+            np.savetxt(data_d+'/CPU_time_'+str(implementations_right[j])+'_r.txt', CPU_time_right[j,:,:])
+            np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
+        np.savetxt(data_d+'/Bs.txt', Bs)
+        np.savetxt(data_d+'/nnzs.txt', nnzs)
 
     toc = time.perf_counter()
     print(f"Elapsed time {toc - tic:0.4f} seconds")
