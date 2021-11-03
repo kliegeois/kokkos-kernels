@@ -42,9 +42,9 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    rows_per_thread=1
-    team_size=8
-    N = 1600*team_size*rows_per_thread
+    rows_per_thread=2
+    team_size=16
+    N = 1600*team_size
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
