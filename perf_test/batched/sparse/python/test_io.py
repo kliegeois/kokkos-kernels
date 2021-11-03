@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import csr_matrix
 
 def mmwrite_crs(name, m, n, r, c, v):
     with open(name, 'w') as f:
@@ -54,3 +55,45 @@ def mmwrite(name, V, r=0, c=0, m=0, n=0):
             mmwrite_batchedCrs(name, m, n, r, c, V)
         else:
             mmwrite_crs(name, m, n, r, c, V)
+
+
+def mmread(filename, batched_id=0):
+
+    skip_header = 0
+    with open(filename, "r") as mm_file:
+        for line in mm_file:
+            if line[0] == '%':
+                skip_header += 1
+            else:
+                break
+    X_dim = np.genfromtxt(filename, skip_header=skip_header, max_rows=1)
+    m = X_dim[0].astype(int)
+    n = X_dim[1].astype(int)
+
+    if len(X_dim) >= 3:
+        is_sparse = True
+        if len(X_dim) == 3:
+            batched_id = 0
+    else:
+        is_sparse = False
+
+    if is_sparse:
+        X = np.loadtxt(filename, skiprows=skip_header+1)
+
+        row = X[:, 0].astype(int)-1
+        col = X[:, 1].astype(int)-1
+        data = X[:, 2 + batched_id]
+
+        mask = data != 0.
+        m = np.amax(row)+1
+        n = np.amax(col)+1
+        A = csr_matrix((data[mask], (row[mask], col[mask])), shape=(m, n))
+        B = A.tocsc()
+    else:
+        X = np.loadtxt(filename, skiprows=skip_header+1)
+        if n != 1:
+            B = X.reshape((m, n)).T
+        else:
+            B = X.reshape((m,))
+
+    return B
