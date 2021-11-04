@@ -433,5 +433,31 @@ struct SharedParamTag {
   using transB      = TB;
   using batchLayout = BL;
 };
+
+/// \brief value_type_name returns a string with the value type name
+template <typename T>
+KOKKOS_INLINE_FUNCTION std::string value_type_name() {
+  return "::UnknowValueType";
+}
+
+template <>
+KOKKOS_INLINE_FUNCTION std::string value_type_name<float>() {
+  return "::Float";
+}
+
+template <>
+KOKKOS_INLINE_FUNCTION std::string value_type_name<double>() {
+  return "::Double";
+}
+
+template <>
+KOKKOS_INLINE_FUNCTION std::string value_type_name<Kokkos::complex<float>>() {
+  return "::ComplexFloat";
+}
+
+template <>
+KOKKOS_INLINE_FUNCTION std::string value_type_name<Kokkos::complex<double>>() {
+  return "::ComplexDouble";
+}
 }  // namespace Test
 #endif
