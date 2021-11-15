@@ -62,6 +62,7 @@ template <typename DeviceType, typename ViewType, typename alphaViewType>
 void impl_test_batched_axpy(const int N, const int BlkSize, const int N_team) {
   typedef typename ViewType::value_type value_type;
   typedef typename ViewType::const_value_type const_value_type;
+  typedef typename alphaViewType::const_value_type alpha_const_value_type;
   typedef Kokkos::Details::ArithTraits<value_type> ats;
 
   ViewType X0("x0", N, BlkSize), X1("x1", N, BlkSize), Y0("y0", N, BlkSize),
@@ -73,7 +74,7 @@ void impl_test_batched_axpy(const int N, const int BlkSize, const int N_team) {
       13718);
   Kokkos::fill_random(X0, random, const_value_type(1.0));
   Kokkos::fill_random(Y0, random, const_value_type(1.0));
-  Kokkos::fill_random(alpha, random, const_value_type(1.0));
+  Kokkos::fill_random(alpha, random, alpha_const_value_type(1.0));
 
   Kokkos::fence();
 
