@@ -60,7 +60,8 @@ template <class ViewType>
 struct multivector_layout_adapter<ViewType, true> {
   typedef typename ViewType::value_type Scalar;
   typedef typename ViewType::device_type Device;
-  typedef Kokkos::View<Scalar** [2], Kokkos::LayoutRight, Device> BaseTypeRight;
+  typedef Kokkos::View<Scalar* * [2], Kokkos::LayoutRight, Device>
+      BaseTypeRight;
   typedef Kokkos::View<Scalar**, typename ViewType::array_layout, Device>
       BaseTypeDefault;
   typedef
@@ -77,7 +78,8 @@ template <class ViewType>
 struct multivector_layout_adapter<ViewType, false> {
   typedef typename ViewType::value_type Scalar;
   typedef typename ViewType::device_type Device;
-  typedef Kokkos::View<Scalar** [2], Kokkos::LayoutRight, Device> BaseTypeRight;
+  typedef Kokkos::View<Scalar* * [2], Kokkos::LayoutRight, Device>
+      BaseTypeRight;
   typedef Kokkos::View<Scalar**, typename ViewType::array_layout, Device>
       BaseTypeDefault;
   typedef
