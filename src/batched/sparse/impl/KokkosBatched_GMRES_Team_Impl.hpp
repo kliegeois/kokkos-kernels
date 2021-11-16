@@ -102,7 +102,7 @@ struct TeamGMRES {
     ScratchPadMultiVectorViewType Givens(member.team_scratch(1), numMatrices,
                                          maximum_iteration, 2);
     ScratchPadVectorViewType G(member.team_scratch(1), numMatrices,
-                               maximum_iteration);
+                               maximum_iteration + 1);
 
     ScratchPadVectorViewType W(member.team_scratch(0), numMatrices, numRows);
     ScratchPadVectorViewType Q(member.team_scratch(0), numMatrices, numRows);
