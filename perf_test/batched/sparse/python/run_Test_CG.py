@@ -12,29 +12,6 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
     return 2*(nnz+nrows)*number_of_matrices*bytes_per_entry
 
 
-def verify_SPMV(name_A, name_B, name_X, implementation, layout):
-    
-    B = mmread(name_B)
-    N = np.shape(B)[1]
-
-    if layout == 'Left':
-        X = mmread(name_X+str(implementation)+'_l.mm')
-    if layout == 'Right':
-        X = mmread(name_X+str(implementation)+'_r.mm')
-        
-    for i in range(0, N):
-        b = B[:, i]
-        A = mmread(name_A, i)
-
-        x = X[:, i]
-
-        res = np.linalg.norm(A.dot(b.transpose())-x.transpose())
-        if res > 1e-10:
-            print('res = '+str(res))
-            return False
-    return True
-
-
 def main():
     tic = time.perf_counter()
     Bs = np.arange(10,501, 10)
@@ -42,7 +19,7 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'SPMV_data_1'
+    data_d = 'CG_data_1'
 
     rows_per_thread=1
     team_size=32
@@ -86,20 +63,12 @@ def main():
         mmwrite(name_A, V, r, c, Bs[i], Bs[i])
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
+        data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
         for j in range(0, n_implementations_left):
-            if verify:
-                res = verify_SPMV(name_A, name_B, name_X, implementations_left[j], 'Left')
-                if res == False:
-                    data[j,:] *= 0
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
+        data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
         for j in range(0, n_implementations_right):
-            if verify:
-                res = verify_SPMV(name_A, name_B, name_X, implementations_right[j], 'Right')
-                if res == False:
-                    data[j,:] *= 0
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
 
