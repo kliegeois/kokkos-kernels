@@ -23,7 +23,7 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'Pele_GMRES_data_1'
+    data_d = 'Pele_SPMV_data_1'
 
     rows_per_thread=2
     team_size=8
@@ -61,11 +61,11 @@ def main():
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
+        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
+        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
         for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]

@@ -1,0 +1,9 @@
+#!/bin/bash
+#BSUB -n 40
+#BSUB -q rhel7W
+#BSUB -o job.out
+#BSUB -e job.err
+#BSUB -J Pele_SPMV
+date
+python run_Pele_Test_SPMV.py
+date

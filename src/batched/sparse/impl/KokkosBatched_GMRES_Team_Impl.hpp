@@ -82,25 +82,37 @@ struct TeamGMRES {
         typename VectorViewType::execution_space::scratch_memory_space>;
     using ScratchPadMultiVectorViewType = Kokkos::View<
         typename VectorViewType::non_const_value_type***,
-        typename VectorViewType::array_layout,
+        Kokkos::LayoutStride,
         typename VectorViewType::execution_space::scratch_memory_space>;
     using TeamCopy1D = TeamCopy<MemberType, Trans::NoTranspose, 1>;
 
     const OrdinalType numMatrices = _X.extent(0);
     const OrdinalType numRows     = _X.extent(1);
 
+    OrdinalType stride_0, stride_1;
+
+    if (std::is_same<typename VectorViewType::array_layout, Kokkos::LayoutRight>::value) {
+      stride_0 = numRows;
+      stride_1 = 1;
+    }
+    else {
+      stride_0 = 1;
+      stride_1 = numMatrices;
+    }
     size_t maximum_iteration = handle->get_max_iteration() < numRows
                                    ? handle->get_max_iteration()
                                    : numRows;
     const MagnitudeType tolerance     = handle->get_tolerance();
     const MagnitudeType max_tolerance = 0.;
 
-    ScratchPadMultiVectorViewType V(member.team_scratch(1), numMatrices,
-                                    maximum_iteration + 1, numRows);
-    ScratchPadMultiVectorViewType H(member.team_scratch(1), numMatrices,
-                                    maximum_iteration + 1, maximum_iteration);
-    ScratchPadMultiVectorViewType Givens(member.team_scratch(1), numMatrices,
-                                         maximum_iteration, 2);
+    const Kokkos::LayoutStride strideArnoldi(numMatrices, stride_0, maximum_iteration + 1, numMatrices * numRows, numRows, stride_1);
+    const Kokkos::LayoutStride strideHessenberg(numMatrices, maximum_iteration, maximum_iteration + 1, numMatrices * maximum_iteration, maximum_iteration, 1);
+    const Kokkos::LayoutStride strideGivens(numMatrices, maximum_iteration * 2, maximum_iteration, 2, 2, 1);
+
+    ScratchPadMultiVectorViewType V(member.team_scratch(1), strideArnoldi);
+    ScratchPadMultiVectorViewType H(member.team_scratch(1), strideHessenberg);
+    ScratchPadMultiVectorViewType Givens(member.team_scratch(1), strideGivens);
+
     ScratchPadVectorViewType G(member.team_scratch(1), numMatrices,
                                maximum_iteration + 1);
 

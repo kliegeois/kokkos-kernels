@@ -729,6 +729,18 @@ KOKKOS_INLINE_FUNCTION
   iMatrix = iTemp / numRows;
 }
 
+
+template <typename OrdinalType, typename layout>
+KOKKOS_INLINE_FUNCTION
+    typename std::enable_if<std::is_same<layout, Kokkos::LayoutStride>::value,
+                            void>::type
+    getIndices(const OrdinalType iTemp, const OrdinalType numRows,
+               const OrdinalType /*numMatrices*/, OrdinalType &iRow,
+               OrdinalType &iMatrix) {
+  iRow    = iTemp % numRows;
+  iMatrix = iTemp / numRows;
+}
+
 template <class ViewType>
 KOKKOS_INLINE_FUNCTION auto transpose_2d_view(ViewType v, const int *order) {
   constexpr int rank         = 2;

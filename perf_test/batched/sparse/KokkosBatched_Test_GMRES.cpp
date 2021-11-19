@@ -102,9 +102,10 @@ struct Functor_TestBatchedTeamGMRES {
     Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team,
                                           Kokkos::AUTO(), Kokkos::AUTO());
 
+    handle->set_max_iteration(10);
     int maximum_iteration = handle->get_max_iteration();
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _D.extent(1));
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 100);//_r.extent(0));
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(5 * bytes_0 + 5 * bytes_1));
     policy.set_scratch_size(
@@ -168,9 +169,10 @@ struct Functor_TestBatchedTeamVectorGMRES {
     Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team,
                                           Kokkos::AUTO(), Kokkos::AUTO());
 
+    handle->set_max_iteration(10);
     int maximum_iteration = handle->get_max_iteration();
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _D.extent(1));
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 100);//_r.extent(0));
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(5 * bytes_0 + 5 * bytes_1));
     policy.set_scratch_size(
