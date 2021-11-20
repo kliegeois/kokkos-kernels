@@ -56,7 +56,7 @@ def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False):
                         color=line[0].get_color(), alpha=alpha)
 
 
-base = 'Pele_CG_isooctanedata_1/'
+base = 'Pele_GMRES_isooctanedata_1/'
 n_implementations = 4
 n_quantiles = 7
 
@@ -90,7 +90,7 @@ for i in range(0, n_implementations):
 ax.set_xlabel('Number of matrices')
 ax.set_ylabel('Wall-clock time [sec]')
 #ax.set_ylim(0, 0.008)
-ax.set_xlim(1000, 1500)
+#ax.set_xlim(1000, 1500)
 
 legend = ax.legend(loc='best', shadow=True)
 
@@ -118,7 +118,7 @@ for i in range(0, n_implementations):
 #plot_limits(Ns, ax, nnz_per_row, N)
 ax.set_xlabel('Number of matrices')
 ax.set_ylabel('Throughput [B/s]')
-ax.set_xlim(1000, 1500)
+#ax.set_xlim(1000, 1500)
 
 legend = ax.legend(loc='best', shadow=True)
 
