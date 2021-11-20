@@ -73,9 +73,9 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
     int maximum_iteration = handle->get_max_iteration();
 
-    policy.set_scratch_size(0, Kokkos::PerTeam(5 * bytes_0 + 5 * bytes_1));
+    policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 3 * bytes_1));
     policy.set_scratch_size(
-        1, Kokkos::PerTeam(maximum_iteration * bytes_0 +
+        1, Kokkos::PerTeam((maximum_iteration + 1) * bytes_0 +
                            ((maximum_iteration + 3) * maximum_iteration) *
                                bytes_1));
 

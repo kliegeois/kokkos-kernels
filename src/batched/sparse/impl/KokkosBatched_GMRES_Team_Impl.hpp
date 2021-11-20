@@ -82,6 +82,10 @@ struct TeamGMRES {
         typename VectorViewType::execution_space::scratch_memory_space>;
     using ScratchPadMultiVectorViewType = Kokkos::View<
         typename VectorViewType::non_const_value_type***,
+        typename VectorViewType::array_layout,
+        typename VectorViewType::execution_space::scratch_memory_space>;
+    using StridedScratchPadMultiVectorViewType = Kokkos::View<
+        typename VectorViewType::non_const_value_type***,
         Kokkos::LayoutStride,
         typename VectorViewType::execution_space::scratch_memory_space>;
     using TeamCopy1D = TeamCopy<MemberType, Trans::NoTranspose, 1>;
@@ -106,12 +110,10 @@ struct TeamGMRES {
     const MagnitudeType max_tolerance = 0.;
 
     const Kokkos::LayoutStride strideArnoldi(numMatrices, stride_0, maximum_iteration + 1, numMatrices * numRows, numRows, stride_1);
-    const Kokkos::LayoutStride strideHessenberg(numMatrices, maximum_iteration, maximum_iteration + 1, numMatrices * maximum_iteration, maximum_iteration, 1);
-    const Kokkos::LayoutStride strideGivens(numMatrices, maximum_iteration * 2, maximum_iteration, 2, 2, 1);
 
-    ScratchPadMultiVectorViewType V(member.team_scratch(1), strideArnoldi);
-    ScratchPadMultiVectorViewType H(member.team_scratch(1), strideHessenberg);
-    ScratchPadMultiVectorViewType Givens(member.team_scratch(1), strideGivens);
+    StridedScratchPadMultiVectorViewType V(member.team_scratch(1), strideArnoldi);
+    ScratchPadMultiVectorViewType H(member.team_scratch(1), numMatrices, maximum_iteration + 1, maximum_iteration);
+    ScratchPadMultiVectorViewType Givens(member.team_scratch(1), numMatrices, maximum_iteration, 2);
 
     ScratchPadVectorViewType G(member.team_scratch(1), numMatrices,
                                maximum_iteration + 1);

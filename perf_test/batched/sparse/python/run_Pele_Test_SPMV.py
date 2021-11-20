@@ -15,18 +15,20 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.arange(1000,1501, 10)
+    Ns = np.arange(100, 15000, 100)
 
-    input_folder = 'pele_data/jac-dodecane_lu-typvals/'
-    n_files = 78
+    specie = 'isooctane'
+
+    input_folder = 'pele_data/jac-'+specie+'-typvals/'
+    n_files = 72
 
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'Pele_SPMV_data_1'
+    data_d = 'Pele_SPMV_' + specie + 'data_1'
 
-    rows_per_thread=2
-    team_size=8
+    rows_per_thread=1
+    team_size=32
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)

@@ -59,14 +59,14 @@ struct Functor_TestBatchedTeamCG {
   const IntView _c;
   const VectorViewType _X;
   const VectorViewType _B;
-  const int _N_team;
+  const int _N_team, _team_size, _vector_length;
   KokkosBatched::KrylovHandle<typename ValuesViewType::value_type> *handle;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamCG(const ValuesViewType &D, const IntView &r,
                                   const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team) {
+                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length)
+      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length) {
     handle = new KokkosBatched::KrylovHandle<typename ValuesViewType::value_type>();
   }
 
@@ -99,10 +99,9 @@ struct Functor_TestBatchedTeamCG {
     typedef typename ValuesViewType::value_type value_type;
     std::string name("KokkosBatched::Test::TeamCG");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team,
-                                          Kokkos::AUTO(), Kokkos::AUTO());
+    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 100);
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 5 * bytes_1));
 
@@ -119,14 +118,14 @@ struct Functor_TestBatchedTeamVectorCG {
   const IntView _c;
   const VectorViewType _X;
   const VectorViewType _B;
-  const int _N_team;
+  const int _N_team, _team_size, _vector_length;
   KokkosBatched::KrylovHandle<typename ValuesViewType::value_type> *handle;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorCG(const ValuesViewType &D, const IntView &r,
                                   const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team) {
+                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length)
+      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length) {
     handle = new KokkosBatched::KrylovHandle<typename ValuesViewType::value_type>();
   }
 
@@ -159,10 +158,9 @@ struct Functor_TestBatchedTeamVectorCG {
     typedef typename ValuesViewType::value_type value_type;
     std::string name("KokkosBatched::Test::TeamVectorCG");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team,
-                                          Kokkos::AUTO(), Kokkos::AUTO());
+    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 100);
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 5 * bytes_1));
 
@@ -274,12 +272,12 @@ int main(int argc, char *argv[]) {
 
     if (layout_left)
       printf(
-          " :::: Testing left layout (team_size = %d)\n",
-          team_size);
+          " :::: Testing left layout (team_size = %d, vector_length = %d)\n",
+          team_size, vector_length);
     if (layout_right)
       printf(
-          " :::: Testing right layout (team_size = %d)\n",
-          team_size);
+          " :::: Testing right layout (team_size = %d, vector_length = %d)\n",
+          team_size, vector_length);
 
     if (layout_left) {
       readCRSFromMM(name_A, valuesLL, rowOffsets, colIndices);
@@ -311,19 +309,19 @@ int main(int argc, char *argv[]) {
           int N_team = i_impl > 1 ? vector_length : 1;
 
           if (i_impl%2 == 0 && layout_left) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team)
+            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length)
                 .run();
           }
           if (i_impl%2 == 1 && layout_left) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team)
+            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length)
                 .run();
           }
           if (i_impl%2 == 0 && layout_right) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team)
+            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length)
                 .run();
           }
           if (i_impl%2 == 1 && layout_right) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team)
+            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length)
                 .run();
           }
           exec_space().fence();

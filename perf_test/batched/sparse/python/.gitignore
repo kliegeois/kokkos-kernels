@@ -1,4 +1,5 @@
 *.txt
 *.mm
+*.png
 __pycache__
 data*

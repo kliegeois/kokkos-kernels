@@ -27,7 +27,9 @@ def read_matrix_spd(directory, j):
 
     Ajtilde = np.diag(ewt[j, :]).dot(A_j).dot(np.diag(1./ewt[j, :]))
 
-    return Ajtilde
+    sym = Ajtilde + Ajtilde.transpose()
+
+    return sym
 
 
 def read_matrices(directory, n_files, n_matrices):
