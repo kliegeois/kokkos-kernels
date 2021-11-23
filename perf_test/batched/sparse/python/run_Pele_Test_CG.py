@@ -15,7 +15,7 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.arange(100, 15000, 10)
+    Ns = np.arange(100, 15000, 50)
     
     specie = 'isooctane'
 

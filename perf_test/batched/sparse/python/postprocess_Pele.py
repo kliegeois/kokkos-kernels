@@ -56,7 +56,7 @@ def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False):
                         color=line[0].get_color(), alpha=alpha)
 
 
-base = 'Pele_GMRES_isooctanedata_1/'
+base = 'Pele_SPMV_isooctanedata_1/'
 n_implementations = 4
 n_quantiles = 7
 
