@@ -29,7 +29,9 @@ struct Functor_TestBatchedTeamVectorGMRES {
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorGMRES(const ValuesViewType &D, const IntView &r,
                                      const IntView &c, const VectorViewType &X,
-                                     const VectorViewType &B, const VectorViewType &diag, const int N_team)
+                                     const VectorViewType &B,
+                                     const VectorViewType &diag,
+                                     const int N_team)
       : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _Diag(diag) {
     handle = new KrylovHandle<typename ValuesViewType::value_type>;
   }
@@ -45,14 +47,14 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
     auto d = Kokkos::subview(_D, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
-    auto diag = Kokkos::subview(_Diag, Kokkos::make_pair(first_matrix, last_matrix),
-                             Kokkos::ALL);                             
+    auto diag = Kokkos::subview(
+        _Diag, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL);
     auto x = Kokkos::subview(_X, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
     auto b = Kokkos::subview(_B, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
 
-    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, IntView>;
+    using Operator     = KokkosBatched::CrsMatrix<ValuesViewType, IntView>;
     using PrecOperator = KokkosBatched::JacobiPrec<ValuesViewType>;
 
     Operator A(d, _r, _c);
@@ -131,9 +133,9 @@ void impl_test_batched_GMRES(const int N, const int BlkSize, const int N_team) {
 
     int current_index;
     for (int i = 0; i < BlkSize; ++i) {
-      for (current_index = row_ptr_host(i); current_index < row_ptr_host(i+1); ++current_index) {
-        if (colIndices_host(current_index) == i)
-          break;
+      for (current_index = row_ptr_host(i); current_index < row_ptr_host(i + 1);
+           ++current_index) {
+        if (colIndices_host(current_index) == i) break;
       }
       for (int j = 0; j < N; ++j)
         diag_values_host(j, i) = values_host(j, current_index);
@@ -169,7 +171,8 @@ void impl_test_batched_GMRES(const int N, const int BlkSize, const int N_team) {
   KokkosBatched::SerialDot<Trans::NoTranspose>::invoke(R_host, R_host,
                                                        sqr_norm_0_host);
   Functor_TestBatchedTeamVectorGMRES<DeviceType, ValuesViewType, IntView,
-                                     VectorViewType>(D, r, c, X, B, Diag, N_team)
+                                     VectorViewType>(D, r, c, X, B, Diag,
+                                                     N_team)
       .run();
 
   Kokkos::fence();

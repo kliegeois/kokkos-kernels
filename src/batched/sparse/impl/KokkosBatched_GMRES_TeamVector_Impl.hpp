@@ -65,7 +65,8 @@ namespace KokkosBatched {
 
 template <typename MemberType>
 struct TeamVectorGMRES {
-  template <typename OperatorType, typename VectorViewType, typename PrecOperatorType>
+  template <typename OperatorType, typename VectorViewType,
+            typename PrecOperatorType>
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
@@ -131,8 +132,8 @@ struct TeamVectorGMRES {
     member.team_barrier();
 
     P.template apply<MemberType, ScratchPadVectorViewType,
-                      ScratchPadVectorViewType, Trans::NoTranspose,
-                      Mode::Team>(member, R, R);
+                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team>(
+        member, R, R);
     member.team_barrier();
 
     TeamVectorDot<MemberType>::invoke(member, R, R, beta);
@@ -278,7 +279,8 @@ struct TeamVectorGMRES {
       const VectorViewType& _X,
       KrylovHandle<typename VectorViewType::non_const_value_type>* handle) {
     Identity P;
-    return invoke<OperatorType, VectorViewType, Identity>(member, A, _B, _X, handle, P);
+    return invoke<OperatorType, VectorViewType, Identity>(member, A, _B, _X,
+                                                          handle, P);
   }
 };
 }  // namespace KokkosBatched

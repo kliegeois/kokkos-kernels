@@ -53,11 +53,9 @@ namespace KokkosBatched {
 /// \brief Batched Identity Operator:
 
 class Identity {
-
  public:
   KOKKOS_INLINE_FUNCTION
-  Identity() {
-  }
+  Identity() {}
 
   KOKKOS_INLINE_FUNCTION
   ~Identity() {}
@@ -66,16 +64,22 @@ class Identity {
             typename ArgTrans, typename ArgMode>
   KOKKOS_INLINE_FUNCTION void apply(
       const MemberType &member, const XViewType &X, const YViewType &Y,
-      typename Kokkos::Details::ArithTraits<typename XViewType::non_const_value_type>::mag_type alpha = Kokkos::Details::ArithTraits<typename Kokkos::Details::ArithTraits<typename XViewType::non_const_value_type>::mag_type>::one(),
-      typename Kokkos::Details::ArithTraits<typename XViewType::non_const_value_type>::mag_type beta =
-          Kokkos::Details::ArithTraits<typename Kokkos::Details::ArithTraits<typename XViewType::non_const_value_type>::mag_type>::zero()) const {
+      typename Kokkos::Details::ArithTraits<
+          typename XViewType::non_const_value_type>::mag_type alpha =
+          Kokkos::Details::ArithTraits<typename Kokkos::Details::ArithTraits<
+              typename XViewType::non_const_value_type>::mag_type>::one(),
+      typename Kokkos::Details::ArithTraits<
+          typename XViewType::non_const_value_type>::mag_type beta =
+          Kokkos::Details::ArithTraits<typename Kokkos::Details::ArithTraits<
+              typename XViewType::non_const_value_type>::mag_type>::zero())
+      const {
     if (std::is_same<ArgMode, KokkosBatched::Mode::Serial>::value) {
       SerialCopy<Trans::NoTranspose>::invoke(X, Y);
     } else if (std::is_same<ArgMode, KokkosBatched::Mode::Team>::value) {
       TeamCopy<MemberType>::invoke(member, X, Y);
     } else if (std::is_same<ArgMode, KokkosBatched::Mode::TeamVector>::value) {
       TeamVectorCopy<MemberType>::invoke(member, X, Y);
-    }    
+    }
   }
 
   template <typename MemberType, typename XViewType, typename YViewType,
@@ -89,7 +93,7 @@ class Identity {
       TeamCopy<MemberType>::invoke(member, X, Y);
     } else if (std::is_same<ArgMode, KokkosBatched::Mode::TeamVector>::value) {
       TeamVectorCopy<MemberType>::invoke(member, X, Y);
-    }    
+    }
   }
 
   template <typename MemberType, typename XViewType, typename YViewType,

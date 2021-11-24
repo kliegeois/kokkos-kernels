@@ -131,24 +131,22 @@ struct TeamVectorHadamardProduct {
 template <typename MemberType, typename ArgMode>
 struct HadamardProduct {
   template <typename XViewType, typename YViewType, typename VViewType>
-  KOKKOS_INLINE_FUNCTION static int invoke(
-      const MemberType &member,
+  KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
                                            const XViewType &X,
                                            const YViewType &Y,
                                            const VViewType &V) {
     int r_val = 0;
     if (std::is_same<ArgMode, Mode::Serial>::value) {
-      r_val =
-          SerialHadamardProduct::template invoke<XViewType, YViewType, VViewType>(
-              X, Y, V);
+      r_val = SerialHadamardProduct::template invoke<XViewType, YViewType,
+                                                     VViewType>(X, Y, V);
     } else if (std::is_same<ArgMode, Mode::Team>::value) {
-      r_val = TeamHadamardProduct<MemberType>::template invoke<
-          XViewType, YViewType, VViewType>(
-          member, X, Y, V);
+      r_val =
+          TeamHadamardProduct<MemberType>::template invoke<XViewType, YViewType,
+                                                           VViewType>(member, X,
+                                                                      Y, V);
     } else if (std::is_same<ArgMode, Mode::TeamVector>::value) {
       r_val = TeamVectorHadamardProduct<MemberType>::template invoke<
-          XViewType, YViewType, VViewType>(
-          member, X, Y, V);
+          XViewType, YViewType, VViewType>(member, X, Y, V);
     }
     return r_val;
   }

@@ -64,49 +64,47 @@ class JacobiPrec {
   int n_operators;
   int n_rows;
   int n_colums;
-  mutable bool computed_inverse = false; 
+  mutable bool computed_inverse = false;
 
  public:
   KOKKOS_INLINE_FUNCTION
-  JacobiPrec(const ValuesViewType &_diag_values)
-      : diag_values(_diag_values) {
+  JacobiPrec(const ValuesViewType &_diag_values) : diag_values(_diag_values) {
     n_operators = _diag_values.extent(0);
     n_rows      = _diag_values.extent(1);
     n_colums    = n_rows;
   }
 
-/*
-  template <typename IntViewType>
-  KOKKOS_INLINE_FUNCTION
-  JacobiPrec(const ValuesViewType &_values, const IntViewType &_row_ptr,
-            const IntViewType &_colIndices) {
-    n_operators = _values.extent(0);
-    n_rows      = _row_ptr.extent(0) - 1;
-    n_colums    = n_rows;
-    diag_values = ValuesViewType("diag", n_operators, n_rows);
+  /*
+    template <typename IntViewType>
+    KOKKOS_INLINE_FUNCTION
+    JacobiPrec(const ValuesViewType &_values, const IntViewType &_row_ptr,
+              const IntViewType &_colIndices) {
+      n_operators = _values.extent(0);
+      n_rows      = _row_ptr.extent(0) - 1;
+      n_colums    = n_rows;
+      diag_values = ValuesViewType("diag", n_operators, n_rows);
 
-    auto diag_values_host = Kokkos::create_mirror_view(diag_values);
-    auto values_host      = Kokkos::create_mirror_view(_values);
-    auto row_ptr_host     = Kokkos::create_mirror_view(_row_ptr);
-    auto colIndices_host  = Kokkos::create_mirror_view(_colIndices);
+      auto diag_values_host = Kokkos::create_mirror_view(diag_values);
+      auto values_host      = Kokkos::create_mirror_view(_values);
+      auto row_ptr_host     = Kokkos::create_mirror_view(_row_ptr);
+      auto colIndices_host  = Kokkos::create_mirror_view(_colIndices);
 
-    Kokkos::deep_copy(values_host, _values);
-    Kokkos::deep_copy(row_ptr_host, _row_ptr);
-    Kokkos::deep_copy(colIndices_host, _colIndices);
+      Kokkos::deep_copy(values_host, _values);
+      Kokkos::deep_copy(row_ptr_host, _row_ptr);
+      Kokkos::deep_copy(colIndices_host, _colIndices);
 
-    int current_index;
-    for (int i = 0; i < n_rows; ++i) {
-      for (current_index = row_ptr_host(i); current_index < row_ptr_host(i+1); ++current_index) {
-        if (colIndices_host(current_index) == i)
-          break;
+      int current_index;
+      for (int i = 0; i < n_rows; ++i) {
+        for (current_index = row_ptr_host(i); current_index < row_ptr_host(i+1);
+    ++current_index) { if (colIndices_host(current_index) == i) break;
+        }
+        for (int j = 0; j < n_operators; ++j)
+          diag_values_host(j, i) = values_host(j, current_index);
       }
-      for (int j = 0; j < n_operators; ++j)
-        diag_values_host(j, i) = values_host(j, current_index);
-    }
 
-    Kokkos::deep_copy(diag_values, diag_values_host);
-  }
-*/
+      Kokkos::deep_copy(diag_values, diag_values_host);
+    }
+  */
 
   KOKKOS_INLINE_FUNCTION
   ~JacobiPrec() {}
@@ -117,28 +115,34 @@ class JacobiPrec {
     if (std::is_same<ArgMode, Mode::Serial>::value) {
       for (int i = 0; i < n_operators; ++i)
         for (int j = 0; j < n_colums; ++j)
-          diag_values(i,j) =  one / diag_values(i,j);      
+          diag_values(i, j) = one / diag_values(i, j);
     } else if (std::is_same<ArgMode, Mode::Team>::value) {
       auto diag_values_array = diag_values.data();
-      auto vs0 = diag_values.stride_0();
-      auto vs1 = diag_values.stride_1();
+      auto vs0               = diag_values.stride_0();
+      auto vs1               = diag_values.stride_1();
 
       Kokkos::parallel_for(
-          Kokkos::TeamThreadRange(member, 0, n_operators * n_rows), [&](const int& iTemp) {
-          int i, j;
-          getIndices<int, typename ValuesViewType::array_layout>(iTemp, n_rows, n_operators, j, i);
-          diag_values_array[i * vs0 + j * vs1] = one / diag_values_array[i * vs0 + j * vs1];
+          Kokkos::TeamThreadRange(member, 0, n_operators * n_rows),
+          [&](const int &iTemp) {
+            int i, j;
+            getIndices<int, typename ValuesViewType::array_layout>(
+                iTemp, n_rows, n_operators, j, i);
+            diag_values_array[i * vs0 + j * vs1] =
+                one / diag_values_array[i * vs0 + j * vs1];
           });
     } else if (std::is_same<ArgMode, Mode::TeamVector>::value) {
       auto diag_values_array = diag_values.data();
-      auto vs0 = diag_values.stride_0();
-      auto vs1 = diag_values.stride_1();
+      auto vs0               = diag_values.stride_0();
+      auto vs1               = diag_values.stride_1();
 
       Kokkos::parallel_for(
-          Kokkos::TeamVectorRange(member, 0, n_operators * n_rows), [&](const int& iTemp) {
-          int i, j;
-          getIndices<int, typename ValuesViewType::array_layout>(iTemp, n_rows, n_operators, j, i);
-          diag_values_array[i * vs0 + j * vs1] = one / diag_values_array[i * vs0 + j * vs1];
+          Kokkos::TeamVectorRange(member, 0, n_operators * n_rows),
+          [&](const int &iTemp) {
+            int i, j;
+            getIndices<int, typename ValuesViewType::array_layout>(
+                iTemp, n_rows, n_operators, j, i);
+            diag_values_array[i * vs0 + j * vs1] =
+                one / diag_values_array[i * vs0 + j * vs1];
           });
     }
 
@@ -152,12 +156,10 @@ class JacobiPrec {
       MagnitudeType alpha = Kokkos::Details::ArithTraits<MagnitudeType>::one(),
       MagnitudeType beta =
           Kokkos::Details::ArithTraits<MagnitudeType>::zero()) const {
-    if(!computed_inverse)
-      this->computeInverse<MemberType, ArgMode>(member);
+    if (!computed_inverse) this->computeInverse<MemberType, ArgMode>(member);
 
     KokkosBatched::HadamardProduct<MemberType, ArgTrans>::template invoke<
-        ValuesViewType, XViewType, YViewType>(
-        member, diag_values, X, Y);
+        ValuesViewType, XViewType, YViewType>(member, diag_values, X, Y);
   }
 
   template <typename MemberType, typename XViewType, typename YViewType,
@@ -165,12 +167,10 @@ class JacobiPrec {
   KOKKOS_INLINE_FUNCTION void apply(const MemberType &member,
                                     const XViewType &X, const YViewType &Y,
                                     NormViewType alpha) const {
-    if(!computed_inverse)
-      this->computeInverse<MemberType, ArgMode>(member);
+    if (!computed_inverse) this->computeInverse<MemberType, ArgMode>(member);
 
     KokkosBatched::HadamardProduct<MemberType, ArgTrans>::template invoke<
-        ValuesViewType, XViewType, YViewType>(
-        member, diag_values, X, Y);
+        ValuesViewType, XViewType, YViewType>(member, diag_values, X, Y);
   }
 
   template <typename MemberType, typename XViewType, typename YViewType,
@@ -179,12 +179,10 @@ class JacobiPrec {
                                     const XViewType &X, const YViewType &Y,
                                     const NormViewType &alpha,
                                     const NormViewType &beta) const {
-    if(!computed_inverse)
-      this->computeInverse<MemberType, ArgMode>(member);
+    if (!computed_inverse) this->computeInverse<MemberType, ArgMode>(member);
 
     KokkosBatched::HadamardProduct<MemberType, ArgTrans>::template invoke<
-        ValuesViewType, XViewType, YViewType>(
-        member, diag_values, X, Y);
+        ValuesViewType, XViewType, YViewType>(member, diag_values, X, Y);
   }
 };
 
