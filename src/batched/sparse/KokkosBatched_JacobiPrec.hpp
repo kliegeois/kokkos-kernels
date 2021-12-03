@@ -74,38 +74,6 @@ class JacobiPrec {
     n_colums    = n_rows;
   }
 
-  /*
-    template <typename IntViewType>
-    KOKKOS_INLINE_FUNCTION
-    JacobiPrec(const ValuesViewType &_values, const IntViewType &_row_ptr,
-              const IntViewType &_colIndices) {
-      n_operators = _values.extent(0);
-      n_rows      = _row_ptr.extent(0) - 1;
-      n_colums    = n_rows;
-      diag_values = ValuesViewType("diag", n_operators, n_rows);
-
-      auto diag_values_host = Kokkos::create_mirror_view(diag_values);
-      auto values_host      = Kokkos::create_mirror_view(_values);
-      auto row_ptr_host     = Kokkos::create_mirror_view(_row_ptr);
-      auto colIndices_host  = Kokkos::create_mirror_view(_colIndices);
-
-      Kokkos::deep_copy(values_host, _values);
-      Kokkos::deep_copy(row_ptr_host, _row_ptr);
-      Kokkos::deep_copy(colIndices_host, _colIndices);
-
-      int current_index;
-      for (int i = 0; i < n_rows; ++i) {
-        for (current_index = row_ptr_host(i); current_index < row_ptr_host(i+1);
-    ++current_index) { if (colIndices_host(current_index) == i) break;
-        }
-        for (int j = 0; j < n_operators; ++j)
-          diag_values_host(j, i) = values_host(j, current_index);
-      }
-
-      Kokkos::deep_copy(diag_values, diag_values_host);
-    }
-  */
-
   KOKKOS_INLINE_FUNCTION
   ~JacobiPrec() {}
 
@@ -152,33 +120,7 @@ class JacobiPrec {
   template <typename MemberType, typename XViewType, typename YViewType,
             typename ArgTrans, typename ArgMode>
   KOKKOS_INLINE_FUNCTION void apply(
-      const MemberType &member, const XViewType &X, const YViewType &Y,
-      MagnitudeType alpha = Kokkos::Details::ArithTraits<MagnitudeType>::one(),
-      MagnitudeType beta =
-          Kokkos::Details::ArithTraits<MagnitudeType>::zero()) const {
-    if (!computed_inverse) this->computeInverse<MemberType, ArgMode>(member);
-
-    KokkosBatched::HadamardProduct<MemberType, ArgTrans>::template invoke<
-        ValuesViewType, XViewType, YViewType>(member, diag_values, X, Y);
-  }
-
-  template <typename MemberType, typename XViewType, typename YViewType,
-            typename NormViewType, typename ArgTrans, typename ArgMode>
-  KOKKOS_INLINE_FUNCTION void apply(const MemberType &member,
-                                    const XViewType &X, const YViewType &Y,
-                                    NormViewType alpha) const {
-    if (!computed_inverse) this->computeInverse<MemberType, ArgMode>(member);
-
-    KokkosBatched::HadamardProduct<MemberType, ArgTrans>::template invoke<
-        ValuesViewType, XViewType, YViewType>(member, diag_values, X, Y);
-  }
-
-  template <typename MemberType, typename XViewType, typename YViewType,
-            typename NormViewType, typename ArgTrans, typename ArgMode>
-  KOKKOS_INLINE_FUNCTION void apply(const MemberType &member,
-                                    const XViewType &X, const YViewType &Y,
-                                    const NormViewType &alpha,
-                                    const NormViewType &beta) const {
+      const MemberType &member, const XViewType &X, const YViewType &Y) const {
     if (!computed_inverse) this->computeInverse<MemberType, ArgMode>(member);
 
     KokkosBatched::HadamardProduct<MemberType, ArgTrans>::template invoke<
