@@ -15,7 +15,7 @@ namespace Test {
 namespace TeamVectorGMRES {
 
 template <typename DeviceType, typename ValuesViewType, typename IntView,
-          typename VectorViewType>
+          typename VectorViewType, typename KrylovHandleType>
 struct Functor_TestBatchedTeamVectorGMRES {
   const ValuesViewType _D;
   const ValuesViewType _Diag;
@@ -24,7 +24,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
   const VectorViewType _X;
   const VectorViewType _B;
   const int _N_team;
-  KrylovHandle<typename ValuesViewType::value_type> *handle;
+  KrylovHandleType *handle;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorGMRES(const ValuesViewType &D, const IntView &r,
@@ -33,7 +33,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
                                      const VectorViewType &diag,
                                      const int N_team)
       : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _Diag(diag) {
-    handle = new KrylovHandle<typename ValuesViewType::value_type>;
+    handle = new KrylovHandleType(_D.extent(0), _N_team);
   }
 
   template <typename MemberType>
@@ -116,6 +116,11 @@ void impl_test_batched_GMRES(const int N, const int BlkSize, const int N_team) {
       typename Kokkos::Details::ArithTraits<ScalarType>::mag_type;
   using NormViewType = Kokkos::View<MagnitudeType *, Layout, EXSP>;
 
+  using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
+  using IntViewType = Kokkos::View<int*, Layout, EXSP>;
+
+  using KrylovHandleType = KrylovHandle<Norm2DViewType, IntViewType>;
+
   NormViewType sqr_norm_0("sqr_norm_0", N);
   NormViewType sqr_norm_j("sqr_norm_j", N);
 
@@ -171,7 +176,7 @@ void impl_test_batched_GMRES(const int N, const int BlkSize, const int N_team) {
   KokkosBatched::SerialDot<Trans::NoTranspose>::invoke(R_host, R_host,
                                                        sqr_norm_0_host);
   Functor_TestBatchedTeamVectorGMRES<DeviceType, ValuesViewType, IntView,
-                                     VectorViewType>(D, r, c, X, B, Diag,
+                                     VectorViewType, KrylovHandleType>(D, r, c, X, B, Diag,
                                                      N_team)
       .run();
 

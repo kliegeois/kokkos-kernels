@@ -61,6 +61,10 @@ namespace Experimental {
 template <class size_type_, class lno_t_, class scalar_t_, class ExecutionSpace,
           class TemporaryMemorySpace, class PersistentMemorySpace>
 class KokkosKernelsHandle {
+  static_assert(std::is_signed<lno_t_>::value,
+                "KokkosKernelsHandle requires that lno_t_ (ordinal) is a "
+                "signed integer type.");
+
  public:
   typedef typename ExecutionSpace::execution_space HandleExecSpace;
   typedef typename TemporaryMemorySpace::memory_space HandleTempMemorySpace;
@@ -601,7 +605,9 @@ class KokkosKernelsHandle {
     return cgs;
   }
   void create_gs_handle(
-      KokkosSparse::GSAlgorithm gs_algorithm = KokkosSparse::GS_DEFAULT) {
+      KokkosSparse::GSAlgorithm gs_algorithm = KokkosSparse::GS_DEFAULT,
+      KokkosGraph::ColoringAlgorithm coloring_algorithm =
+          KokkosGraph::COLORING_DEFAULT) {
     this->destroy_gs_handle();
     this->is_owner_of_the_gs_handle = true;
     // ---------------------------------------- //
@@ -609,7 +615,8 @@ class KokkosKernelsHandle {
     if (gs_algorithm == KokkosSparse::GS_TWOSTAGE)
       this->gsHandle = new TwoStageGaussSeidelHandleType();
     else
-      this->gsHandle = new PointGaussSeidelHandleType(gs_algorithm);
+      this->gsHandle =
+          new PointGaussSeidelHandleType(gs_algorithm, coloring_algorithm);
   }
   // ---------------------------------------- //
   // Two-stage Gauss-Seidel handle
@@ -669,11 +676,13 @@ class KokkosKernelsHandle {
   }
 
   void create_gs_handle(KokkosSparse::ClusteringAlgorithm clusterAlgo,
-                        nnz_lno_t hint_verts_per_cluster) {
+                        nnz_lno_t hint_verts_per_cluster,
+                        KokkosGraph::ColoringAlgorithm coloring_algorithm =
+                            KokkosGraph::COLORING_DEFAULT) {
     this->destroy_gs_handle();
     this->is_owner_of_the_gs_handle = true;
-    this->gsHandle =
-        new ClusterGaussSeidelHandleType(clusterAlgo, hint_verts_per_cluster);
+    this->gsHandle                  = new ClusterGaussSeidelHandleType(
+        clusterAlgo, hint_verts_per_cluster, coloring_algorithm);
   }
   void destroy_gs_handle() {
     if (is_owner_of_the_gs_handle && this->gsHandle != NULL) {

@@ -68,12 +68,11 @@ namespace KokkosBatched {
 
 template <typename MemberType, typename ArgMode>
 struct GMRES {
-  template <typename OperatorType, typename VectorViewType>
+  template <typename OperatorType, typename VectorViewType, typename KrylovHandleType>
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType &member, const OperatorType &A, const VectorViewType &B,
       const VectorViewType &X,
-      const KrylovHandle<typename VectorViewType::non_const_value_type>
-          handle) {
+      const KrylovHandleType handle) {
     int status = 0;
     if (std::is_same<ArgMode, Mode::Team>::value) {
       status =

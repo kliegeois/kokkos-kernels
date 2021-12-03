@@ -49,6 +49,7 @@
 #include <sstream>
 #include <algorithm>
 #include <vector>
+#include <unordered_set>
 #include <stdexcept>
 #include <type_traits>
 #ifndef _KOKKOSKERNELSIOUTILS_HPP
@@ -103,6 +104,12 @@ void kk_sparseMatrix_generate(OrdinalType nrows, OrdinalType ncols,
     int varianz       = (1.0 * rand() / RAND_MAX - 0.5) * row_size_variance;
     int numRowEntries = elements_per_row + varianz;
     if (numRowEntries < 0) numRowEntries = 0;
+    // Clamping numRowEntries above accomplishes 2 things:
+    //  - If ncols is 0, numRowEntries will also be 0
+    //  - With numRowEntries at most 2/3 the number of columns, in the worst
+    //  case
+    //    90% of insertions will succeed after 6 tries
+    if (numRowEntries > 0.66 * ncols) numRowEntries = 0.66 * ncols;
     rowPtr[row + 1] = rowPtr[row] + numRowEntries;
   }
   nnz    = rowPtr[nrows];
@@ -180,7 +187,9 @@ void kk_diagonally_dominant_sparseMatrix_generate(
   srand(13721);
   rowPtr[0] = 0;
   for (int row = 0; row < nrows; row++) {
-    int varianz     = (1.0 * rand() / RAND_MAX - 0.5) * row_size_variance;
+    int varianz = (1.0 * rand() / RAND_MAX - 0.5) * row_size_variance;
+    if (varianz < 1) varianz = 1;
+    if (varianz > 0.75 * ncols) varianz = 0.75 * ncols;
     rowPtr[row + 1] = rowPtr[row] + elements_per_row + varianz;
     if (rowPtr[row + 1] <= rowPtr[row])   // This makes sure that there is
       rowPtr[row + 1] = rowPtr[row] + 1;  // at least one nonzero in the row
@@ -190,24 +199,17 @@ void kk_diagonally_dominant_sparseMatrix_generate(
   colInd = new OrdinalType[nnz];
   for (OrdinalType row = 0; row < nrows; row++) {
     ScalarType total_values = 0;
+    std::unordered_set<OrdinalType> entriesInRow;
+    // We always add the diagonal entry (after this loop)
+    entriesInRow.insert(row);
     for (SizeType k = rowPtr[row]; k < rowPtr[row + 1] - 1; k++) {
       while (true) {
         OrdinalType pos = (1.0 * rand() / RAND_MAX - 0.5) * bandwidth + row;
         while (pos < 0) pos += ncols;
         while (pos >= ncols) pos -= ncols;
 
-        bool is_already_in_the_row = false;
-        if (pos == row)
-          is_already_in_the_row = true;
-        else {
-          for (SizeType j = rowPtr[row]; j < k; j++) {
-            if (colInd[j] == pos) {
-              is_already_in_the_row = true;
-              break;
-            }
-          }
-        }
-        if (!is_already_in_the_row) {
+        if (entriesInRow.find(pos) == entriesInRow.end()) {
+          entriesInRow.insert(pos);
           colInd[k] = pos;
           values[k] = 100.0 * rand() / RAND_MAX - 50.0;
           total_values +=

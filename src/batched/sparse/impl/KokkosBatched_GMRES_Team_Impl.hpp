@@ -65,11 +65,11 @@ namespace KokkosBatched {
 template <typename MemberType>
 struct TeamGMRES {
   template <typename OperatorType, typename VectorViewType,
-            typename PrecOperatorType>
+            typename PrecOperatorType, typename KrylovHandleType>
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
-      KrylovHandle<typename VectorViewType::non_const_value_type>* handle,
+      KrylovHandleType* handle,
       const PrecOperatorType& P) {
     typedef int OrdinalType;
     typedef typename Kokkos::Details::ArithTraits<
@@ -242,9 +242,12 @@ struct TeamGMRES {
               G(l, j + 1) = 0.;
             }
 
+            handle->set_norm(member.league_rank(), l, j, std::abs(G(l, j + 1)) / beta(l));
+
             if (mask(l) == 1. && std::abs(G(l, j + 1)) / beta(l) < tolerance) {
               mask(l)     = 0.;
               G(l, j + 1) = 0.;
+              handle->set_iteration(member.league_rank(), l, j);
             }
           });
     }
@@ -272,11 +275,11 @@ struct TeamGMRES {
     return status;
   }
 
-  template <typename OperatorType, typename VectorViewType>
+  template <typename OperatorType, typename VectorViewType, typename KrylovHandleType>
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
-      KrylovHandle<typename VectorViewType::non_const_value_type>* handle) {
+      KrylovHandleType* handle) {
     Identity P;
     return invoke<OperatorType, VectorViewType, Identity>(member, A, _B, _X,
                                                           handle, P);

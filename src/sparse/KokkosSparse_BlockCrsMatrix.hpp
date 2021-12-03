@@ -410,6 +410,10 @@ template <class ScalarType, class OrdinalType, class Device,
           class SizeType     = typename Kokkos::ViewTraits<OrdinalType*, Device,
                                                        void, void>::size_type>
 class BlockCrsMatrix {
+  static_assert(
+      std::is_signed<OrdinalType>::value,
+      "BlockCrsMatrix requires that OrdinalType is a signed integer type.");
+
  private:
   typedef
       typename Kokkos::ViewTraits<ScalarType*, Device, void,
@@ -510,12 +514,17 @@ class BlockCrsMatrix {
 
   /// \brief Construct with a graph that will be shared.
   ///
+  /// \param[in] arg_label   The sparse matrix's label.
+  /// \param[in] arg_graph   The graph between the blocks.
+  /// \param[in] blockDimIn  The block size.
+  ///
   /// Allocate the values array for subsequent fill.
   BlockCrsMatrix(const std::string& arg_label,
                  const staticcrsgraph_type& arg_graph,
                  const OrdinalType& blockDimIn)
       : graph(arg_graph),
-        values(arg_label, arg_graph.entries.extent(0)),
+        values(arg_label,
+               arg_graph.entries.extent(0) * blockDimIn * blockDimIn),
         numCols_(maximum_entry(arg_graph) + 1),
         blockDim_(blockDimIn) {}
 
@@ -600,14 +609,11 @@ class BlockCrsMatrix {
   /// The matrix will store and use the row map, indices, and values
   /// directly (by view, not by deep copy).
   ///
-  /// \param label [in] The sparse matrix's label.
-  /// \param nrows [in] The number of rows.
-  /// \param ncols [in] The number of columns.
-  /// \param annz [in] The number of entries.
-  /// \param vals [in/out] The entries.
-  /// \param rows [in/out] The row map (containing the offsets to the
-  ///   data in each row).
-  /// \param cols [in/out] The column indices.
+  /// \param[in] label  The sparse matrix's label.
+  /// \param[in] ncols  The number of columns.
+  /// \param[in] vals   The entries.
+  /// \param[in] graph_ The graph between the blocks.
+  /// \param[in] blockDimIn  The block size.
   BlockCrsMatrix(const std::string& /*label*/, const OrdinalType& ncols,
                  const values_type& vals, const staticcrsgraph_type& graph_,
                  const OrdinalType& blockDimIn)
@@ -957,6 +963,18 @@ void BlockCrsMatrix<ScalarType, OrdinalType, Device, MemoryTraits,
   graph = staticcrsgraph_type(tmp_entries, tmp_row_map);
 }
 
+/// \class is_block_crs_matrix
+/// \brief is_block_crs_matrix<T>::value is true if T is a BlockCrsMatrix<...>,
+/// false oterhwise
+template <typename>
+struct is_block_crs_matrix : public std::false_type {};
+template <typename... P>
+struct is_block_crs_matrix<BlockCrsMatrix<P...>> : public std::true_type {};
+template <typename... P>
+struct is_block_crs_matrix<const BlockCrsMatrix<P...>> : public std::true_type {
+};
+
 }  // namespace Experimental
 }  // namespace KokkosSparse
+
 #endif
