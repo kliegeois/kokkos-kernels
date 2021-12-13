@@ -1777,6 +1777,9 @@ out:
   Kokkos::deep_copy(dst, h_dst);
   Kokkos::fence();
 #else
+  (void)dst;
+  (void)src;
+  (void)options;
   Kokkos::abort(
       "Cannot perform simd verification with cuda/10.2.2, rerun with -v 0");
 #endif  // #if (CUDA_VERSION != 10020)

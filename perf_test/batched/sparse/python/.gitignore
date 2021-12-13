@@ -1,0 +1,6 @@
+*.txt
+*.mm
+*.png
+*.tex
+__pycache__
+data*
