@@ -69,8 +69,8 @@ struct TeamGMRES {
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
-      KrylovHandleType* handle,
-      const PrecOperatorType& P) {
+      const PrecOperatorType& P,
+      const KrylovHandleType& handle) {
     typedef int OrdinalType;
     typedef typename Kokkos::Details::ArithTraits<
         typename VectorViewType::non_const_value_type>::mag_type MagnitudeType;
@@ -92,10 +92,10 @@ struct TeamGMRES {
     const OrdinalType numMatrices = _X.extent(0);
     const OrdinalType numRows     = _X.extent(1);
 
-    size_t maximum_iteration = handle->get_max_iteration() < numRows
-                                   ? handle->get_max_iteration()
+    size_t maximum_iteration = handle.get_max_iteration() < numRows
+                                   ? handle.get_max_iteration()
                                    : numRows;
-    const MagnitudeType tolerance     = handle->get_tolerance();
+    const MagnitudeType tolerance     = handle.get_tolerance();
     const MagnitudeType max_tolerance = 0.;
 
     ScratchPadMultiVectorViewType V(member.team_scratch(1), numMatrices,
@@ -131,8 +131,8 @@ struct TeamGMRES {
     member.team_barrier();
 
     P.template apply<MemberType, ScratchPadVectorViewType,
-                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team>(
-        member, R, R);
+                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team,
+                     1>(member, R, R);
     member.team_barrier();
 
     TeamDot<MemberType>::invoke(member, R, R, beta);
@@ -166,8 +166,8 @@ struct TeamGMRES {
                        Mode::Team>(member, V_j, W);
       member.team_barrier();
       P.template apply<MemberType, ScratchPadVectorViewType,
-                       ScratchPadVectorViewType, Trans::NoTranspose,
-                       Mode::Team>(member, W, W);
+                       ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team,
+                       1>(member, W, W);
       member.team_barrier();
 
       for (size_t i = 0; i < j + 1; ++i) {
@@ -220,8 +220,8 @@ struct TeamGMRES {
               // Compute the new Givens rotation:
               Kokkos::pair<typename VectorViewType::non_const_value_type,
                            typename VectorViewType::non_const_value_type>
-                  G_new;
-              typename VectorViewType::non_const_value_type alpha;
+                  G_new(1, 0);
+              typename VectorViewType::non_const_value_type alpha = 0;
               SerialGivensInternal::invoke(H_j(j), H_j(j + 1), &G_new, &alpha);
 
               Givens(l, j, 0) = G_new.first;
@@ -242,12 +242,12 @@ struct TeamGMRES {
               G(l, j + 1) = 0.;
             }
 
-            handle->set_norm(member.league_rank(), l, j, std::abs(G(l, j + 1)) / beta(l));
+            //handle.set_norm(member.league_rank(), l, j, std::abs(G(l, j + 1)) / beta(l));
 
             if (mask(l) == 1. && std::abs(G(l, j + 1)) / beta(l) < tolerance) {
               mask(l)     = 0.;
               G(l, j + 1) = 0.;
-              handle->set_iteration(member.league_rank(), l, j);
+              //handle.set_iteration(member.league_rank(), l, j);
             }
           });
     }
@@ -279,10 +279,10 @@ struct TeamGMRES {
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
-      KrylovHandleType* handle) {
+      const KrylovHandleType& handle) {
     Identity P;
     return invoke<OperatorType, VectorViewType, Identity>(member, A, _B, _X,
-                                                          handle, P);
+                                                          P, handle);
   }
 };
 }  // namespace KokkosBatched

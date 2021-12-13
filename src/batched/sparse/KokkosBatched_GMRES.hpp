@@ -72,7 +72,7 @@ struct GMRES {
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType &member, const OperatorType &A, const VectorViewType &B,
       const VectorViewType &X,
-      const KrylovHandleType handle) {
+      const KrylovHandleType &handle) {
     int status = 0;
     if (std::is_same<ArgMode, Mode::Team>::value) {
       status =

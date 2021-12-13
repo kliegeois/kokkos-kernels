@@ -22,15 +22,14 @@ struct Functor_TestBatchedTeamCG {
   const VectorViewType _X;
   const VectorViewType _B;
   const int _N_team;
-  KrylovHandleType *handle;
+  KrylovHandleType handle;
 
-  KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamCG(const ValuesViewType &D, const IntView &r,
                             const IntView &c, const VectorViewType &X,
                             const VectorViewType &B, const int N_team)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team) {
-    handle = new KrylovHandleType(_D.extent(0), _N_team);
-  }
+      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), handle(KrylovHandleType(_D.extent(0), _N_team)) {
+      
+      }
 
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {

@@ -18,22 +18,20 @@ template <typename DeviceType, typename ValuesViewType, typename IntView,
           typename VectorViewType, typename KrylovHandleType>
 struct Functor_TestBatchedTeamVectorGMRES {
   const ValuesViewType _D;
-  const ValuesViewType _Diag;
   const IntView _r;
   const IntView _c;
   const VectorViewType _X;
   const VectorViewType _B;
+  const ValuesViewType _Diag;
   const int _N_team;
-  KrylovHandleType *handle;
+  KrylovHandleType handle;
 
-  KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorGMRES(const ValuesViewType &D, const IntView &r,
                                      const IntView &c, const VectorViewType &X,
                                      const VectorViewType &B,
                                      const VectorViewType &diag,
                                      const int N_team)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _Diag(diag) {
-    handle = new KrylovHandleType(_D.extent(0), _N_team);
+      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _Diag(diag), handle(KrylovHandleType(_D.extent(0), _N_team)) {
   }
 
   template <typename MemberType>
@@ -62,7 +60,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
     KokkosBatched::TeamVectorGMRES<MemberType>::template invoke<Operator,
                                                                 VectorViewType>(
-        member, A, b, x, handle, P);
+        member, A, b, x, P, handle);
   }
 
   inline void run() {
@@ -77,9 +75,9 @@ struct Functor_TestBatchedTeamVectorGMRES {
     size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _D.extent(1));
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
 
-    handle->set_max_iteration(10);
+    handle.set_max_iteration(10);
 
-    int maximum_iteration = handle->get_max_iteration();
+    int maximum_iteration = handle.get_max_iteration();
 
     policy.set_scratch_size(0, Kokkos::PerTeam(5 * bytes_0 + 5 * bytes_1));
     policy.set_scratch_size(
