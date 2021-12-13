@@ -101,7 +101,8 @@ struct Functor_TestBatchedTeamGMRES {
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
 
-    handle->set_max_iteration(10);
+    handle->set_max_iteration(30);
+    handle->set_tolerance(1e-8);
     int maximum_iteration = handle->get_max_iteration();
 
     size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);//_r.extent(0));
@@ -167,7 +168,8 @@ struct Functor_TestBatchedTeamVectorGMRES {
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
 
-    handle->set_max_iteration(10);
+    handle->set_max_iteration(30);
+    handle->set_tolerance(1e-8);
     int maximum_iteration = handle->get_max_iteration();
 
     size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);//_r.extent(0));

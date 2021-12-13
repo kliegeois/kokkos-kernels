@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import tikzplotlib
 
 
 def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n_GPUs=1, throughput=True, unit='B/sec'):
@@ -56,7 +57,7 @@ def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False):
                         color=line[0].get_color(), alpha=alpha)
 
 
-base = 'Pele_SPMV_isooctanedata_1/'
+base = 'Pele_GMRES_isooctanedata_1/'
 n_implementations = 4
 n_quantiles = 7
 
@@ -95,6 +96,7 @@ ax.set_ylabel('Wall-clock time [sec]')
 legend = ax.legend(loc='best', shadow=True)
 
 plt.savefig(base+'wall-clock time.png')
+tikzplotlib.save(base+'wall-clock time.tex')
 
 fig = plt.figure()
 ax = plt.gca()
