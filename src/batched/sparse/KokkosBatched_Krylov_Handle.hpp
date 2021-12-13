@@ -73,7 +73,6 @@ class KrylovHandle {
   int N_team;
 
  public:
-  KOKKOS_INLINE_FUNCTION
   KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200) : 
   max_iteration(_max_iteration), batched_size(_batched_size), N_team(_N_team) {
     tolerance     = Kokkos::Details::ArithTraits<norm_type>::epsilon();
