@@ -23,6 +23,7 @@
 #include "Kokkos_Timer.hpp"
 
 #include "KokkosKernels_config.h"
+#include "KokkosKernels_Utils.hpp"
 
 // TPL macros
 #if defined(KOKKOSKERNELS_ENABLE_TPL_MKL)
@@ -461,16 +462,16 @@ struct Algo {
 struct Util {
   template <typename ValueType>
   KOKKOS_INLINE_FUNCTION static void packColMajor(
-      ValueType *__restrict__ A, const int m, const int n,
-      const ValueType *__restrict__ B, const int bs0, const int bs1) {
+      ValueType *KOKKOS_RESTRICT A, const int m, const int n,
+      const ValueType *KOKKOS_RESTRICT B, const int bs0, const int bs1) {
     for (int j = 0; j < n; ++j)
       for (int i = 0; i < m; ++i) A[i + j * m] = B[i * bs0 + j * bs1];
   }
 
   template <typename ValueType>
   KOKKOS_INLINE_FUNCTION static void packRowMajor(
-      ValueType *__restrict__ A, const int m, const int n,
-      const ValueType *__restrict__ B, const int bs0, const int bs1) {
+      ValueType *KOKKOS_RESTRICT A, const int m, const int n,
+      const ValueType *KOKKOS_RESTRICT B, const int bs0, const int bs1) {
     for (int i = 0; i < m; ++i)
       for (int j = 0; j < n; ++j) A[i * n + j] = B[i * bs0 + j * bs1];
   }
@@ -824,8 +825,12 @@ KOKKOS_INLINE_FUNCTION auto subview_wrapper(
 template <class ViewValueType, class ViewType>
 KOKKOS_INLINE_FUNCTION ViewValueType
 access_view_bounds_check(ViewType v, int m, int n, const BoundsCheck::Yes &) {
-  if (m < v.extent_int(0) && n < v.extent_int(1)) return v(m, n);
-  return (ViewValueType)0.0F;
+  return v(KOKKOSKERNELS_MACRO_MIN(m, v.extent_int(0)),
+           KOKKOSKERNELS_MACRO_MIN(n, v.extent_int(1)));
+  //// TODO: use compile-time extents
+  ////  if (m > scr.extent(0) || n > scr.extent(1))
+  ////    return 0;
+  ////  return v(m, n);
 }
 
 template <class ViewValueType, class ViewType>

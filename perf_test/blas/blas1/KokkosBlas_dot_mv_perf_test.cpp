@@ -43,27 +43,35 @@
 */
 
 #include <Kokkos_Core.hpp>
-#include <KokkosBlas1_team_dot.hpp>
+#include <blas/KokkosBlas1_dot.hpp>
 #include <Kokkos_Random.hpp>
 
 struct Params {
   int use_cuda    = 0;
+  int use_hip     = 0;
   int use_openmp  = 0;
   int use_threads = 0;
-  // m is vector length, or number of rows
-  int m      = 100000;
-  int repeat = 1;
+  // m is vector length
+  int m = 100000;
+  // n is number of columns
+  int n      = 5;
+  int repeat = 20;
 };
 
 void print_options() {
   std::cerr << "Options:\n" << std::endl;
 
   std::cerr << "\tBACKEND: '--threads[numThreads]' | '--openmp [numThreads]' | "
-               "'--cuda [cudaDeviceIndex]'"
+               "'--cuda [cudaDeviceIndex]' | '--hip [hipDeviceIndex]'"
             << std::endl;
   std::cerr << "\tIf no BACKEND selected, serial is the default." << std::endl;
   std::cerr << "\t[Optional] --repeat :: how many times to repeat overall "
                "dot (symbolic + repeated numeric)"
+            << std::endl;
+  std::cerr << "\t[Optional] --m      :: desired length of test vectors; test "
+               "vectors will have the same length"
+            << std::endl;
+  std::cerr << "\t[Optional] --n      :: number of test vectors (columns)"
             << std::endl;
 }
 
@@ -78,8 +86,12 @@ int parse_inputs(Params& params, int argc, char** argv) {
       params.use_openmp = atoi(argv[++i]);
     } else if (0 == strcasecmp(argv[i], "--cuda")) {
       params.use_cuda = atoi(argv[++i]) + 1;
+    } else if (0 == strcasecmp(argv[i], "--hip")) {
+      params.use_hip = atoi(argv[++i]) + 1;
     } else if (0 == strcasecmp(argv[i], "--m")) {
       params.m = atoi(argv[++i]);
+    } else if (0 == strcasecmp(argv[i], "--n")) {
+      params.n = atoi(argv[++i]);
     } else if (0 == strcasecmp(argv[i], "--repeat")) {
       // if provided, C will be written to given file.
       // has to have ".bin", or ".crs" extension.
@@ -93,84 +105,79 @@ int parse_inputs(Params& params, int argc, char** argv) {
   }
   return 0;
 }
-// Functor to handle the case of a "without Cuda" build
-template <class Vector, class ExecSpace>
-struct teamDotFunctor {
-  // Compile - time check to see if your data type is a Kokkos::View:
-  static_assert(Kokkos::is_view<Vector>::value,
-                "Vector is not a Kokkos::View.");
 
-  using Scalar = typename Vector::non_const_value_type;
-  // Vector is templated on memory space
-  using execution_space = ExecSpace;  // Kokkos Execution Space
-  typedef typename Kokkos::TeamPolicy<execution_space> team_policy;
-  typedef typename team_policy::member_type team_member;
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// The Level 1 BLAS perform scalar, vector and vector-vector operations;
+//
+// https://github.com/kokkos/kokkos-kernels/wiki/BLAS-1%3A%3Adot
+//
+// Usage: result = KokkosBlas::dot(x,y); KokkosBlas::dot(r,x,y);
+// Multiplies each value of x(i) [x(i,j)] with y(i) or [y(i,j)] and computes the
+// sum. (If x and y have scalar type Kokkos::complex, the complex conjugate of
+// x(i) or x(i,j) will be used.) VectorX: A rank-1 Kokkos::View VectorY: A
+// rank-1 Kokkos::View ReturnVector: A rank-0 or rank-1 Kokkos::View
+//
+// REQUIREMENTS:
+// Y.rank == 1 or X.rank == 1
+// Y.extent(0) == X.extent(0)
 
-  // Declare Kokkos::View Vectors, x and y
-  Vector x;
-  Vector y;
+// Dot Test design:
+// 1) create 1D View containing 1D matrix, aka a vector; this will be your X
+// input matrix; 2) create 1D View containing 1D matrix, aka a vector; this will
+// be your Y input matrix; 3) perform the dot operation on the two inputs, and
+// capture result in "result"
 
-  // Functor instead of KOKKOS_LAMBDA expression
-
-  KOKKOS_INLINE_FUNCTION void operator()(const team_member& team) const {
-    KokkosBlas::Experimental::dot(team, x, y);
-  }
-  // Constructor
-  teamDotFunctor(Vector X_, Vector Y_) {
-    x = X_;
-    y = Y_;
-  }
-};
+// Here, m represents the desired length for each 1D matrix;
+// "m" is used here, because code from another test was adapted for this test.
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <class ExecSpace>
-void run(int m, int repeat) {
+void run(int m, int n, int repeat) {
   // Declare type aliases
   using Scalar   = double;
   using MemSpace = typename ExecSpace::memory_space;
+  using Device   = Kokkos::Device<ExecSpace, MemSpace>;
 
-  // For the Team implementation of dot; ExecSpace is implicit;
-  using policy = Kokkos::TeamPolicy<ExecSpace>;
-
-  // Create 1D view w/ Device as the ExecSpace; this is an input vector
-  Kokkos::View<Scalar*, MemSpace> x("X", m);
-  // Create 1D view w/ Device as the ExecSpace; this is the output vector
-  Kokkos::View<Scalar*, MemSpace> y("Y", m);
-
-  // Here, deep_copy is filling / copying values into Host memory from Views X
-  // and Y
-  Kokkos::deep_copy(x, 3.0);
-  Kokkos::deep_copy(y, 2.0);
-
-  std::cout << "Running BLAS Level 1 Kokkos Teams-based implementation DOT "
-               "performance experiment ("
+  std::cout << "Running BLAS Level 1 DOT performance experiment ("
             << ExecSpace::name() << ")\n";
 
   std::cout << "Each test input vector has a length of " << m << std::endl;
 
-  // Warm up run of dot:
-  teamDotFunctor<Kokkos::View<Scalar*, MemSpace>, ExecSpace>
-      teamDotFunctorWarmUpInstance(x, y);
+  Kokkos::View<Scalar**, Kokkos::LayoutLeft, Device> x(
+      Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), m, n);
 
-  Kokkos::parallel_for("TeamDotUsage -- Warm Up Run", policy(1, Kokkos::AUTO),
-                       teamDotFunctorWarmUpInstance);
+  Kokkos::View<Scalar**, Kokkos::LayoutLeft, Device> y(
+      Kokkos::view_alloc(Kokkos::WithoutInitializing, "y"), m, n);
+
+  Kokkos::View<Scalar*, Device> result(
+      Kokkos::view_alloc(Kokkos::WithoutInitializing, "x dot y"), n);
+
+  // Declaring variable pool w/ a seeded random number;
+  // a parallel random number generator, so you
+  // won't get the same number with a given seed each time
+  Kokkos::Random_XorShift64_Pool<ExecSpace> pool(123);
+
+  Kokkos::fill_random(x, pool, 10.0);
+  Kokkos::fill_random(y, pool, 10.0);
+
+  // do a warm up run of dot:
+  KokkosBlas::dot(result, x, y);
+
+  // The live test of dot:
 
   Kokkos::fence();
   Kokkos::Timer timer;
 
-  // Live test of dot:
+  for (int i = 0; i < repeat; i++) {
+    KokkosBlas::dot(result, x, y);
+    ExecSpace().fence();
+  }
 
-  teamDotFunctor<Kokkos::View<Scalar*, MemSpace>, ExecSpace>
-      teamDotFunctorLiveTestInstance(x, y);
-  Kokkos::parallel_for("TeamDotUsage -- Live Test", policy(1, Kokkos::AUTO),
-                       teamDotFunctorLiveTestInstance);
-
-  ExecSpace().fence();
-
-  // Kokkos Timer set up and data capture
+  // Kokkos Timer set up
   double total = timer.seconds();
   double avg   = total / repeat;
   // Flops calculation for a 1D matrix dot product per test run;
-  size_t flopsPerRun = (size_t)2 * m;
+  size_t flopsPerRun = (size_t)2 * m * n;
   printf("Avg DOT time: %f s.\n", avg);
   printf("Avg DOT FLOP/s: %.3e\n", flopsPerRun / avg);
 }
@@ -181,8 +188,7 @@ int main(int argc, char** argv) {
   if (parse_inputs(params, argc, argv)) {
     return 1;
   }
-
-  const int device_id = params.use_cuda - 1;
+  const int device_id = std::max(params.use_cuda, params.use_hip) - 1;
 
   const int num_threads = std::max(params.use_openmp, params.use_threads);
 
@@ -191,11 +197,12 @@ int main(int argc, char** argv) {
   bool useThreads = params.use_threads != 0;
   bool useOMP     = params.use_openmp != 0;
   bool useCUDA    = params.use_cuda != 0;
-  bool useSerial  = !useThreads && !useOMP && !useCUDA;
+  bool useHIP     = params.use_hip != 0;
+  bool useSerial  = !useThreads && !useOMP && !useCUDA && !useHIP;
 
   if (useThreads) {
 #if defined(KOKKOS_ENABLE_THREADS)
-    run<Kokkos::Threads>(params.m, params.repeat);
+    run<Kokkos::Threads>(params.m, params.n, params.repeat);
 #else
     std::cout << "ERROR:  PThreads requested, but not available.\n";
     return 1;
@@ -204,7 +211,7 @@ int main(int argc, char** argv) {
 
   if (useOMP) {
 #if defined(KOKKOS_ENABLE_OPENMP)
-    run<Kokkos::OpenMP>(params.m, params.repeat);
+    run<Kokkos::OpenMP>(params.m, params.n, params.repeat);
 #else
     std::cout << "ERROR: OpenMP requested, but not available.\n";
     return 1;
@@ -213,18 +220,25 @@ int main(int argc, char** argv) {
 
   if (useCUDA) {
 #if defined(KOKKOS_ENABLE_CUDA)
-    run<Kokkos::Cuda>(params.m, params.repeat);
+    run<Kokkos::Cuda>(params.m, params.n, params.repeat);
 #else
     std::cout << "ERROR: CUDA requested, but not available.\n";
     return 1;
 #endif
   }
+  if (useHIP) {
+#if defined(KOKKOS_ENABLE_HIP)
+    run<Kokkos::Experimental::HIP>(params.m, params.n, params.repeat);
+#else
+    std::cout << "ERROR: HIP requested, but not available.\n";
+    return 1;
+#endif
+  }
   if (useSerial) {
 #if defined(KOKKOS_ENABLE_SERIAL)
-    run<Kokkos::Serial>(params.m, params.repeat);
+    run<Kokkos::Serial>(params.m, params.n, params.repeat);
 #else
-    std::cout << "ERROR: Serial device requested, but not available; here, "
-                 "implementation of dot is explicitly parallel.\n";
+    std::cout << "ERROR: Serial device requested, but not available.\n";
     return 1;
 #endif
   }

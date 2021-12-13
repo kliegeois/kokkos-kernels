@@ -319,11 +319,11 @@ int BatchedGemm(BatchedGemmHandleType *const handle, const ScalarType alpha,
   size_t c_m, c_n;
   using ViewValueType = typename CViewType::value_type;
   // Check for valid input views
-  static_assert(Kokkos::Impl::is_view<AViewType>::value,
+  static_assert(Kokkos::is_view<AViewType>::value,
                 "AViewType must be a Kokkos::View.");
-  static_assert(Kokkos::Impl::is_view<BViewType>::value,
+  static_assert(Kokkos::is_view<BViewType>::value,
                 "BViewType must be a Kokkos::View.");
-  static_assert(Kokkos::Impl::is_view<CViewType>::value,
+  static_assert(Kokkos::is_view<CViewType>::value,
                 "CViewType must be a Kokkos::View.");
   if (is_vector<ViewValueType>::value) {
     // Check ranks of view with underlying SIMD value types
@@ -463,13 +463,13 @@ int BatchedGemm(BatchedGemmHandleType *const handle, const ScalarType alpha,
       //     (alpha == 1.0F && beta == 0.0F) ? c_m <= 24 : c_m <= 21) {
       //   // TODO: invoke TeamShmem
       // } else
-      if (on_gpu &&
-          ((std::is_same<layout_type, Kokkos::LayoutLeft>::value)
-               ? (c_m >= 16)
-               : (c_m >= 24 && c_m <= 32) || (c_m >= 45 && c_m <= 64))) {
+      if (on_gpu && ((std::is_same<layout_type, Kokkos::LayoutLeft>::value)
+                         ? (c_m >= 16)
+                         : (c_m >= 24))) {  // Vinh's note: use this condition
+                                            // for now, might need to revisit
         handle->teamSz = handle->vecLen = 8;
         constexpr int tile_m = 32, tile_n = 32, tile_k = 8;
-        if (c_m % 32 == 0)  // No bounds checking
+        if (c_m % 32 == 0) {  // No bounds checking
           ret =
               Impl::BatchedDblBufGemm<ArgTransA, ArgTransB, ArgBatchSzDim,
                                       BatchedGemmHandleType, ScalarType,
@@ -477,7 +477,7 @@ int BatchedGemm(BatchedGemmHandleType *const handle, const ScalarType alpha,
                                       BoundsCheck::No, tile_m, tile_n, tile_k>(
                   handle, alpha, A, B, beta, C)
                   .invoke();
-        else
+        } else {
           ret =
               Impl::BatchedDblBufGemm<ArgTransA, ArgTransB, ArgBatchSzDim,
                                       BatchedGemmHandleType, ScalarType,
@@ -485,6 +485,7 @@ int BatchedGemm(BatchedGemmHandleType *const handle, const ScalarType alpha,
                                       BoundsCheck::Yes, tile_m, tile_n, tile_k>(
                   handle, alpha, A, B, beta, C)
                   .invoke();
+        }
       } else {
         ret = Impl::BatchedSerialGemm<ArgTransA, ArgTransB, bsgModeType,
                                       ArgBatchSzDim, bsgResultsPerThread,
