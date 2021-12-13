@@ -111,32 +111,32 @@ class KrylovHandle {
   int get_max_iteration() const { return max_iteration; }
 
   KOKKOS_INLINE_FUNCTION
-  void set_norm(int batched_id, int iteration_id, norm_type norm_i) {
+  void set_norm(int batched_id, int iteration_id, norm_type norm_i) const {
     residual_norms(batched_id, iteration_id) = norm_i;
   }
 
   KOKKOS_INLINE_FUNCTION
-  void set_norm(int team_id, int batched_id, int iteration_id, norm_type norm_i) {
+  void set_norm(int team_id, int batched_id, int iteration_id, norm_type norm_i) const {
     residual_norms(team_id * N_team + batched_id, iteration_id) = norm_i;
   }
 
   KOKKOS_INLINE_FUNCTION
-  norm_type get_norm(int batched_id, int iteration_id) {
+  norm_type get_norm(int batched_id, int iteration_id) const {
     return residual_norms(batched_id, iteration_id);
   }
 
   KOKKOS_INLINE_FUNCTION
-  void set_iteration(int batched_id, int iteration_id) {
+  void set_iteration(int batched_id, int iteration_id) const {
     iteration_numbers(batched_id) = iteration_id;
   }
 
   KOKKOS_INLINE_FUNCTION
-  void set_iteration(int team_id, int batched_id, int iteration_id) {
+  void set_iteration(int team_id, int batched_id, int iteration_id) const {
     iteration_numbers(team_id * N_team + batched_id) = iteration_id;
   }
 
   KOKKOS_INLINE_FUNCTION
-  int get_iteration(int batched_id) {
+  int get_iteration(int batched_id) const {
     return iteration_numbers(batched_id);
   }
 };
