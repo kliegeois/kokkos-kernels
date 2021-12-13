@@ -61,12 +61,11 @@ namespace KokkosBatched {
 
 template <typename MemberType>
 struct TeamCG {
-  template <typename OperatorType, typename VectorViewType>
+  template <typename OperatorType, typename VectorViewType, typename KrylovHandle>
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
-      const KrylovHandle<typename VectorViewType::non_const_value_type>&
-          handle) {
+      const KrylovHandle& handle) {
     typedef int OrdinalType;
     typedef typename Kokkos::Details::ArithTraits<
         typename VectorViewType::non_const_value_type>::mag_type MagnitudeType;
