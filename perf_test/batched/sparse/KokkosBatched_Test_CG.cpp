@@ -52,7 +52,7 @@ typedef Kokkos::DefaultHostExecutionSpace host_space;
 typedef typename Kokkos::Device<exec_space, memory_space> device;
 
 template <typename DeviceType, typename ValuesViewType, typename IntView,
-          typename VectorViewType>
+          typename VectorViewType, typename KrylovHandleType>
 struct Functor_TestBatchedTeamCG {
   const ValuesViewType _D;
   const IntView _r;
@@ -60,14 +60,13 @@ struct Functor_TestBatchedTeamCG {
   const VectorViewType _X;
   const VectorViewType _B;
   const int _N_team, _team_size, _vector_length;
-  KokkosBatched::KrylovHandle<typename ValuesViewType::value_type> *handle;
+  KrylovHandleType _handle;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamCG(const ValuesViewType &D, const IntView &r,
                                   const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length) {
-    handle = new KokkosBatched::KrylovHandle<typename ValuesViewType::value_type>();
+                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length, KrylovHandleType &handle)
+      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length), _handle(handle) {
   }
 
   template <typename MemberType>
@@ -92,7 +91,7 @@ struct Functor_TestBatchedTeamCG {
 
     KokkosBatched::TeamCG<MemberType>::template invoke<Operator,
                                                              VectorViewType>(
-        member, A, b, x, handle);
+        member, A, b, x, _handle);
   }
 
   inline void run() {
@@ -111,7 +110,7 @@ struct Functor_TestBatchedTeamCG {
 };
 
 template <typename DeviceType, typename ValuesViewType, typename IntView,
-          typename VectorViewType>
+          typename VectorViewType, typename KrylovHandleType>
 struct Functor_TestBatchedTeamVectorCG {
   const ValuesViewType _D;
   const IntView _r;
@@ -119,14 +118,13 @@ struct Functor_TestBatchedTeamVectorCG {
   const VectorViewType _X;
   const VectorViewType _B;
   const int _N_team, _team_size, _vector_length;
-  KokkosBatched::KrylovHandle<typename ValuesViewType::value_type> *handle;
+  KrylovHandleType _handle;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorCG(const ValuesViewType &D, const IntView &r,
                                   const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length) {
-    handle = new KokkosBatched::KrylovHandle<typename ValuesViewType::value_type>();
+                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length, KrylovHandleType &handle)
+      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length), _handle(handle) {
   }
 
   template <typename MemberType>
@@ -151,7 +149,7 @@ struct Functor_TestBatchedTeamVectorCG {
 
     KokkosBatched::TeamVectorCG<MemberType>::template invoke<Operator,
                                                              VectorViewType>(
-        member, A, b, x, handle);
+        member, A, b, x, _handle);
   }
 
   inline void run() {
@@ -308,20 +306,34 @@ int main(int argc, char *argv[]) {
 
           int N_team = i_impl > 1 ? vector_length : 1;
 
+          using ScalarType = typename AMatrixValueViewLL::non_const_value_type;
+          using Layout     = typename AMatrixValueViewLL::array_layout;
+          using EXSP       = typename AMatrixValueViewLL::execution_space;
+
+          using MagnitudeType =
+              typename Kokkos::Details::ArithTraits<ScalarType>::mag_type;
+          using NormViewType = Kokkos::View<MagnitudeType *, Layout, EXSP>;
+          
+          using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
+          using IntViewType = Kokkos::View<int*, Layout, EXSP>;
+
+          using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType>;
+          KrylovHandleType handle(N, N_team);
+
           if (i_impl%2 == 0 && layout_left) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length)
+            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, handle)
                 .run();
           }
           if (i_impl%2 == 1 && layout_left) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length)
+            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, handle)
                 .run();
           }
           if (i_impl%2 == 0 && layout_right) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length)
+            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, handle)
                 .run();
           }
           if (i_impl%2 == 1 && layout_right) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length)
+            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, handle)
                 .run();
           }
           exec_space().fence();

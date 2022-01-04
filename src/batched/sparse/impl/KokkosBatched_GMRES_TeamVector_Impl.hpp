@@ -283,7 +283,7 @@ struct TeamVectorGMRES {
       const KrylovHandleType& handle) {
     Identity P;
     return invoke<OperatorType, VectorViewType, Identity>(member, A, _B, _X,
-                                                          handle, P);
+                                                          P, handle);
   }
 };
 }  // namespace KokkosBatched
