@@ -109,6 +109,34 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
   Kokkos::deep_copy(c, c_h);
 }
 
+template <class VType, class IntType>
+void getDiagFromCRS(const VType &V, const IntType &r,
+                   const IntType &c, const VType &diag) {
+  auto diag_values_host = Kokkos::create_mirror_view(diag);
+  auto values_host      = Kokkos::create_mirror_view(V);
+  auto row_ptr_host     = Kokkos::create_mirror_view(r);
+  auto colIndices_host  = Kokkos::create_mirror_view(c);
+
+  Kokkos::deep_copy(values_host, V);
+  Kokkos::deep_copy(row_ptr_host, r);
+  Kokkos::deep_copy(colIndices_host, c);
+
+  int current_index;
+  int N = diag.extent(0);
+  int BlkSize = diag.extent(1);
+
+  for (int i = 0; i < BlkSize; ++i) {
+    for (current_index = row_ptr_host(i); current_index < row_ptr_host(i + 1);
+          ++current_index) {
+      if (colIndices_host(current_index) == i) break;
+    }
+    for (int j = 0; j < N; ++j)
+      diag_values_host(j, i) = values_host(j, current_index);
+  }
+
+  Kokkos::deep_copy(diag, diag_values_host);
+}
+
 template <class execution_space>
 int launch_parameters(int numRows, int nnz, int rows_per_thread, int &team_size,
                       int vector_length) {

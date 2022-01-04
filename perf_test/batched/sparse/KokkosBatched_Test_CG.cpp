@@ -188,12 +188,14 @@ int main(int argc, char *argv[]) {
     int n_impl          = 1;
     bool layout_left    = true;
     bool layout_right   = false;
+    bool monitor_convergence = false;
 
     std::string name_A = "A.mm";
     std::string name_B = "B.mm";
 
     std::string name_timer = "timers";
     std::string name_X     = "X";
+    std::string name_conv     = "res";
 
     std::vector<int> impls;
     for (int i = 1; i < argc; ++i) {
@@ -202,6 +204,8 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-B")) name_B = argv[++i];
 
       if (token == std::string("-X")) name_X = argv[++i];
+
+      if (token == std::string("-res")) name_conv = argv[++i];
 
       if (token == std::string("-timers")) name_timer = argv[++i];
 
@@ -222,6 +226,8 @@ int main(int argc, char *argv[]) {
         layout_left  = false;
         layout_right = true;
       }
+      if (token == std::string("-C"))
+        monitor_convergence = true;
     }
 
     int N, Blk, nnz, ncols;
@@ -291,6 +297,22 @@ int main(int argc, char *argv[]) {
 
       int n_skip = 2;
 
+      int N_team = i_impl > 1 ? vector_length : 1;
+
+      using ScalarType = typename AMatrixValueViewLL::non_const_value_type;
+      using Layout     = typename AMatrixValueViewLL::array_layout;
+      using EXSP       = typename AMatrixValueViewLL::execution_space;
+
+      using MagnitudeType =
+          typename Kokkos::Details::ArithTraits<ScalarType>::mag_type;
+      using NormViewType = Kokkos::View<MagnitudeType *, Layout, EXSP>;
+      
+      using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
+      using IntViewType = Kokkos::View<int*, Layout, EXSP>;
+
+      using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType>;
+      KrylovHandleType handle(N, N_team);
+
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
         double t_spmv = 0;
         for (int j_rep = 0; j_rep < n_rep_2; ++j_rep) {
@@ -303,22 +325,6 @@ int main(int argc, char *argv[]) {
 
           timer.reset();
           exec_space().fence();
-
-          int N_team = i_impl > 1 ? vector_length : 1;
-
-          using ScalarType = typename AMatrixValueViewLL::non_const_value_type;
-          using Layout     = typename AMatrixValueViewLL::array_layout;
-          using EXSP       = typename AMatrixValueViewLL::execution_space;
-
-          using MagnitudeType =
-              typename Kokkos::Details::ArithTraits<ScalarType>::mag_type;
-          using NormViewType = Kokkos::View<MagnitudeType *, Layout, EXSP>;
-          
-          using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
-          using IntViewType = Kokkos::View<int*, Layout, EXSP>;
-
-          using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType>;
-          KrylovHandleType handle(N, N_team);
 
           if (i_impl%2 == 0 && layout_left) {
             Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, handle)
@@ -382,6 +388,9 @@ int main(int argc, char *argv[]) {
       }
       if (layout_right) {
         writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", yLR);
+      }
+      if (monitor_convergence) {
+        writeArrayToMM(name_conv + std::to_string(i_impl) + ".mm", handle.residual_norms);
       }
     }
   }

@@ -64,7 +64,7 @@ class KrylovHandle {
       typename NormViewType::non_const_value_type;
 
 
- private:
+ public:
   NormViewType residual_norms;
   IntViewType iteration_numbers;
   norm_type tolerance;
