@@ -3,7 +3,7 @@ import subprocess
 import time
 import os
 
-def run_test(exec_name, A_file_name, B_file_name, X_file_name, timer_filename, rows_per_thread=1, team_size=8, n1=10, n2=10, implementations=[0], layout='Left', quantiles=[0,0.1,0.2,0.5,0.8,0.9,1.]):
+def run_test(exec_name, A_file_name, B_file_name, X_file_name, timer_filename, rows_per_thread=1, team_size=8, n1=10, n2=10, implementations=[0], layout='Left', quantiles=[0,0.1,0.2,0.5,0.8,0.9,1.], extra_args=''):
     n_implementations = len(implementations)
     exe = exec_name + ' -A ' +A_file_name+ ' -B '+B_file_name
     exe += ' -X ' + X_file_name + ' -timers '+ timer_filename
@@ -19,6 +19,7 @@ def run_test(exec_name, A_file_name, B_file_name, X_file_name, timer_filename, r
             exe += ' -r'
             y_name = '_r.txt'
             time_name = '_right.txt'
+    exe += extra_args
     for i in range(0, n_implementations):
         current_name = 'y_'+str(implementations[i])+y_name
         if os.path.exists(current_name):
