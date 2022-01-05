@@ -144,6 +144,7 @@ struct TeamVectorGMRES {
                            beta(i) = ATM::sqrt(beta(i));
                            G(i, 0) = beta(i) > max_tolerance ? beta(i) : 0.;
                            tmp(i) = beta(i) > max_tolerance ? 1. / beta(i) : 0.;
+                           handle.set_norm(member.league_rank(), i, 0, beta(i));
                          });
 
     Kokkos::parallel_for(
@@ -243,9 +244,11 @@ struct TeamVectorGMRES {
               G(l, j + 1) = 0.;
             }
 
-            handle.set_norm(member.league_rank(), l, j, std::abs(G(l, j + 1)) / beta(l));
+            auto res_norm = std::abs(G(l, j + 1)) / beta(l);
 
-            if (mask(l) == 1. && std::abs(G(l, j + 1)) / beta(l) < tolerance) {
+            handle.set_norm(member.league_rank(), l, j+1, res_norm);
+
+            if (mask(l) == 1. && res_norm < tolerance) {
               mask(l)     = 0.;
               G(l, j + 1) = 0.;
               handle.set_iteration(member.league_rank(), l, j);

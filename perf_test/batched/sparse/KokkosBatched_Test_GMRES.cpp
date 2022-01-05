@@ -121,7 +121,7 @@ struct Functor_TestBatchedTeamGMRES {
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
 
-    _handle.set_max_iteration(30);
+    _handle.set_max_iteration(10);
     _handle.set_tolerance(1e-8);
     int maximum_iteration = _handle.get_max_iteration();
 
@@ -207,7 +207,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
 
-    _handle.set_max_iteration(30);
+    _handle.set_max_iteration(10);
     _handle.set_tolerance(1e-8);
     int maximum_iteration = _handle.get_max_iteration();
 
@@ -348,13 +348,13 @@ int main(int argc, char *argv[]) {
 
     if (layout_left) {
       readCRSFromMM(name_A, valuesLL, rowOffsets, colIndices);
-      readArrayFromMM(name_B, xLL);
+      readArrayFromMM(name_B, yLL);
       if (use_preconditioner)
         getDiagFromCRS(valuesLL, rowOffsets, colIndices, diagLL);
     }
     if (layout_right) {
       readCRSFromMM(name_A, valuesLR, rowOffsets, colIndices);
-      readArrayFromMM(name_B, xLR);
+      readArrayFromMM(name_B, yLR);
       if (use_preconditioner)
         getDiagFromCRS(valuesLR, rowOffsets, colIndices, diagLR);
     }
@@ -387,6 +387,8 @@ int main(int argc, char *argv[]) {
           cudaProfilerStart();
 #endif
           exec_space().fence();
+          Kokkos::deep_copy(xLL, 0.0);
+          Kokkos::deep_copy(xLR, 0.0);
           flush.run();
           exec_space().fence();
 
