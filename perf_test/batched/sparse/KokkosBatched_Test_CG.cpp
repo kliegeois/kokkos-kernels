@@ -285,11 +285,11 @@ int main(int argc, char *argv[]) {
 
     if (layout_left) {
       readCRSFromMM(name_A, valuesLL, rowOffsets, colIndices);
-      readArrayFromMM(name_B, xLL);
+      readArrayFromMM(name_B, yLL);
     }
     if (layout_right) {
       readCRSFromMM(name_A, valuesLR, rowOffsets, colIndices);
-      readArrayFromMM(name_B, xLR);
+      readArrayFromMM(name_B, yLR);
     }
 
     for (auto i_impl : impls) {
@@ -320,6 +320,8 @@ int main(int argc, char *argv[]) {
           cudaProfilerStart();
 #endif
           exec_space().fence();
+          Kokkos::deep_copy(xLL, 0.0);
+          Kokkos::deep_copy(xLR, 0.0);
           flush.run();
           exec_space().fence();
 

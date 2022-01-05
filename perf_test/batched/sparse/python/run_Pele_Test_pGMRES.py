@@ -15,7 +15,7 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = [96]
+    Ns = np.arange(100, 15000, 50)
 
     specie = 'isooctane'
 
@@ -51,10 +51,7 @@ def main():
     name_A = data_d+'/A.mm'
     name_B = data_d+'/B.mm'
     name_X = data_d+'/X'
-
-    # with prec
-
-    name_timers = data_d+'/P_timers'
+    name_timers = data_d+'/timers'
 
     for i in range(0, len(Ns)):
         r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
@@ -66,11 +63,11 @@ def main():
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l')
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P')
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r')
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P')
         for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
@@ -83,39 +80,6 @@ def main():
             np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
         np.savetxt(data_d+'/Ns.txt', Ns)
         np.savetxt(data_d+'/nnzs.txt', nnzs)
-
-    # without prec
-
-    name_timers = data_d+'/timers'
-
-    for i in range(0, len(Ns)):
-        r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
-        nnzs[i] = len(r)
-        n_ops = compute_n_ops(n, nnzs[i], Ns[i])
-
-        B = create_Vector(n, Ns[i])
-    
-        mmwrite(name_A, V, r, c, n, n)
-        mmwrite(name_B, B)
-
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -C -res '+data_d+'/res_l')
-        for j in range(0, n_implementations_left):
-            CPU_time_left[j,i,:] = data[j,:]
-        throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -C -res '+data_d+'/res_r')
-        for j in range(0, n_implementations_right):
-            CPU_time_right[j,i,:] = data[j,:]
-        throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
-
-        for j in range(0, n_implementations_left):
-            np.savetxt(data_d+'/CPU_time_'+str(implementations_left[j])+'_l.txt', CPU_time_left[j,:,:])
-            np.savetxt(data_d+'/throughput_'+str(implementations_left[j])+'_l.txt', throughput_left[j,:,:])
-        for j in range(0, n_implementations_right):
-            np.savetxt(data_d+'/CPU_time_'+str(implementations_right[j])+'_r.txt', CPU_time_right[j,:,:])
-            np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
-        np.savetxt(data_d+'/Ns.txt', Ns)
-        np.savetxt(data_d+'/nnzs.txt', nnzs)
-
 
     toc = time.perf_counter()
     print(f"Elapsed time {toc - tic:0.4f} seconds")

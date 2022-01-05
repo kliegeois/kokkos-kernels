@@ -58,7 +58,7 @@ def main():
         nnzs[i] = len(r)
         n_ops = compute_n_ops(n, nnzs[i], Ns[i])
 
-        B = create_Vector(n, Ns[i])
+        B = read_vectors(input_folder+'rhs.txt', Ns[i], n)
     
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
