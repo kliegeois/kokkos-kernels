@@ -132,7 +132,7 @@ struct TeamVectorGMRES {
     member.team_barrier();
 
     P.template apply<MemberType, ScratchPadVectorViewType,
-                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team,
+                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::TeamVector,
                      1>(member, R, R);
     member.team_barrier();
 

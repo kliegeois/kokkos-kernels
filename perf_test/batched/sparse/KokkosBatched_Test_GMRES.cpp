@@ -119,13 +119,13 @@ struct Functor_TestBatchedTeamGMRES {
     typedef typename ValuesViewType::value_type value_type;
     std::string name("KokkosBatched::Test::TeamGMRES");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
 
-    _handle.set_max_iteration(20);
+    _handle.set_max_iteration(10);
     _handle.set_tolerance(1e-8);
     int maximum_iteration = _handle.get_max_iteration();
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);//_r.extent(0));
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _r.extent(0));
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 3 * bytes_1));
     policy.set_scratch_size(
@@ -205,13 +205,13 @@ struct Functor_TestBatchedTeamVectorGMRES {
     typedef typename ValuesViewType::value_type value_type;
     std::string name("KokkosBatched::Test::TeamVectorGMRES");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
 
     _handle.set_max_iteration(10);
     _handle.set_tolerance(1e-8);
     int maximum_iteration = _handle.get_max_iteration();
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);//_r.extent(0));
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _r.extent(0));
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 3 * bytes_1));
     policy.set_scratch_size(

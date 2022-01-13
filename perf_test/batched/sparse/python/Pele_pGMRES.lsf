@@ -3,8 +3,8 @@
 #BSUB -q rhel7W
 #BSUB -o job.out
 #BSUB -e job.err
-#BSUB -J Pele_GMRES
+#BSUB -J Pele_pGMRES
 #BSUB -W 48:00
 date
-python run_Pele_Test_GMRES.py
+python run_Pele_Test_pGMRES.py
 date
