@@ -386,10 +386,10 @@ int main(int argc, char *argv[]) {
             i_impl, average_time);
 
       if (layout_left) {
-        writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", yLL);
+        writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", xLL);
       }
       if (layout_right) {
-        writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", yLR);
+        writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", xLR);
       }
       if (monitor_convergence) {
         writeArrayToMM(name_conv + std::to_string(i_impl) + ".mm", handle.residual_norms);

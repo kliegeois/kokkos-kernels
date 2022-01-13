@@ -388,10 +388,10 @@ int main(int argc, char *argv[]) {
             i_impl, average_time, 1.0 / average_time * 60 * N);
 
       if (layout_left) {
-        writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", yLL);
+        writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", xLL);
       }
       if (layout_right) {
-        writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", yLR);
+        writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", xLR);
       }
     }
   }

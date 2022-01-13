@@ -64,6 +64,7 @@ void readArrayFromMM(std::string name, const XType &x) {
 
   Kokkos::deep_copy(x, x_h);
 
+/*
   std::ofstream myfile;
   myfile.open("x-data.txt");
 
@@ -76,6 +77,7 @@ void readArrayFromMM(std::string name, const XType &x) {
   }
 
   myfile.close();
+  */
 }
 
 template <class VType, class IntType>
@@ -121,6 +123,7 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
   Kokkos::deep_copy(r, r_h);
   Kokkos::deep_copy(c, c_h);
 
+/*
   std::ofstream myfile;
   myfile.open("a-data.txt");
 
@@ -132,6 +135,7 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
   }
 
   myfile.close();
+  */
 }
 
 template <class VType, class IntType>
@@ -161,6 +165,7 @@ void getDiagFromCRS(const VType &V, const IntType &r,
 
   Kokkos::deep_copy(diag, diag_values_host);
 
+/*
   std::ofstream myfile;
   myfile.open("a-diag.txt");
 
@@ -170,6 +175,7 @@ void getDiagFromCRS(const VType &V, const IntType &r,
   }
 
   myfile.close();
+  */
 }
 
 template <class execution_space>

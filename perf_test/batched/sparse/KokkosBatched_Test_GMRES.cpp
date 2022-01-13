@@ -46,6 +46,10 @@
 #include "KokkosBatched_Krylov_Handle.hpp"
 #include "KokkosBatched_GMRES.hpp"
 #include "KokkosBatched_JacobiPrec.hpp"
+#include "KokkosBatched_Dot.hpp"
+#include "KokkosBatched_Util.hpp"
+#include "KokkosBatched_Dot_Internal.hpp"
+#include "KokkosBatched_Spmv_Serial_Impl.hpp"
 
 typedef Kokkos::DefaultExecutionSpace exec_space;
 typedef typename exec_space::memory_space memory_space;
@@ -428,6 +432,70 @@ int main(int argc, char *argv[]) {
                   .run();
           }
           exec_space().fence();
+
+          if(layout_right) {
+            NormViewType sqr_norm_0("sqr_norm_0", N);
+            NormViewType sqr_norm_j("sqr_norm_j", N);
+
+            auto sqr_norm_0_host = Kokkos::create_mirror_view(sqr_norm_0);
+            auto sqr_norm_j_host = Kokkos::create_mirror_view(sqr_norm_j);
+            auto R_host          = Kokkos::create_mirror_view(yLR);
+            auto X_host          = Kokkos::create_mirror_view(xLR);
+            auto D_host          = Kokkos::create_mirror_view(valuesLR);
+            auto r_host          = Kokkos::create_mirror_view(rowOffsets);
+            auto c_host          = Kokkos::create_mirror_view(colIndices);
+            
+            Kokkos::deep_copy(R_host, yLR);
+            Kokkos::deep_copy(X_host, xLR);
+            Kokkos::deep_copy(D_host, valuesLR);
+            Kokkos::deep_copy(r_host, rowOffsets);
+            Kokkos::deep_copy(c_host, colIndices);
+
+            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
+                                                                sqr_norm_0_host);
+            KokkosBatched::SerialSpmv<KokkosBatched::Trans::NoTranspose>::template invoke<
+                typename AMatrixValueViewLR::HostMirror, typename IntView::HostMirror,
+                typename XYTypeLR::HostMirror, typename XYTypeLR::HostMirror,
+                1>(-1, D_host, r_host, c_host, X_host, 1, R_host);
+            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
+                                                                sqr_norm_j_host);
+
+            for (int l = 0; l < N; ++l)
+              if (1e-8 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
+                std::cout << std::setprecision (15) << "Right: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
+          }
+          else {
+            NormViewType sqr_norm_0("sqr_norm_0", N);
+            NormViewType sqr_norm_j("sqr_norm_j", N);
+
+            auto sqr_norm_0_host = Kokkos::create_mirror_view(sqr_norm_0);
+            auto sqr_norm_j_host = Kokkos::create_mirror_view(sqr_norm_j);
+            auto R_host          = Kokkos::create_mirror_view(yLL);
+            auto X_host          = Kokkos::create_mirror_view(xLL);
+            auto D_host          = Kokkos::create_mirror_view(valuesLL);
+            auto r_host          = Kokkos::create_mirror_view(rowOffsets);
+            auto c_host          = Kokkos::create_mirror_view(colIndices);
+            
+            Kokkos::deep_copy(R_host, yLL);
+            Kokkos::deep_copy(X_host, xLL);
+            Kokkos::deep_copy(D_host, valuesLL);
+            Kokkos::deep_copy(r_host, rowOffsets);
+            Kokkos::deep_copy(c_host, colIndices);
+
+            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
+                                                                sqr_norm_0_host);
+            KokkosBatched::SerialSpmv<KokkosBatched::Trans::NoTranspose>::template invoke<
+                typename AMatrixValueViewLL::HostMirror, typename IntView::HostMirror,
+                typename XYTypeLL::HostMirror, typename XYTypeLL::HostMirror,
+                1>(-1, D_host, r_host, c_host, X_host, 1, R_host);
+            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
+                                                                sqr_norm_j_host);
+
+            for (int l = 0; l < N; ++l)
+              if (1e-8 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
+                std::cout << std::setprecision (15) << "Left: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
+          }
+
           t_spmv += timer.seconds();
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
@@ -469,10 +537,10 @@ int main(int argc, char *argv[]) {
             i_impl, average_time);
 
       if (layout_left) {
-        writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", yLL);
+        writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", xLL);
       }
       if (layout_right) {
-        writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", yLR);
+        writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", xLR);
       }
       if (monitor_convergence) {
         writeArrayToMM(name_conv + std::to_string(i_impl) + ".mm", handle.residual_norms);
