@@ -2,7 +2,7 @@ import numpy as np
 
 import time
 from test_io import mmwrite, mmread
-from run_Test import run_test
+from run_Test import run_test_nvprof
 from create_matrices import *
 from read_pele_matrices import *
 import os
@@ -15,9 +15,9 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.arange(100, 15000, 50)
-    
-    specie = 'isooctane'
+    Ns = np.arange(5100, 5300, 50)
+
+    specie = 'gri30'
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     n_files = 72
@@ -25,7 +25,7 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'Pele_CG_' + specie + '_data_1'
+    data_d = 'Pele_SPMV_NVPROF_' + specie + '_data_1'
 
     rows_per_thread=1
     team_size=32
@@ -53,8 +53,10 @@ def main():
     name_X = data_d+'/X'
     name_timers = data_d+'/timers'
 
+    implementation = 3
+
     for i in range(0, len(Ns)):
-        r, c, V, n = read_matrices_spd(input_folder, n_files, Ns[i])
+        r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
         nnzs[i] = len(r)
         n_ops = compute_n_ops(n, nnzs[i], Ns[i])
 
@@ -63,23 +65,11 @@ def main():
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
-        for j in range(0, n_implementations_left):
-            CPU_time_left[j,i,:] = data[j,:]
-        throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
-        for j in range(0, n_implementations_right):
-            CPU_time_right[j,i,:] = data[j,:]
-        throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
+        testfile = data_d+'/nvprof.'+str(implementation)+'.'+str(n)+'.'+str(nnzs[i])+'.'+str(Ns[i])
 
-        for j in range(0, n_implementations_left):
-            np.savetxt(data_d+'/CPU_time_'+str(implementations_left[j])+'_l.txt', CPU_time_left[j,:,:])
-            np.savetxt(data_d+'/throughput_'+str(implementations_left[j])+'_l.txt', throughput_left[j,:,:])
-        for j in range(0, n_implementations_right):
-            np.savetxt(data_d+'/CPU_time_'+str(implementations_right[j])+'_r.txt', CPU_time_right[j,:,:])
-            np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
-        np.savetxt(data_d+'/Ns.txt', Ns)
-        np.savetxt(data_d+'/nnzs.txt', nnzs)
+        nvprof_exe = '/home/projects/ppc64le-pwr9-nvidia/cuda/10.2.2/bin/nvprof'
+        run_test_nvprof(nvprof_exe, directory+'/KokkosBatched_Test_SPMV', testfile, name_A, name_B, name_X, rows_per_thread, team_size, n1=n1, n2=n2, implementation=implementation, layout='Left', extra_args=' -P')
+        run_test_nvprof(nvprof_exe, directory+'/KokkosBatched_Test_SPMV', testfile, name_A, name_B, name_X, rows_per_thread, team_size, n1=n1, n2=n2, implementation=implementation, layout='Right', extra_args=' -P')
 
     toc = time.perf_counter()
     print(f"Elapsed time {toc - tic:0.4f} seconds")

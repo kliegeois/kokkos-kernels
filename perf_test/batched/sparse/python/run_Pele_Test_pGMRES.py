@@ -15,22 +15,22 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.arange(100, 15000, 50)
+    Ns = 8*np.array([1])
 
-    specie = 'isooctane'
+    specie = 'gri30'
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
-    n_files = 72
+    n_files = 90
 
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'Pele_GMRES_' + specie + 'data_1'
+    data_d = 'Pele_pGMRES_' + specie + '_data_18'
 
     rows_per_thread=1
-    team_size=32
-    implementations_left = [0, 1, 2, 3]
-    implementations_right = [0, 1, 2, 3]
+    team_size=1
+    implementations_left = [3]
+    implementations_right = [3]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
@@ -58,16 +58,16 @@ def main():
         nnzs[i] = len(r)
         n_ops = compute_n_ops(n, nnzs[i], Ns[i])
 
-        B = read_vectors(input_folder+'rhs.txt', Ns[i], n)
+        B = read_vectors(input_folder, Ns[i], n)
     
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P')
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -C -res '+data_d+'/P_res_l')
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P')
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -C')
         for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]

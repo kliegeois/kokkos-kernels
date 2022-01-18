@@ -68,82 +68,59 @@ def ginkgo_data(specie):
 
 specie = 'gri30'
 
-base = 'Pele_pGMRES_'+specie+'_data_16/'
+data_base = 'Pele_pGMRES_'+specie+'_data_all/'
 implementations = [3]
 n_implementations = len(implementations)
 n_quantiles = 7
 
 n_ginkgo, time_gingko = ginkgo_data(specie)
 
-Ns = np.loadtxt(base+'Ns.txt')
-CPU_time_l = np.zeros((n_implementations, len(Ns), n_quantiles))
-CPU_time_r = np.zeros((n_implementations, len(Ns), n_quantiles))
-throughput_l = np.zeros((n_implementations, len(Ns), n_quantiles))
-throughput_r = np.zeros((n_implementations, len(Ns), n_quantiles))
+team_sizes = np.array([1, 2, 4, 8, 16, 32])
+rows_per_threads = np.array([1, 2, 4, 8, 16, 32, 64])
 
-for i in range(0, n_implementations):
-    CPU_time_l[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_l.txt')
-    CPU_time_r[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_r.txt')
-    throughput_l[i,:,:] = np.loadtxt(base+'throughput_'+str(implementations[i])+'_l.txt')
-    throughput_r[i,:,:] = np.loadtxt(base+'throughput_'+str(implementations[i])+'_r.txt')
+CPU_l = np.zeros((len(team_sizes), len(rows_per_threads), 6))
+CPU_r = np.zeros((len(team_sizes), len(rows_per_threads), 6))
 
-nnz_per_row = 10
-N = 12800
+for i_team in range(0, len(team_sizes)):
+    for i_per_thread in range(0, len(rows_per_threads)):
+        base = data_base + '/' + str(team_sizes[i_team]) + '_' + str(rows_per_threads[i_per_thread])+'/'
+        
+        Ns = np.loadtxt(base+'Ns.txt')
+        CPU_time_l = np.zeros((n_implementations, len(Ns), n_quantiles))
+        CPU_time_r = np.zeros((n_implementations, len(Ns), n_quantiles))
 
-fig = plt.figure()
-ax = plt.gca()
-for i in range(0, n_implementations):
-    if i < 5:
-        plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' left')
-        plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' right')
-    else:
-        plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
-        plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
+        for i in range(0, n_implementations):
+            CPU_time_l[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_l.txt')
+            CPU_time_r[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_r.txt')
 
-plt.plot(n_ginkgo, time_gingko, '--')
-#ax.set_ylim(0., 0.006)
-#plot_limits(Ns, ax, nnz_per_row, N, throughput=False)
+        CPU_l[i_team, i_per_thread, :] = CPU_time_l[0,:,3]
+        CPU_r[i_team, i_per_thread, :] = CPU_time_r[0,:,3]
 
-ax.set_xlabel('Number of matrices')
-ax.set_ylabel('Wall-clock time [sec]')
-#ax.set_ylim(0, 0.008)
-#ax.set_xlim(1000, 1500)
+print(np.amin(CPU_l[:,:,-1]))
+print(np.amin(CPU_r[:,:,-1]))
 
-legend = ax.legend(loc='best', shadow=True)
 
-plt.savefig(base+'wall-clock time.png')
-tikzplotlib.save(base+'wall-clock time.tex')
+result_l = np.where(CPU_l[:,:,-1] == np.amin(CPU_l[:,:,-1]))
+result_r = np.where(CPU_r[:,:,-1] == np.amin(CPU_r[:,:,-1]))
+
+print(result_l)
+print(result_r)
+
 
 fig = plt.figure()
 ax = plt.gca()
-for i in range(0, n_implementations):
-    if i < 5:
-        plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' left')
-        plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' right')
-    elif i < 10:
-        plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
-        plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
-    else:
-        plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with global cache', dashed=True)
-        plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with global cache', dashed=True)
-    max_l_throughput = np.amax(throughput_l[i,:,:])/1e12
-    max_r_throughput = np.amax(throughput_r[i,:,:])/1e12
-    if max_l_throughput > 0.8:
-        print('Impl '+str(i) + ' left max throughput = '+str(max_l_throughput))
-    if max_r_throughput > 0.8:
-        print('Impl '+str(i) + ' right max throughput = '+str(max_r_throughput))
+CS = plt.contourf(CPU_l[:,:,-1])
+plt.plot(result_l[1][0],result_l[0][0], 'g*')
+cbar = fig.colorbar(CS)
+ax.set_xticklabels(rows_per_threads)
+ax.set_yticklabels(team_sizes)
+plt.savefig(data_base+'CPU_l.png')
 
-#plot_limits(Ns, ax, nnz_per_row, N)
-ax.set_xlabel('Number of matrices')
-ax.set_ylabel('Throughput [B/s]')
-#ax.set_xlim(1000, 1500)
-
-legend = ax.legend(loc='best', shadow=True)
-
-'''
-for i in range(56, 256, 8):
-    ax.plot([i,i], [0,3e11], 'k--')
-'''
-plt.savefig(base+'throughput.png')
-
-#plt.show()
+fig = plt.figure()
+ax = plt.gca()
+CS = plt.contourf(CPU_r[:,:,-1])
+plt.plot(result_r[1][0],result_r[0][0], 'g*')
+cbar = fig.colorbar(CS)
+ax.set_xticklabels(rows_per_threads)
+ax.set_yticklabels(team_sizes)
+plt.savefig(data_base+'CPU_r.png')

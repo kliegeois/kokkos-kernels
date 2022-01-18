@@ -17,7 +17,7 @@ def main():
     tic = time.perf_counter()
     Ns = np.arange(100, 15000, 50)
 
-    specie = 'isooctane'
+    specie = 'gri30'
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     n_files = 72
@@ -25,7 +25,7 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'Pele_GMRES_' + specie + 'data_1'
+    data_d = 'Pele_GMRES_' + specie + '_data_1'
 
     rows_per_thread=1
     team_size=32
@@ -58,7 +58,7 @@ def main():
         nnzs[i] = len(r)
         n_ops = compute_n_ops(n, nnzs[i], Ns[i])
 
-        B = read_vectors(input_folder+'rhs.txt', Ns[i], n)
+        B = read_vectors(input_folder, Ns[i], n)
     
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
