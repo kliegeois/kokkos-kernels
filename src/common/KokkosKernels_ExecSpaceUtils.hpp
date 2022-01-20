@@ -45,6 +45,11 @@
 #include "Kokkos_Core.hpp"
 #include "Kokkos_Atomic.hpp"
 
+#if defined(KOKKOS_ENABLE_SYCL) && defined(KOKKOS_ARCH_INTEL_GPU)
+#include <level_zero/zes_api.h>
+#include <CL/sycl/backend/level_zero.hpp>
+#endif
+
 #ifndef _KOKKOSKERNELSUTILSEXECSPACEUTILS_HPP
 #define _KOKKOSKERNELSUTILSEXECSPACEUTILS_HPP
 
@@ -55,8 +60,7 @@ namespace Impl {
 enum ExecSpaceType {
   Exec_SERIAL,
   Exec_OMP,
-  Exec_PTHREADS,
-  Exec_QTHREADS,
+  Exec_THREADS,
   Exec_CUDA,
   Exec_HIP,
   Exec_SYCL
@@ -72,7 +76,7 @@ KOKKOS_FORCEINLINE_FUNCTION ExecSpaceType kk_get_exec_space_type() {
 
 #if defined(KOKKOS_ENABLE_THREADS)
   if (std::is_same<Kokkos::Threads, ExecutionSpace>::value) {
-    exec_space = Exec_PTHREADS;
+    exec_space = Exec_THREADS;
   }
 #endif
 
@@ -100,11 +104,6 @@ KOKKOS_FORCEINLINE_FUNCTION ExecSpaceType kk_get_exec_space_type() {
   }
 #endif
 
-#if defined(KOKKOS_ENABLE_QTHREAD)
-  if (std::is_same<Kokkos::Qthread, ExecutionSpace>::value) {
-    exec_space = Exec_QTHREADS;
-  }
-#endif
   return exec_space;
 }
 
@@ -211,6 +210,56 @@ inline void kk_get_free_total_memory<Kokkos::Experimental::HIPSpace>(
 }
 #endif
 
+// FIXME_SYCL Use compiler extension instead of low level interface when
+// available. Also, we assume to query memory associated with the default queue.
+#if defined(KOKKOS_ENABLE_SYCL) && defined(KOKKOS_ARCH_INTEL_GPU)
+template <>
+inline void kk_get_free_total_memory<Kokkos::Experimental::SYCLDeviceUSMSpace>(
+    size_t& free_mem, size_t& total_mem) {
+  sycl::queue queue;
+  sycl::device device = queue.get_device();
+  auto level_zero_handle =
+      sycl::get_native<sycl::backend::ext_oneapi_level_zero>(device);
+
+  uint32_t n_memory_modules = 0;
+  zesDeviceEnumMemoryModules(level_zero_handle, &n_memory_modules, nullptr);
+
+  if (n_memory_modules != 1) {
+    std::ostringstream oss;
+    oss << "Error: number of memory modules for the SYCL backend: "
+        << n_memory_modules
+        << ". We only support querying free/total memory if exactly one memory "
+           "module was found. Make sure that ZES_ENABLE_SYSMAN=1 is set at run "
+           "time if no memeory modules were found!";
+    throw std::runtime_error(oss.str());
+  }
+
+  zes_mem_handle_t memory_module_handle;
+  zesDeviceEnumMemoryModules(level_zero_handle, &n_memory_modules,
+                             &memory_module_handle);
+  zes_mem_state_t memory_properties{
+      ZES_STRUCTURE_TYPE_MEM_PROPERTIES,
+  };
+  zesMemoryGetState(memory_module_handle, &memory_properties);
+  total_mem = memory_properties.size;
+  free_mem  = memory_properties.free;
+}
+
+template <>
+inline void kk_get_free_total_memory<Kokkos::Experimental::SYCLHostUSMSpace>(
+    size_t& free_mem, size_t& total_mem) {
+  kk_get_free_total_memory<Kokkos::Experimental::SYCLDeviceUSMSpace>(free_mem,
+                                                                     total_mem);
+}
+
+template <>
+inline void kk_get_free_total_memory<Kokkos::Experimental::SYCLSharedUSMSpace>(
+    size_t& free_mem, size_t& total_mem) {
+  kk_get_free_total_memory<Kokkos::Experimental::SYCLDeviceUSMSpace>(free_mem,
+                                                                     total_mem);
+}
+#endif
+
 inline int kk_get_suggested_vector_size(const size_t nr, const size_t nnz,
                                         const ExecSpaceType exec_space) {
   int suggested_vector_size_ = 1;
@@ -218,8 +267,7 @@ inline int kk_get_suggested_vector_size(const size_t nr, const size_t nnz,
     default: break;
     case Exec_SERIAL:
     case Exec_OMP:
-    case Exec_PTHREADS:
-    case Exec_QTHREADS: break;
+    case Exec_THREADS: break;
     case Exec_CUDA:
     case Exec_HIP:
       if (nr > 0) suggested_vector_size_ = nnz / double(nr) + 0.5;
