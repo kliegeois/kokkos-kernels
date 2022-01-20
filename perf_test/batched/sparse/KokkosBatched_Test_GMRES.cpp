@@ -125,7 +125,7 @@ struct Functor_TestBatchedTeamGMRES {
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
 
-    _handle.set_max_iteration(10);
+    _handle.set_max_iteration(1);
     _handle.set_tolerance(1e-8);
     int maximum_iteration = _handle.get_max_iteration();
 
@@ -211,7 +211,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
 
-    _handle.set_max_iteration(10);
+    _handle.set_max_iteration(1);
     _handle.set_tolerance(1e-8);
     int maximum_iteration = _handle.get_max_iteration();
 
@@ -433,6 +433,11 @@ int main(int argc, char *argv[]) {
           }
           exec_space().fence();
 
+          t_spmv += timer.seconds();
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+          cudaProfilerStop();
+#endif
+/*
           if(layout_right) {
             NormViewType sqr_norm_0("sqr_norm_0", N);
             NormViewType sqr_norm_j("sqr_norm_j", N);
@@ -461,7 +466,7 @@ int main(int argc, char *argv[]) {
                                                                 sqr_norm_j_host);
 
             for (int l = 0; l < N; ++l)
-              if (1e-8 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
+              if (1e-7 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
                 std::cout << std::setprecision (15) << "Right: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
           }
           else {
@@ -492,14 +497,10 @@ int main(int argc, char *argv[]) {
                                                                 sqr_norm_j_host);
 
             for (int l = 0; l < N; ++l)
-              if (1e-8 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
+              if (1e-7 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
                 std::cout << std::setprecision (15) << "Left: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
           }
-
-          t_spmv += timer.seconds();
-#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-          cudaProfilerStop();
-#endif
+*/
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }

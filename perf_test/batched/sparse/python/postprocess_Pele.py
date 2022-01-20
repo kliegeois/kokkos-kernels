@@ -61,14 +61,20 @@ def ginkgo_data(specie):
     if specie == 'gri30':
         n = np.array([90,  1440,  2880,  5760, 11520, 17280])
         time = np.array([5.231000e-05, 1.643590e-04, 3.038220e-04, 5.694870e-04, 1.073582e-03, 1.574097e-03])
+
+        n = 90*np.array([  1,  16,  32, 128, 192])
+        time = np.array([0.00010079, 0.00038695, 0.00071774, 0.0029122 , 0.00437534])
     if specie == 'isooctane':
         n = np.array([72,  1152,  2304,  4608,  9216, 13824])
         time = np.array([0.00010629, 0.00040689, 0.00069134, 0.00127151, 0.0024188,  0.00382598])
+
+        n = 72*np.array([  1,  16,  32, 128, 192])
+        time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
     return n, time
 
 specie = 'gri30'
 
-base = 'Pele_pGMRES_'+specie+'_data_16/'
+base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi/'
 implementations = [3]
 n_implementations = len(implementations)
 n_quantiles = 7

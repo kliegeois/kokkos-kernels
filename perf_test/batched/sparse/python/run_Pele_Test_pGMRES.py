@@ -15,27 +15,33 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = 8*np.array([1])
+    Ns = np.array([1, 16, 32]) #, 128, 192])
 
     specie = 'gri30'
+    scaled = False
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
-    n_files = 90
+    if specie == 'gri30':
+        n_files = 90
+    if specie == 'isooctane':
+        n_files = 72
+
+    Ns *= n_files
 
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'Pele_pGMRES_' + specie + '_data_18'
+    data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi'
 
-    rows_per_thread=1
-    team_size=1
+    rows_per_thread=4
+    team_size=16
     implementations_left = [3]
     implementations_right = [3]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
-    n1 = 5
-    n2 = 10
+    n1 = 2
+    n2 = 2
 
     n_quantiles = 7
 
@@ -54,20 +60,20 @@ def main():
     name_timers = data_d+'/timers'
 
     for i in range(0, len(Ns)):
-        r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
+        r, c, V, n = read_matrices(input_folder, n_files, Ns[i], scaled)
         nnzs[i] = len(r)
         n_ops = compute_n_ops(n, nnzs[i], Ns[i])
 
-        B = read_vectors(input_folder, Ns[i], n)
+        B = read_vectors(input_folder, Ns[i], n, scaled)
     
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -C -res '+data_d+'/P_res_l')
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l')
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -C')
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r')
         for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
