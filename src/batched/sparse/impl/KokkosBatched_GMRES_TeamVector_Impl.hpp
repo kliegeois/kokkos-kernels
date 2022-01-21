@@ -147,14 +147,9 @@ struct TeamVectorGMRES {
                            handle.set_norm(member.league_rank(), i, 0, beta(i));
                          });
 
-    Kokkos::parallel_for(
-        Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
-        [&](const OrdinalType& iTemp) {
-          OrdinalType iRow, iMatrix;
-          getIndices<OrdinalType, typename VectorViewType::array_layout>(
-              iTemp, numRows, numMatrices, iRow, iMatrix);
-          V(iMatrix, 0, iRow) = R(iMatrix, iRow) * tmp(iMatrix);
-        });
+    member.team_barrier();
+    TeamVectorAxpy<MemberType>::invoke(member, tmp, R, Kokkos::subview(V, Kokkos::ALL, 0, Kokkos::ALL));
+    member.team_barrier();
 
     int status = 1;
     // int number_not_converged = 0;
@@ -166,6 +161,9 @@ struct TeamVectorGMRES {
       A.template apply<MemberType, ScratchPadVectorViewType,
                        ScratchPadVectorViewType, Trans::NoTranspose,
                        Mode::TeamVector>(member, V_j, W);
+
+      member.team_barrier();
+
       P.template apply<MemberType, ScratchPadVectorViewType,
                        ScratchPadVectorViewType, Trans::NoTranspose,
                        Mode::TeamVector, 1>(member, W, W);

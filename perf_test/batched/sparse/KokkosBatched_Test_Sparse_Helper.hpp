@@ -139,7 +139,7 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
 }
 
 template <class VType, class IntType>
-void getDiagFromCRS(const VType &V, const IntType &r,
+void getInvDiagFromCRS(const VType &V, const IntType &r,
                    const IntType &c, const VType &diag) {
   auto diag_values_host = Kokkos::create_mirror_view(diag);
   auto values_host      = Kokkos::create_mirror_view(V);
@@ -160,7 +160,7 @@ void getDiagFromCRS(const VType &V, const IntType &r,
       if (colIndices_host(current_index) == i) break;
     }
     for (int j = 0; j < N; ++j)
-      diag_values_host(j, i) = values_host(j, current_index);
+      diag_values_host(j, i) = 1./values_host(j, current_index);
   }
 
   Kokkos::deep_copy(diag, diag_values_host);

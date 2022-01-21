@@ -77,6 +77,8 @@ class JacobiPrec {
   KOKKOS_INLINE_FUNCTION
   ~JacobiPrec() {}
 
+  KOKKOS_INLINE_FUNCTION void setComputedInverse() { computed_inverse = true; }
+
   template <typename MemberType, typename ArgMode>
   KOKKOS_INLINE_FUNCTION void computeInverse(const MemberType &member) const {
     auto one     = Kokkos::Details::ArithTraits<MagnitudeType>::one();

@@ -109,6 +109,7 @@ struct Functor_TestBatchedTeamGMRES {
           _diag, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL);
       using PrecOperator = KokkosBatched::JacobiPrec<ValuesViewType>;
       PrecOperator P(diag);
+      P.setComputedInverse();
 
       KokkosBatched::TeamGMRES<MemberType>::template invoke<Operator,
                                                               VectorViewType, PrecOperator>(
@@ -197,6 +198,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
           _diag, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL);
       using PrecOperator = KokkosBatched::JacobiPrec<ValuesViewType>;
       PrecOperator P(diag);
+      P.setComputedInverse();
 
       KokkosBatched::TeamVectorGMRES<MemberType>::template invoke<Operator,
                                                               VectorViewType, PrecOperator>(
@@ -362,13 +364,13 @@ int main(int argc, char *argv[]) {
       readCRSFromMM(name_A, valuesLL, rowOffsets, colIndices);
       readArrayFromMM(name_B, yLL);
       if (use_preconditioner)
-        getDiagFromCRS(valuesLL, rowOffsets, colIndices, diagLL);
+        getInvDiagFromCRS(valuesLL, rowOffsets, colIndices, diagLL);
     }
     if (layout_right) {
       readCRSFromMM(name_A, valuesLR, rowOffsets, colIndices);
       readArrayFromMM(name_B, yLR);
       if (use_preconditioner)
-        getDiagFromCRS(valuesLR, rowOffsets, colIndices, diagLR);
+        getInvDiagFromCRS(valuesLR, rowOffsets, colIndices, diagLR);
     }
 
     for (auto i_impl : impls) {
