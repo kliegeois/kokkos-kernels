@@ -31,7 +31,10 @@ def run_test(exec_name, A_file_name, B_file_name, X_file_name, timer_filename, r
     data = np.zeros((n_implementations, n_quantiles))
     for i in range(0, n_implementations):
         tmp = np.loadtxt(timer_filename+'_'+str(implementations[i])+time_name)
-        data[i, :] = np.quantile(tmp, quantiles)
+        if tmp.size > 1:
+            data[i, :] = np.quantile(tmp, quantiles)
+        elif tmp.size > 0:
+            data[i, :] = tmp
     return data
 
 
