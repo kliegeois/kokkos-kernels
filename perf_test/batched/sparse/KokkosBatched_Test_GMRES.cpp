@@ -122,9 +122,10 @@ struct Functor_TestBatchedTeamGMRES {
     }
   }
 
-  inline void run() {
+  inline double run() {
     typedef typename ValuesViewType::value_type value_type;
     std::string name("KokkosBatched::Test::TeamGMRES");
+    Kokkos::Impl::Timer timer;
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
 
@@ -140,8 +141,14 @@ struct Functor_TestBatchedTeamGMRES {
                            ((maximum_iteration + 3) * maximum_iteration) *
                                bytes_1));
 
+    exec_space().fence();
+    timer.reset();
     Kokkos::parallel_for(name.c_str(), policy, *this);
+    exec_space().fence();
+    double sec = timer.seconds();
     Kokkos::Profiling::popRegion();
+
+    return sec;
   }
 };
 
@@ -211,9 +218,10 @@ struct Functor_TestBatchedTeamVectorGMRES {
     }
   }
 
-  inline void run() {
+  inline double run() {
     typedef typename ValuesViewType::value_type value_type;
     std::string name("KokkosBatched::Test::TeamVectorGMRES");
+    Kokkos::Impl::Timer timer;
     Kokkos::Profiling::pushRegion(name.c_str());
     Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
 
@@ -229,8 +237,14 @@ struct Functor_TestBatchedTeamVectorGMRES {
                            ((maximum_iteration + 3) * maximum_iteration) *
                                bytes_1));
 
+    exec_space().fence();
+    timer.reset();
     Kokkos::parallel_for(name.c_str(), policy, *this);
+    exec_space().fence();
+    double sec = timer.seconds();
     Kokkos::Profiling::popRegion();
+
+    return sec;
   }
 };
 
@@ -243,7 +257,6 @@ int main(int argc, char *argv[]) {
     Kokkos::print_configuration(std::cout);
 
     // typedef Kokkos::Details::ArithTraits<value_type> ats;
-    Kokkos::Impl::Timer timer;
 
     ///
     /// input arguments parsing
@@ -406,44 +419,42 @@ int main(int argc, char *argv[]) {
           flush.run();
           exec_space().fence();
 
-          timer.reset();
           exec_space().fence();
 
           if (i_impl%2 == 0 && layout_left) {
             if (use_preconditioner)
-              Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>(valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>(valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
             else 
-              Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
           }
           if (i_impl%2 == 1 && layout_left) {
             if (use_preconditioner)
-              Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>(valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>(valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
             else
-              Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
           }
           if (i_impl%2 == 0 && layout_right) {
             if (use_preconditioner)
-              Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>(valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>(valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
             else
-              Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
           }
           if (i_impl%2 == 1 && layout_right) {
             if (use_preconditioner)
-              Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>(valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>(valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
             else
-              Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, handle)
                   .run();
           }
           exec_space().fence();
 
-          t_spmv += timer.seconds();
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
 #endif

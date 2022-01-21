@@ -74,7 +74,7 @@ def ginkgo_data(specie):
 
 specie = 'gri30'
 
-base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi/'
+base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_10/'
 implementations = [3]
 n_implementations = len(implementations)
 n_quantiles = 7

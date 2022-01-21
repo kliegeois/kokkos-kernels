@@ -15,7 +15,7 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = 90*np.array([1, 16, 32, 64, 128, 192])
+    Ns = 90*np.array([1, 64, 128])
 
     specie = 'gri30'
 
@@ -25,12 +25,12 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_base = 'Pele_pGMRES_' + specie + '_data_all'
+    data_base = 'Pele_pGMRES_' + specie + '_data_all_Scaled'
 
     if not os.path.isdir(data_base):
         os.mkdir(data_base)
 
-    team_sizes = np.array([1, 2, 4, 8, 16, 32, 64])
+    team_sizes = np.array([1, 2, 4, 8, 16, 32])
     rows_per_threads = np.array([1, 2, 4, 8, 16, 32, 64])
     for team_size in team_sizes:
         for rows_per_thread in rows_per_threads:
