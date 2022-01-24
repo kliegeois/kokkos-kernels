@@ -1,5 +1,7 @@
 #include <fstream>
 
+#define KOKKOSKERNELS_DEBUG_LEVEL 0
+
 /// Kokkos headers
 #include "Kokkos_Core.hpp"
 #include "impl/Kokkos_Timer.hpp"
@@ -127,19 +129,33 @@ struct Functor_TestBatchedTeamGMRES {
     std::string name("KokkosBatched::Test::TeamGMRES");
     Kokkos::Impl::Timer timer;
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy(ceil(1.*_D.extent(0) / _N_team), _team_size, _vector_length);
 
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
     int maximum_iteration = _handle.get_max_iteration();
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _r.extent(0));
-    size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
-    policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 3 * bytes_1));
+    using ScalarType = typename ValuesViewType::non_const_value_type;
+    using Layout     = typename ValuesViewType::array_layout;
+    using EXSP       = typename ValuesViewType::execution_space;
+
+    using MagnitudeType =
+          typename Kokkos::Details::ArithTraits<ScalarType>::mag_type;
+
+    using ViewType1D = Kokkos::View<MagnitudeType *, Layout, EXSP>;
+    using ViewType2D = Kokkos::View<ScalarType **, Layout, EXSP>;
+    using ViewType3D = Kokkos::View<ScalarType ***, Layout, EXSP>;
+
+    size_t bytes_1D = ViewType1D::shmem_size(_N_team);
+    size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _r.extent(0));
+    size_t bytes_2D_2 = ViewType2D::shmem_size(_N_team, maximum_iteration+1);
+    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, _r.extent(0));
+    size_t bytes_3D_2 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, maximum_iteration);
+    size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, maximum_iteration, 2);
+
+    policy.set_scratch_size(0, Kokkos::PerTeam(3 * bytes_1D + 4 * bytes_2D_1));
     policy.set_scratch_size(
-        1, Kokkos::PerTeam((maximum_iteration + 1) * bytes_0 +
-                           ((maximum_iteration + 3) * maximum_iteration) *
-                               bytes_1));
+        1, Kokkos::PerTeam(bytes_3D_1 + bytes_3D_2 + bytes_3D_3 + bytes_2D_2));
 
     exec_space().fence();
     timer.reset();
@@ -223,19 +239,33 @@ struct Functor_TestBatchedTeamVectorGMRES {
     std::string name("KokkosBatched::Test::TeamVectorGMRES");
     Kokkos::Impl::Timer timer;
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(ceil(_D.extent(0) / _N_team), _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy(ceil(1.*_D.extent(0) / _N_team), _team_size, _vector_length);
 
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
     int maximum_iteration = _handle.get_max_iteration();
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _r.extent(0));
-    size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
-    policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 3 * bytes_1));
+    using ScalarType = typename ValuesViewType::non_const_value_type;
+    using Layout     = typename ValuesViewType::array_layout;
+    using EXSP       = typename ValuesViewType::execution_space;
+
+    using MagnitudeType =
+          typename Kokkos::Details::ArithTraits<ScalarType>::mag_type;
+
+    using ViewType1D = Kokkos::View<MagnitudeType *, Layout, EXSP>;
+    using ViewType2D = Kokkos::View<ScalarType **, Layout, EXSP>;
+    using ViewType3D = Kokkos::View<ScalarType ***, Layout, EXSP>;
+
+    size_t bytes_1D = ViewType1D::shmem_size(_N_team);
+    size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _r.extent(0));
+    size_t bytes_2D_2 = ViewType2D::shmem_size(_N_team, maximum_iteration+1);
+    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, _r.extent(0));
+    size_t bytes_3D_2 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, maximum_iteration);
+    size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, maximum_iteration, 2);
+
+    policy.set_scratch_size(0, Kokkos::PerTeam(3 * bytes_1D + 4 * bytes_2D_1));
     policy.set_scratch_size(
-        1, Kokkos::PerTeam((maximum_iteration + 1) * bytes_0 +
-                           ((maximum_iteration + 3) * maximum_iteration) *
-                               bytes_1));
+        1, Kokkos::PerTeam(bytes_3D_1 + bytes_3D_2 + bytes_3D_3 + bytes_2D_2));
 
     exec_space().fence();
     timer.reset();
@@ -272,6 +302,7 @@ int main(int argc, char *argv[]) {
     bool layout_right   = false;
     bool use_preconditioner = false;
     bool monitor_convergence = false;
+    int vector_length   = 8;
 
     std::string name_A = "A.mm";
     std::string name_B = "B.mm";
@@ -299,6 +330,7 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-rows_per_thread"))
         rows_per_thread = std::atoi(argv[++i]);
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
+      if (token == std::string("-vector_length")) vector_length = std::atoi(argv[++i]);
       if (token == std::string("-n_implementations"))
         n_impl = std::atoi(argv[++i]);
       if (token == std::string("-implementation"))
@@ -318,8 +350,6 @@ int main(int argc, char *argv[]) {
     }
 
     int N, Blk, nnz, ncols;
-
-    int vector_length          = 8;
 
     readSizesFromMM(name_A, Blk, ncols, nnz, N);
 
@@ -361,7 +391,7 @@ int main(int argc, char *argv[]) {
     XYTypeLL xLL("values", N, Blk);
     XYTypeLL yLL("values", N, Blk);
 
-    int rows_per_team = launch_parameters<exec_space>(Blk, nnz, rows_per_thread,
+    int N_team_potential = launch_parameters<exec_space>(Blk, nnz, rows_per_thread,
                                                       team_size, vector_length);
 
     if (layout_left)
@@ -391,7 +421,7 @@ int main(int argc, char *argv[]) {
 
       int n_skip = 2;
 
-      int N_team = i_impl > 1 ? vector_length : 1;
+      int N_team = i_impl > 1 ? N_team_potential : 1;
 
       using ScalarType = typename AMatrixValueViewLL::non_const_value_type;
       using Layout     = typename AMatrixValueViewLL::array_layout;
@@ -458,7 +488,7 @@ int main(int argc, char *argv[]) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
 #endif
-/*
+
           if(layout_right) {
             NormViewType sqr_norm_0("sqr_norm_0", N);
             NormViewType sqr_norm_j("sqr_norm_j", N);
@@ -521,7 +551,6 @@ int main(int argc, char *argv[]) {
               if (1e-7 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
                 std::cout << std::setprecision (15) << "Left: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
           }
-*/
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }
