@@ -293,7 +293,6 @@ int main(int argc, char *argv[]) {
     ///
     int n_rep_1         = 10;    // # of repetitions
     int n_rep_2         = 1000;  // # of repetitions
-    int rows_per_thread = 1;
     int team_size       = 8;
     int n_impl          = 1;
     int n_iterations    = 10;
@@ -303,6 +302,7 @@ int main(int argc, char *argv[]) {
     bool use_preconditioner = false;
     bool monitor_convergence = false;
     int vector_length   = 8;
+    int N_team_potential = 1;
 
     std::string name_A = "A.mm";
     std::string name_B = "B.mm";
@@ -327,9 +327,8 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
       if (token == std::string("-n_iterations")) n_iterations = std::atoi(argv[++i]);
       if (token == std::string("-tol")) tol = std::stod(argv[++i]);
-      if (token == std::string("-rows_per_thread"))
-        rows_per_thread = std::atoi(argv[++i]);
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
+      if (token == std::string("-N_team")) N_team_potential = std::atoi(argv[++i]);
       if (token == std::string("-vector_length")) vector_length = std::atoi(argv[++i]);
       if (token == std::string("-n_implementations"))
         n_impl = std::atoi(argv[++i]);
@@ -352,6 +351,11 @@ int main(int argc, char *argv[]) {
     int N, Blk, nnz, ncols;
 
     readSizesFromMM(name_A, Blk, ncols, nnz, N);
+
+    std::cout << "N_team_potential = " << N_team_potential 
+      << ", n = " << Blk << ", N = " << N 
+      << ", team_size = " << team_size 
+      << ", vector_length = " << vector_length << std::endl;
 
     if (impls.size() == 0)
       for (int i = 0; i < n_impl; ++i) impls.push_back(i);
@@ -390,9 +394,6 @@ int main(int argc, char *argv[]) {
 
     XYTypeLL xLL("values", N, Blk);
     XYTypeLL yLL("values", N, Blk);
-
-    int N_team_potential = launch_parameters<exec_space>(Blk, nnz, rows_per_thread,
-                                                      team_size, vector_length);
 
     if (layout_left)
       printf(

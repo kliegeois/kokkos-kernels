@@ -3,7 +3,7 @@ import matplotlib
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import tikzplotlib
-
+from test_io import mmread
 
 def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n_GPUs=1, throughput=True, unit='B/sec'):
 
@@ -152,4 +152,38 @@ for i in range(56, 256, 8):
 '''
 plt.savefig(base+'throughput.png')
 
+left_res_name = base + 'P_res_l3.mm'
+right_res_name = base + 'P_res_r3.mm'
+
+left_res = mmread(left_res_name)
+right_res = mmread(right_res_name)
+
+N_left = len(left_res[0,:])
+N_right = len(right_res[0,:])
+
+min_left_res = np.ones((N_left, ))
+min_right_res = np.ones((N_right, ))
+
+iteration_count_left = np.ones((N_left, ))
+iteration_count_right = np.ones((N_right, ))
+
+for i in range(0, N_left):
+    for j in range(0, len(left_res[:,0])):
+        if min_left_res[i] > left_res[j,i] and left_res[j,i] > 0:
+            min_left_res[i] = left_res[j,i]
+            iteration_count_left[i] = j
+for i in range(0, N_right):
+    for j in range(0, len(right_res[:,0])):        
+        if min_right_res[i] > right_res[j,i] and right_res[j,i] > 0:
+            min_right_res[i] = right_res[j,i]
+            iteration_count_right[i] = j
+
+plt.figure()
+plt.semilogy(min_left_res)
+plt.semilogy(min_right_res)
+plt.savefig(base+'res.png')
+plt.figure()
+plt.plot(iteration_count_left)
+plt.plot(iteration_count_right)
+plt.savefig(base+'iteration_count.png')
 #plt.show()
