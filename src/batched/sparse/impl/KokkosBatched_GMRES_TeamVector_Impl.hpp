@@ -54,6 +54,7 @@
 #include "KokkosBatched_Givens_Serial_Internal.hpp"
 #include "KokkosBatched_Trsm_Decl.hpp"
 #include "KokkosBatched_Identity.hpp"
+#include "KokkosBatched_Gemv_Decl.hpp"
 
 namespace KokkosBatched {
 
@@ -175,23 +176,32 @@ struct TeamVectorGMRES {
                        Mode::TeamVector, 1>(member, W, W);
       member.team_barrier();
 
-      for (size_t i = 0; i < j + 1; ++i) {
-        auto V_i = Kokkos::subview(V, Kokkos::ALL, i, Kokkos::ALL);
-        TeamVectorDot<MemberType>::invoke(member, W, V_i, tmp);
-        member.team_barrier();
-        TeamVectorCopy1D::invoke(member, tmp,
-                                 Kokkos::subview(H, Kokkos::ALL, i, j));
+      if (handle.get_ortho_strategy()==0) {
+        TeamVectorGemv<MemberType, Trans::NoTranspose, Algo::Gemv::Unblocked>::invoke(member, 1, 
+        Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL), 
+        W, 
+        0, 
+        Kokkos::subview(H, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), j));
+      }
+      if (handle.get_ortho_strategy()==1) {
+        for (size_t i = 0; i < j + 1; ++i) {
+          auto V_i = Kokkos::subview(V, Kokkos::ALL, i, Kokkos::ALL);
+          TeamVectorDot<MemberType>::invoke(member, W, V_i, tmp);
+          member.team_barrier();
+          TeamVectorCopy1D::invoke(member, tmp,
+                                  Kokkos::subview(H, Kokkos::ALL, i, j));
+          member.team_barrier();
+          Kokkos::parallel_for(
+              Kokkos::TeamVectorRange(member, 0, numMatrices),
+              [&](const OrdinalType& ii) { tmp(ii) = -tmp(ii); });
 
-        Kokkos::parallel_for(
-            Kokkos::TeamVectorRange(member, 0, numMatrices),
-            [&](const OrdinalType& ii) { tmp(ii) = -tmp(ii); });
+          member.team_barrier();  // Finish writing to tmp
 
-        member.team_barrier();  // Finish writing to tmp
-
-        TeamVectorAxpy<MemberType>::invoke(member, tmp, V_i, W);
+          TeamVectorAxpy<MemberType>::invoke(member, tmp, V_i, W);
+          member.team_barrier();  // Finish writing to W
+        }
       }
 
-      member.team_barrier();  // Finish writing to W
       TeamVectorDot<MemberType>::invoke(member, W, W, tmp);
       member.team_barrier();
       Kokkos::parallel_for(
@@ -261,6 +271,14 @@ struct TeamVectorGMRES {
               handle.set_iteration(member.league_rank(), l, j);
             }
           });
+      member.team_barrier();
+      bool all_converged = true;
+      for (OrdinalType l = 0; l < numMatrices; ++l)
+        all_converged = (all_converged && mask(l) == 0.);
+      if (all_converged) {
+        maximum_iteration = j;
+        break;
+      }
     }
 
     member.team_barrier();  // Finish writing to G
@@ -281,10 +299,19 @@ struct TeamVectorGMRES {
 
     member.team_barrier();  // Finish writing to G
 
-    for (size_t j = 0; j < maximum_iteration; ++j)
-      TeamVectorAxpy<MemberType>::invoke(
-          member, Kokkos::subview(G, Kokkos::ALL, j),
-          Kokkos::subview(V, Kokkos::ALL, j, Kokkos::ALL), X);
+    if (handle.get_ortho_strategy()==0) {
+      TeamVectorGemv<MemberType, Trans::Transpose, Algo::Gemv::Unblocked>::invoke(member, 1, 
+      Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) maximum_iteration), Kokkos::ALL), 
+      Kokkos::subview(G, Kokkos::ALL, Kokkos::make_pair(0, (int) maximum_iteration)), 
+      1, 
+      X);
+    }
+    if (handle.get_ortho_strategy()==1) {
+      for (size_t j = 0; j < maximum_iteration; ++j)
+        TeamVectorAxpy<MemberType>::invoke(
+            member, Kokkos::subview(G, Kokkos::ALL, j),
+            Kokkos::subview(V, Kokkos::ALL, j, Kokkos::ALL), X);
+    }
 
     member.team_barrier();  // Finish writing to X
 

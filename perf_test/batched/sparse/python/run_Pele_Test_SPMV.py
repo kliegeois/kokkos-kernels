@@ -15,7 +15,7 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.arange(100, 15000, 50)
+    Ns = np.array([1, 100])#np.arange(100, 15000, 50)
 
     specie = 'isooctane'
 
@@ -25,10 +25,12 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_d = 'Pele_SPMV_' + specie + 'data_1'
+    data_d = 'Pele_SPMV_' + specie + '_data_3'
 
     rows_per_thread=1
-    team_size=32
+    team_size = 8
+    vector_length = 8
+    N_team = 8
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
@@ -53,6 +55,8 @@ def main():
     name_X = data_d+'/X'
     name_timers = data_d+'/timers'
 
+    np.savetxt(data_d+'/team_params.txt', np.array([team_size, vector_length, N_team]))
+
     for i in range(0, len(Ns)):
         r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
         nnzs[i] = len(r)
@@ -63,11 +67,13 @@ def main():
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
+        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left',
+            extra_args=' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
+        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right',
+            extra_args=' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
         for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]

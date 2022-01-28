@@ -52,6 +52,7 @@
 #include "KokkosBatched_Util.hpp"
 #include "KokkosBatched_Dot_Internal.hpp"
 #include "KokkosBatched_Spmv_Serial_Impl.hpp"
+#include "KokkosBatched_Copy_Decl.hpp"
 
 typedef Kokkos::DefaultExecutionSpace exec_space;
 typedef typename exec_space::memory_space memory_space;
@@ -94,6 +95,7 @@ struct Functor_TestBatchedTeamGMRES {
         (static_cast<int>(member.league_rank() + 1) * _N_team < N
              ? static_cast<int>(member.league_rank() + 1) * _N_team
              : N);
+    using TeamCopy1D = KokkosBatched::TeamCopy<MemberType, KokkosBatched::Trans::NoTranspose, 1>;
 
     auto d = Kokkos::subview(_D, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
@@ -102,14 +104,29 @@ struct Functor_TestBatchedTeamGMRES {
     auto b = Kokkos::subview(_B, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
 
-    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, IntView>;
+    using ScratchPadIntViewType = Kokkos::View<
+        typename IntView::non_const_value_type*,
+        typename IntView::array_layout,
+        typename IntView::execution_space::scratch_memory_space>;
+    using ScratchPadValuesViewType = Kokkos::View<
+        typename ValuesViewType::non_const_value_type**,
+        typename ValuesViewType::array_layout,
+        typename ValuesViewType::execution_space::scratch_memory_space>;
 
-    Operator A(d, _r, _c);
+    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, ScratchPadIntViewType>;
+
+    ScratchPadIntViewType r(member.team_scratch(0), _r.extent(0));
+    ScratchPadIntViewType c(member.team_scratch(0), _c.extent(0));
+
+    TeamCopy1D::invoke(member, _r, r);
+    TeamCopy1D::invoke(member, _c, c);
+    Operator A(d, r, c);
 
     if (UsePrec) {
-      auto diag = Kokkos::subview(
-          _diag, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL);
-      using PrecOperator = KokkosBatched::JacobiPrec<ValuesViewType>;
+      ScratchPadValuesViewType diag(member.team_scratch(0), last_matrix-first_matrix, _diag.extent(1));
+      using PrecOperator = KokkosBatched::JacobiPrec<ScratchPadValuesViewType>;
+
+      KokkosBatched::TeamCopy<MemberType>::invoke(member, Kokkos::subview(_diag, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL), diag);
       PrecOperator P(diag);
       P.setComputedInverse();
 
@@ -133,6 +150,7 @@ struct Functor_TestBatchedTeamGMRES {
 
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
+    _handle.set_ortho_strategy(1);
     int maximum_iteration = _handle.get_max_iteration();
 
     using ScalarType = typename ValuesViewType::non_const_value_type;
@@ -147,13 +165,15 @@ struct Functor_TestBatchedTeamGMRES {
     using ViewType3D = Kokkos::View<ScalarType ***, Layout, EXSP>;
 
     size_t bytes_1D = ViewType1D::shmem_size(_N_team);
-    size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _r.extent(0));
+    size_t bytes_row_ptr = IntView::shmem_size(_r.extent(0));
+    size_t bytes_col_idc = IntView::shmem_size(_c.extent(0));
+    size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _X.extent(1));
     size_t bytes_2D_2 = ViewType2D::shmem_size(_N_team, maximum_iteration+1);
-    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, _r.extent(0));
+    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, _X.extent(1));
     size_t bytes_3D_2 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, maximum_iteration);
     size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, maximum_iteration, 2);
 
-    policy.set_scratch_size(0, Kokkos::PerTeam(3 * bytes_1D + 4 * bytes_2D_1));
+    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_row_ptr + bytes_col_idc + 3 * bytes_1D + 5 * bytes_2D_1));
     policy.set_scratch_size(
         1, Kokkos::PerTeam(bytes_3D_1 + bytes_3D_2 + bytes_3D_3 + bytes_2D_2));
 
@@ -204,6 +224,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
         (static_cast<int>(member.league_rank() + 1) * _N_team < N
              ? static_cast<int>(member.league_rank() + 1) * _N_team
              : N);
+    using TeamVectorCopy1D = KokkosBatched::TeamVectorCopy<MemberType, KokkosBatched::Trans::NoTranspose, 1>;
 
     auto d = Kokkos::subview(_D, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
@@ -212,14 +233,29 @@ struct Functor_TestBatchedTeamVectorGMRES {
     auto b = Kokkos::subview(_B, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
 
-    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, IntView>;
+    using ScratchPadIntViewType = Kokkos::View<
+        typename IntView::non_const_value_type*,
+        typename IntView::array_layout,
+        typename IntView::execution_space::scratch_memory_space>;
+    using ScratchPadValuesViewType = Kokkos::View<
+        typename ValuesViewType::non_const_value_type**,
+        typename ValuesViewType::array_layout,
+        typename ValuesViewType::execution_space::scratch_memory_space>;
 
-    Operator A(d, _r, _c);
+    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, ScratchPadIntViewType>;
+
+    ScratchPadIntViewType r(member.team_scratch(0), _r.extent(0));
+    ScratchPadIntViewType c(member.team_scratch(0), _c.extent(0));
+
+    TeamVectorCopy1D::invoke(member, _r, r);
+    TeamVectorCopy1D::invoke(member, _c, c);
+    Operator A(d, r, c);
 
     if (UsePrec) {
-      auto diag = Kokkos::subview(
-          _diag, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL);
-      using PrecOperator = KokkosBatched::JacobiPrec<ValuesViewType>;
+      ScratchPadValuesViewType diag(member.team_scratch(0), last_matrix-first_matrix, _diag.extent(1));
+      using PrecOperator = KokkosBatched::JacobiPrec<ScratchPadValuesViewType>;
+
+      KokkosBatched::TeamVectorCopy<MemberType>::invoke(member, Kokkos::subview(_diag, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL), diag);
       PrecOperator P(diag);
       P.setComputedInverse();
 
@@ -243,6 +279,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
+    _handle.set_ortho_strategy(1);
     int maximum_iteration = _handle.get_max_iteration();
 
     using ScalarType = typename ValuesViewType::non_const_value_type;
@@ -257,13 +294,15 @@ struct Functor_TestBatchedTeamVectorGMRES {
     using ViewType3D = Kokkos::View<ScalarType ***, Layout, EXSP>;
 
     size_t bytes_1D = ViewType1D::shmem_size(_N_team);
-    size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _r.extent(0));
+    size_t bytes_row_ptr = IntView::shmem_size(_r.extent(0));
+    size_t bytes_col_idc = IntView::shmem_size(_c.extent(0));
+    size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _X.extent(1));
     size_t bytes_2D_2 = ViewType2D::shmem_size(_N_team, maximum_iteration+1);
-    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, _r.extent(0));
+    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, _X.extent(1));
     size_t bytes_3D_2 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, maximum_iteration);
     size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, maximum_iteration, 2);
 
-    policy.set_scratch_size(0, Kokkos::PerTeam(3 * bytes_1D + 4 * bytes_2D_1));
+    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_row_ptr + bytes_col_idc + 3 * bytes_1D + 5 * bytes_2D_1));
     policy.set_scratch_size(
         1, Kokkos::PerTeam(bytes_3D_1 + bytes_3D_2 + bytes_3D_3 + bytes_2D_2));
 

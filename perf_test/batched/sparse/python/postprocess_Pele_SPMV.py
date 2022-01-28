@@ -45,7 +45,7 @@ def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n
 
 def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False, plot_fill=False):
     n_quantiles = np.shape(ys)[1]
-    i_median = int(np.floor(n_quantiles/2))
+    i_median = 0 #int(np.floor(n_quantiles/2))
     if dashed:
         line = ax.plot(x, ys[:, i_median], '--')
     else:
@@ -72,13 +72,14 @@ def ginkgo_data(specie):
         time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
     return n, time
 
-specie = 'gri30'
+specie = 'isooctane'
 
-base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_10/'
+base = 'Pele_SPMV_'+specie+'data_1/'
 implementations = [3]
 n_implementations = len(implementations)
 n_quantiles = 7
 
+team_params = np.loadtxt(base+'team_params.txt')
 n_ginkgo, time_gingko = ginkgo_data(specie)
 
 Ns = np.loadtxt(base+'Ns.txt')
@@ -106,12 +107,13 @@ for i in range(0, n_implementations):
         plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
         plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
 
-plt.plot(n_ginkgo, time_gingko, '--')
+plt.grid()
 #ax.set_ylim(0., 0.006)
 #plot_limits(Ns, ax, nnz_per_row, N, throughput=False)
 
 ax.set_xlabel('Number of matrices')
 ax.set_ylabel('Wall-clock time [sec]')
+plt.title('team_size = '+str(team_params[0])+', vector_length = '+str(team_params[1])+ ', N_team = '+str(team_params[2]))
 #ax.set_ylim(0, 0.008)
 #ax.set_xlim(1000, 1500)
 
@@ -142,6 +144,7 @@ for i in range(0, n_implementations):
 #plot_limits(Ns, ax, nnz_per_row, N)
 ax.set_xlabel('Number of matrices')
 ax.set_ylabel('Throughput [B/s]')
+plt.title('team_size = '+str(team_params[0])+', vector_length = '+str(team_params[1])+ ', N_team = '+str(team_params[2]))
 #ax.set_xlim(1000, 1500)
 
 legend = ax.legend(loc='best', shadow=True)
@@ -151,39 +154,3 @@ for i in range(56, 256, 8):
     ax.plot([i,i], [0,3e11], 'k--')
 '''
 plt.savefig(base+'throughput.png')
-
-left_res_name = base + 'P_res_l3.mm'
-right_res_name = base + 'P_res_r3.mm'
-
-left_res = mmread(left_res_name)
-right_res = mmread(right_res_name)
-
-N_left = len(left_res[0,:])
-N_right = len(right_res[0,:])
-
-min_left_res = np.ones((N_left, ))
-min_right_res = np.ones((N_right, ))
-
-iteration_count_left = np.ones((N_left, ))
-iteration_count_right = np.ones((N_right, ))
-
-for i in range(0, N_left):
-    for j in range(0, len(left_res[:,0])):
-        if min_left_res[i] > left_res[j,i] and left_res[j,i] > 0:
-            min_left_res[i] = left_res[j,i]
-            iteration_count_left[i] = j
-for i in range(0, N_right):
-    for j in range(0, len(right_res[:,0])):        
-        if min_right_res[i] > right_res[j,i] and right_res[j,i] > 0:
-            min_right_res[i] = right_res[j,i]
-            iteration_count_right[i] = j
-
-plt.figure()
-plt.semilogy(min_left_res)
-plt.semilogy(min_right_res)
-plt.savefig(base+'res.png')
-plt.figure()
-plt.plot(iteration_count_left)
-plt.plot(iteration_count_right)
-plt.savefig(base+'iteration_count.png')
-#plt.show()

@@ -1,3 +1,4 @@
+from re import I
 import numpy as np
 import matplotlib
 #matplotlib.use('Agg')
@@ -68,59 +69,99 @@ def ginkgo_data(specie):
 
 specie = 'gri30'
 
-data_base = 'Pele_pGMRES_'+specie+'_data_all/'
+data_base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/'
 implementations = [3]
 n_implementations = len(implementations)
 n_quantiles = 7
 
 n_ginkgo, time_gingko = ginkgo_data(specie)
 
-team_sizes = np.array([1, 2, 4, 8, 16, 32])
-rows_per_threads = np.array([1, 2, 4, 8, 16, 32, 64])
+team_sizes = np.array([1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64])
+vector_lengths = np.array([1, 2, 4, 8, 16])
+N_teams = np.array([1, 2, 4, 8, 16])
 
-CPU_l = np.zeros((len(team_sizes), len(rows_per_threads), 6))
-CPU_r = np.zeros((len(team_sizes), len(rows_per_threads), 6))
+n_Ns = 2
+
+CPU_l = np.ones((len(team_sizes), len(vector_lengths), len(N_teams), n_Ns))
+CPU_r = np.ones((len(team_sizes), len(vector_lengths), len(N_teams), n_Ns))
+
+m_l = 10*np.ones((len(team_sizes), len(vector_lengths), len(N_teams)))
+b_l = 10*np.ones((len(team_sizes), len(vector_lengths), len(N_teams)))
+m_r = 10*np.ones((len(team_sizes), len(vector_lengths), len(N_teams)))
+b_r = 10*np.ones((len(team_sizes), len(vector_lengths), len(N_teams)))
+
+CPU_l_vec = np.ones((len(team_sizes), len(N_teams), n_Ns))
+CPU_r_vec = np.ones((len(team_sizes), len(N_teams), n_Ns))
+
+X = np.zeros((len(team_sizes), len(N_teams)))
+Y = np.zeros((len(team_sizes), len(N_teams)))
 
 for i_team in range(0, len(team_sizes)):
-    for i_per_thread in range(0, len(rows_per_threads)):
-        base = data_base + '/' + str(team_sizes[i_team]) + '_' + str(rows_per_threads[i_per_thread])+'/'
-        
-        Ns = np.loadtxt(base+'Ns.txt')
-        CPU_time_l = np.zeros((n_implementations, len(Ns), n_quantiles))
-        CPU_time_r = np.zeros((n_implementations, len(Ns), n_quantiles))
+    for i_vector in range(0, len(vector_lengths)):
+        for i_N_team in range(0, len(N_teams)):
+            X[i_team, i_N_team] = team_sizes[i_team]
+            Y[i_team, i_N_team] = N_teams[i_N_team]
+            try:
+                base = data_base  + str(team_sizes[i_team]) + '_' + str(vector_lengths[i_vector]) + '_' + str(N_teams[i_N_team])+'/'
+                
+                Ns = np.loadtxt(base+'Ns.txt')
+                CPU_time_l = np.zeros((n_implementations, len(Ns), n_quantiles))
+                CPU_time_r = np.zeros((n_implementations, len(Ns), n_quantiles))
 
-        for i in range(0, n_implementations):
-            CPU_time_l[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_l.txt')
-            CPU_time_r[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_r.txt')
+                for i in range(0, n_implementations):
+                    CPU_time_l[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_l.txt')
+                    CPU_time_r[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_r.txt')
+                
+                CPU_l[i_team, i_vector, i_N_team, :] = CPU_time_l[0,:,3]
+                CPU_r[i_team, i_vector, i_N_team, :] = CPU_time_r[0,:,3]
 
-        CPU_l[i_team, i_per_thread, :] = CPU_time_l[0,:,3]
-        CPU_r[i_team, i_per_thread, :] = CPU_time_r[0,:,3]
+                m_l[i_team, i_vector, i_N_team],b_l[i_team, i_vector, i_N_team] = np.polyfit(Ns, CPU_l[i_team, i_vector, i_N_team, :], 1)
+                m_r[i_team, i_vector, i_N_team],b_r[i_team, i_vector, i_N_team] = np.polyfit(Ns, CPU_r[i_team, i_vector, i_N_team, :], 1)
+            except:
+                continue
 
-print(np.amin(CPU_l[:,:,-1]))
-print(np.amin(CPU_r[:,:,-1]))
+for i_team in range(0, len(team_sizes)):
+    for i_vector in range(0, len(vector_lengths)):
+        for i_N_team in range(0, len(N_teams)):
+            for i in range(0, n_Ns):
+                if CPU_l_vec[i_team,i_N_team,i] > CPU_l[i_team,i_vector,i_N_team,i]:
+                    CPU_l_vec[i_team,i_N_team,i] = CPU_l[i_team,i_vector,i_N_team,i]
+                if CPU_r_vec[i_team,i_N_team,i] > CPU_r[i_team,i_vector,i_N_team,i]:
+                    CPU_r_vec[i_team,i_N_team,i] = CPU_r[i_team,i_vector,i_N_team,i]
 
 
-result_l = np.where(CPU_l[:,:,-1] == np.amin(CPU_l[:,:,-1]))
-result_r = np.where(CPU_r[:,:,-1] == np.amin(CPU_r[:,:,-1]))
+result_l = np.where(CPU_l[:,:,:,-1] == np.amin(CPU_l[:,:,:,-1]))
+result_r = np.where(CPU_r[:,:,:,-1] == np.amin(CPU_r[:,:,:,-1]))
 
-print(result_l)
-print(result_r)
+result_m_l = np.where(m_l == np.amin(m_l))
+result_m_r = np.where(m_r == np.amin(m_r))
 
+result_b_l = np.where(b_l == np.amin(b_l))
+result_b_r = np.where(b_r == np.amin(b_r))
+
+print('result left time = ' + str(np.amin(CPU_l_vec[:,:,-1])) + ', ' + str(team_sizes[result_l[0][0]])+' '+str(vector_lengths[result_l[1][0]])+' '+str(N_teams[result_l[2][0]]))
+print('result right time = ' + str(np.amin(CPU_r_vec[:,:,-1])) + ', ' + str(team_sizes[result_r[0][0]])+' '+str(vector_lengths[result_r[1][0]])+' '+str(N_teams[result_r[2][0]]))
+
+print('result m left m = ' + str(np.amin(m_l)) + ', ' + str(team_sizes[result_m_l[0][0]])+' '+str(vector_lengths[result_m_l[1][0]])+' '+str(N_teams[result_m_l[2][0]]))
+print('result m right m = ' + str(np.amin(m_r)) + ', ' + str(team_sizes[result_m_r[0][0]])+' '+str(vector_lengths[result_m_r[1][0]])+' '+str(N_teams[result_m_r[2][0]]))
+
+print('result b left b = ' + str(np.amin(b_l)) + ', ' + str(team_sizes[result_b_l[0][0]])+' '+str(vector_lengths[result_b_l[1][0]])+' '+str(N_teams[result_b_l[2][0]]))
+print('result b right b = ' + str(np.amin(b_r)) + ', ' + str(team_sizes[result_b_r[0][0]])+' '+str(vector_lengths[result_b_r[1][0]])+' '+str(N_teams[result_b_r[2][0]]))
 
 fig = plt.figure()
 ax = plt.gca()
-CS = plt.contourf(CPU_l[:,:,-1])
-plt.plot(result_l[1][0],result_l[0][0], 'g*')
+CS = plt.contourf(X,Y,CPU_l_vec[:,:,-1])
+plt.plot(team_sizes[result_l[0][0]],N_teams[result_l[2][0]], 'g*')
 cbar = fig.colorbar(CS)
-ax.set_xticklabels(rows_per_threads)
-ax.set_yticklabels(team_sizes)
+plt.xlabel('Team size')
+plt.ylabel('N_team')
 plt.savefig(data_base+'CPU_l.png')
 
 fig = plt.figure()
 ax = plt.gca()
-CS = plt.contourf(CPU_r[:,:,-1])
-plt.plot(result_r[1][0],result_r[0][0], 'g*')
+CS = plt.contourf(X,Y,CPU_r_vec[:,:,-1])
+plt.plot(team_sizes[result_r[0][0]],N_teams[result_r[2][0]], 'g*')
 cbar = fig.colorbar(CS)
-ax.set_xticklabels(rows_per_threads)
-ax.set_yticklabels(team_sizes)
+plt.xlabel('Team size')
+plt.ylabel('N_team')
 plt.savefig(data_base+'CPU_r.png')

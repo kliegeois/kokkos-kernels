@@ -15,7 +15,7 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = 90*np.array([1, 10])
+    Ns = 90*np.array([1, 100])
 
     specie = 'gri30'
 
@@ -30,43 +30,43 @@ def main():
     if not os.path.isdir(data_base):
         os.mkdir(data_base)
 
-    team_sizes = np.array([1, 2, 4, 8, 16])
+    team_sizes = np.array([1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64])
     vector_lengths = np.array([1, 2, 4, 8, 16])
-    N_teams = np.array([1, 2, 4, 8, 16, 32, 64])
+    N_teams = np.array([1, 2, 4, 8, 16])
 
     n_iterations = 10
     tol = 1e-8
 
     for team_size in team_sizes:
         for vector_length in vector_lengths:
-            if vector_length*team_size < 33:
-                for N_team in N_teams:
-                    data_d = data_base + '/' + str(team_size) + '_' + str(vector_length) + '_' + str(N_team)
+            for N_team in N_teams:
+                data_d = data_base + '/' + str(team_size) + '_' + str(vector_length) + '_' + str(N_team)
 
-                    implementations_left = [3]
-                    implementations_right = [3]
-                    n_implementations_left = len(implementations_left)
-                    n_implementations_right = len(implementations_right)
+                implementations_left = [3]
+                implementations_right = [3]
+                n_implementations_left = len(implementations_left)
+                n_implementations_right = len(implementations_right)
 
-                    n1 = 2
-                    n2 = 2
+                n1 = 2
+                n2 = 2
 
-                    n_quantiles = 7
+                n_quantiles = 7
 
-                    CPU_time_left = np.zeros((n_implementations_left, len(Ns), n_quantiles))
-                    throughput_left = np.zeros((n_implementations_left, len(Ns), n_quantiles))
-                    CPU_time_right = np.zeros((n_implementations_right, len(Ns), n_quantiles))
-                    throughput_right = np.zeros((n_implementations_right, len(Ns), n_quantiles))
-                    nnzs = np.zeros((len(Ns), ))
+                CPU_time_left = np.zeros((n_implementations_left, len(Ns), n_quantiles))
+                throughput_left = np.zeros((n_implementations_left, len(Ns), n_quantiles))
+                CPU_time_right = np.zeros((n_implementations_right, len(Ns), n_quantiles))
+                throughput_right = np.zeros((n_implementations_right, len(Ns), n_quantiles))
+                nnzs = np.zeros((len(Ns), ))
 
-                    if not os.path.isdir(data_d):
-                        os.mkdir(data_d)
+                if not os.path.isdir(data_d):
+                    os.mkdir(data_d)
 
-                    name_A = data_d+'/A.mm'
-                    name_B = data_d+'/B.mm'
-                    name_X = data_d+'/X'
-                    name_timers = data_d+'/timers'
+                name_A = data_d+'/A.mm'
+                name_B = data_d+'/B.mm'
+                name_X = data_d+'/X'
+                name_timers = data_d+'/timers'
 
+                try:
                     for i in range(0, len(Ns)):
                         r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
                         nnzs[i] = len(r)
@@ -94,6 +94,8 @@ def main():
                             np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
                         np.savetxt(data_d+'/Ns.txt', Ns)
                         np.savetxt(data_d+'/nnzs.txt', nnzs)
+                except:
+                    continue
 
     toc = time.perf_counter()
     print(f"Elapsed time {toc - tic:0.4f} seconds")

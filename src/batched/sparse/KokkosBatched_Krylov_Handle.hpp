@@ -71,6 +71,7 @@ class KrylovHandle {
   int max_iteration;
   int batched_size;
   int N_team;
+  int ortho_strategy;
 
  public:
   KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200) : 
@@ -78,6 +79,8 @@ class KrylovHandle {
     tolerance     = Kokkos::Details::ArithTraits<norm_type>::epsilon();
     residual_norms = NormViewType("",batched_size, max_iteration);
     iteration_numbers = IntViewType("",batched_size);
+    // Default Classical GS
+    ortho_strategy = 1;
   }
 
   /// \brief set_tolerance
@@ -139,6 +142,12 @@ class KrylovHandle {
   int get_iteration(int batched_id) const {
     return iteration_numbers(batched_id);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  void set_ortho_strategy(int _ortho_strategy) { ortho_strategy = _ortho_strategy; }
+
+  KOKKOS_INLINE_FUNCTION
+  int get_ortho_strategy() const { return ortho_strategy; }
 };
 
 }  // namespace KokkosBatched
