@@ -41,8 +41,9 @@ def main():
     order = 'descending'
     indices = getSortedIndices(specie,order)
     sort = True
-    n_iterations = 12
+    n_iterations = 7
     tol = 1e-8
+    ortho_strategy = 1
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     if specie == 'gri30':
@@ -56,9 +57,9 @@ def main():
         directory = f.read()
 
     if sort:
-        data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_sorted'
+        data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_sorted'
     else:
-        data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_unsorted'
+        data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_unsorted'
 
     rows_per_thread = 1
     team_size = 56 #32
@@ -98,11 +99,11 @@ def main():
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy))
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
+        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy))
         for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]

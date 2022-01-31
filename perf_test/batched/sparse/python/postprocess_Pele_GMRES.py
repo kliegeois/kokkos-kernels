@@ -45,7 +45,7 @@ def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n
 
 def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False, plot_fill=False):
     n_quantiles = np.shape(ys)[1]
-    i_median = 0 #int(np.floor(n_quantiles/2))
+    i_median = 0#int(np.floor(n_quantiles/2))
     if dashed:
         line = ax.plot(x, ys[:, i_median], '--')
     else:
@@ -64,6 +64,7 @@ def ginkgo_data(specie):
 
         n = 90*np.array([  1,  16,  32, 128, 192])
         time = np.array([0.00010079, 0.00038695, 0.00071774, 0.0029122 , 0.00437534])
+        time = np.array([0.00035001, 0.00063808, 0.00096812, 0.00317675, 0.00465993])
     if specie == 'isooctane':
         n = np.array([72,  1152,  2304,  4608,  9216, 13824])
         time = np.array([0.00010629, 0.00040689, 0.00069134, 0.00127151, 0.0024188,  0.00382598])
@@ -76,7 +77,7 @@ specie = 'gri30'
 
 base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
 base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
-base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_12_sorted/'
+base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_7_1_sorted/'
 
 implementations = [3]
 n_implementations = len(implementations)

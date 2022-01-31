@@ -101,7 +101,7 @@ struct TeamVectorGMRES {
     const MagnitudeType max_tolerance = 0.;
 
     ScratchPadMultiVectorViewType V(member.team_scratch(1), numMatrices,
-                                    maximum_iteration + 1, numRows);
+                                    maximum_iteration, numRows);
     ScratchPadMultiVectorViewType H(member.team_scratch(1), numMatrices,
                                     maximum_iteration + 1, maximum_iteration);
     ScratchPadMultiVectorViewType Givens(member.team_scratch(1), numMatrices,
@@ -177,11 +177,18 @@ struct TeamVectorGMRES {
       member.team_barrier();
 
       if (handle.get_ortho_strategy()==0) {
+        auto V_old = Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL);
+        auto H_old = Kokkos::subview(H, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), j);
+
+        // Inner products
         TeamVectorGemv<MemberType, Trans::NoTranspose, Algo::Gemv::Unblocked>::invoke(member, 1, 
-        Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL), 
-        W, 
-        0, 
-        Kokkos::subview(H, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), j));
+        V_old, W, 0, H_old);
+        member.team_barrier();
+ 
+        // Update
+        TeamVectorGemv<MemberType, Trans::Transpose, Algo::Gemv::Unblocked>::invoke(member, -1, 
+        V_old, H_old, 1, W);
+        member.team_barrier();
       }
       if (handle.get_ortho_strategy()==1) {
         for (size_t i = 0; i < j + 1; ++i) {
@@ -211,14 +218,16 @@ struct TeamVectorGMRES {
             tmp(i) = H(i, j + 1, j) > max_tolerance ? 1. / H(i, j + 1, j) : 0.;
           });
       member.team_barrier();
-      Kokkos::parallel_for(
-          Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
-          [&](const OrdinalType& iTemp) {
-            OrdinalType iRow, iMatrix;
-            getIndices<OrdinalType, typename VectorViewType::array_layout>(
-                iTemp, numRows, numMatrices, iRow, iMatrix);
-            V(iMatrix, j + 1, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
-          });
+      if (j + 1 < maximum_iteration) {
+        Kokkos::parallel_for(
+            Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
+            [&](const OrdinalType& iTemp) {
+              OrdinalType iRow, iMatrix;
+              getIndices<OrdinalType, typename VectorViewType::array_layout>(
+                  iTemp, numRows, numMatrices, iRow, iMatrix);
+              V(iMatrix, j + 1, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
+            });
+      }
 
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, 0, numMatrices),
