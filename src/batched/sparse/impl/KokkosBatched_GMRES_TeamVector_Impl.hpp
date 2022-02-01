@@ -303,6 +303,7 @@ struct TeamVectorGMRES {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices),
         [&](const OrdinalType& l) {
+/*
           if(member.league_rank() == 0 && l == 0) {
             for (size_t i = 0; i < H.extent(1); ++i)
               for (size_t j = 0; j < H.extent(2); ++j)
@@ -310,6 +311,14 @@ struct TeamVectorGMRES {
             for (size_t i = 0; i < G.extent(1); ++i)
               printf("before  G(%d) = %f\n", (int) i, G(l, i));
           }
+*/
+          for (size_t i = 0; i < maximum_iteration; ++i) {
+            size_t row_i = maximum_iteration - 1 - i;
+            for (size_t j = row_i + 1; j < maximum_iteration; ++j)
+              G(l, row_i) -= H(l, j, row_i) * G(l, j);
+            G(l, row_i) /= H(l, row_i, row_i);
+          }
+/*
           SerialTrsm<Side::Left, Uplo::Upper, Trans::Transpose, Diag::NonUnit,
                      Algo::Trsm::Unblocked>::template invoke(1,
                                                              Kokkos::subview(
@@ -319,10 +328,12 @@ struct TeamVectorGMRES {
                                                              Kokkos::subview(
                                                                  G, l,
                                                                  Kokkos::make_pair(0, (int) maximum_iteration)));
+
           if(member.league_rank() == 0 && l == 0) {
             for (size_t i = 0; i < G.extent(1); ++i)
               printf("after  G(%d) = %f\n", (int) i, G(l, i));
           }
+*/
         });
 
     member.team_barrier();  // Finish writing to G
@@ -359,7 +370,7 @@ struct TeamVectorGMRES {
 
       Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
                           [&](const OrdinalType& i) {
-                            tmp(i) = ATM::sqrt(tmp(i));
+                            tmp(i) = ATM::sqrt(tmp(i)) / G(i, 0);
                             handle.set_last_norm(member.league_rank(), i, tmp(i));
                           });
     }
