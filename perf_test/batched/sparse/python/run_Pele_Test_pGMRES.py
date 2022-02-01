@@ -43,7 +43,7 @@ def main():
     sort = True
     n_iterations = 7
     tol = 1e-8
-    ortho_strategy = 1
+    ortho_strategy = 0
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     if specie == 'gri30':

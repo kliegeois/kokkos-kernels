@@ -262,7 +262,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
       P.setComputedInverse();
 
       KokkosBatched::TeamVectorGMRES<MemberType>::template invoke<Operator,
-                                                              VectorViewType, PrecOperator>(
+                                                              VectorViewType, PrecOperator, KrylovHandleType, 1, 1>(
           member, A, b, x, P, _handle);
     }
     else {
@@ -304,9 +304,9 @@ struct Functor_TestBatchedTeamVectorGMRES {
     size_t bytes_3D_2 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, maximum_iteration);
     size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, maximum_iteration, 2);
 
-    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_row_ptr + bytes_col_idc + 3 * bytes_1D + 5 * bytes_2D_1));
+    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_row_ptr + bytes_col_idc + 3 * bytes_1D + 4 * bytes_2D_1 + bytes_3D_3 + bytes_2D_2 ));
     policy.set_scratch_size(
-        1, Kokkos::PerTeam(bytes_3D_1 + bytes_3D_2 + bytes_3D_3 + bytes_2D_2));
+        1, Kokkos::PerTeam(bytes_3D_1  + bytes_3D_2 ));
 
     exec_space().fence();
     timer.reset();

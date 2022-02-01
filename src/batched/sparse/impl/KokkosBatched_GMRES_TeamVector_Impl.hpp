@@ -67,7 +67,7 @@ namespace KokkosBatched {
 template <typename MemberType>
 struct TeamVectorGMRES {
   template <typename OperatorType, typename VectorViewType,
-            typename PrecOperatorType, typename KrylovHandleType>
+            typename PrecOperatorType, typename KrylovHandleType, int levelArnoldi = 1, int levelOther = 1>
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
@@ -100,27 +100,28 @@ struct TeamVectorGMRES {
     const MagnitudeType tolerance     = handle.get_tolerance();
     const MagnitudeType max_tolerance = 0.;
 
-    ScratchPadMultiVectorViewType V(member.team_scratch(1), numMatrices,
+    ScratchPadMultiVectorViewType V(member.team_scratch(levelArnoldi), numMatrices,
                                     maximum_iteration, numRows);
-    ScratchPadMultiVectorViewType H(member.team_scratch(1), numMatrices,
-                                    maximum_iteration + 1, maximum_iteration);
-    ScratchPadMultiVectorViewType Givens(member.team_scratch(1), numMatrices,
+    // Put on level 0
+
+    ScratchPadMultiVectorViewType Givens(member.team_scratch(0), numMatrices,
                                          maximum_iteration, 2);
-    ScratchPadVectorViewType G(member.team_scratch(1), numMatrices,
+    ScratchPadVectorViewType G(member.team_scratch(0), numMatrices,
                                maximum_iteration + 1);
 
     ScratchPadVectorViewType W(member.team_scratch(0), numMatrices, numRows);
-    ScratchPadVectorViewType Q(member.team_scratch(0), numMatrices, numRows);
-    ScratchPadVectorViewType R(member.team_scratch(0), numMatrices, numRows);
     ScratchPadVectorViewType X(member.team_scratch(0), numMatrices, numRows);
 
     ScratchPadNormViewType beta(member.team_scratch(0), numMatrices);
     ScratchPadNormViewType mask(member.team_scratch(0), numMatrices);
     ScratchPadNormViewType tmp(member.team_scratch(0), numMatrices);
 
+    ScratchPadMultiVectorViewType H(member.team_scratch(1), numMatrices,
+                                    maximum_iteration + 1, maximum_iteration);
+
     TeamVectorCopy<MemberType>::invoke(member, _X, X);
     // Deep copy of b into r_0:
-    TeamVectorCopy<MemberType>::invoke(member, _B, R);
+    TeamVectorCopy<MemberType>::invoke(member, _B, W);
 
     Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
                          [&](const OrdinalType& i) { mask(i) = 1.; });
@@ -129,23 +130,23 @@ struct TeamVectorGMRES {
     member.team_barrier();
     A.template apply<MemberType, ScratchPadVectorViewType,
                      ScratchPadVectorViewType, Trans::NoTranspose,
-                     Mode::TeamVector>(member, X, R, -1, 1);
+                     Mode::TeamVector>(member, X, W, -1, 1);
     member.team_barrier();
 
     P.template apply<MemberType, ScratchPadVectorViewType,
                      ScratchPadVectorViewType, Trans::NoTranspose,
-                     Mode::TeamVector, 1>(member, R, R);
+                     Mode::TeamVector, 1>(member, W, W);
     member.team_barrier();
 
-    TeamVectorDot<MemberType>::invoke(member, R, R, beta);
+    TeamVectorDot<MemberType>::invoke(member, W, W, tmp);
     member.team_barrier();
 
     Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
                          [&](const OrdinalType& i) {
-                           beta(i) = ATM::sqrt(beta(i));
-                           G(i, 0) = beta(i) > max_tolerance ? beta(i) : 0.;
-                           tmp(i) = beta(i) > max_tolerance ? 1. / beta(i) : 0.;
-                           handle.set_norm(member.league_rank(), i, 0, beta(i));
+                           tmp(i) = ATM::sqrt(tmp(i));
+                           G(i, 0) = tmp(i) > max_tolerance ? tmp(i) : 0.;
+                           handle.set_norm(member.league_rank(), i, 0, tmp(i));
+                           tmp(i) = tmp(i) > max_tolerance ? 1. / tmp(i) : 0.;
                          });
 
     member.team_barrier();  // Finish writing to tmp
@@ -156,7 +157,7 @@ struct TeamVectorGMRES {
           OrdinalType iRow, iMatrix;
           getIndices<OrdinalType, typename VectorViewType::array_layout>(
               iTemp, numRows, numMatrices, iRow, iMatrix);
-          V(iMatrix, 0, iRow) = R(iMatrix, iRow) * tmp(iMatrix);
+          V(iMatrix, 0, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
         });
 
     int status = 1;
@@ -179,7 +180,7 @@ struct TeamVectorGMRES {
       if (handle.get_ortho_strategy()==0) {
         auto V_old = Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL);
         auto H_old = Kokkos::subview(H, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), j);
-
+        member.team_barrier();
         // Inner products
         TeamVectorGemv<MemberType, Trans::NoTranspose, Algo::Gemv::Unblocked>::invoke(member, 1, 
         V_old, W, 0, H_old);
@@ -227,6 +228,7 @@ struct TeamVectorGMRES {
                   iTemp, numRows, numMatrices, iRow, iMatrix);
               V(iMatrix, j + 1, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
             });
+        member.team_barrier();
       }
 
       Kokkos::parallel_for(
@@ -270,7 +272,7 @@ struct TeamVectorGMRES {
               G(l, j + 1) = 0.;
             }
 
-            auto res_norm = std::abs(G(l, j + 1)) / beta(l);
+            auto res_norm = std::abs(G(l, j + 1)) / G(l, 0);
 
             handle.set_norm(member.league_rank(), l, j+1, res_norm);
 
