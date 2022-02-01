@@ -202,20 +202,34 @@ struct Functor_TestBatchedTeamVectorGMRES {
   const int _N_iteration;
   const double _tol;
   const int _ortho_strategy;
+  const int _arnoldi_level;
+  const int _other_level;
   KrylovHandleType _handle;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorGMRES(const ValuesViewType &D, const IntView &r,
                                   const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length, const int N_iteration, const double tol, int ortho_strategy, KrylovHandleType &handle)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length), _N_iteration(N_iteration), _tol(tol), _ortho_strategy(ortho_strategy), _handle(handle) {
+                                  const VectorViewType &B, const int N_team,
+                                  const int team_size, const int vector_length,
+                                  const int N_iteration, const double tol,
+                                  const int ortho_strategy, const int arnoldi_level,
+                                  const int other_level, KrylovHandleType &handle)
+      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length),
+      _N_iteration(N_iteration), _tol(tol), _ortho_strategy(ortho_strategy), _arnoldi_level(arnoldi_level), _other_level(other_level),
+      _handle(handle) {
   }
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorGMRES(const ValuesViewType &D, const ValuesViewType &diag, const IntView &r,
                                   const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length, const int N_iteration, const double tol, int ortho_strategy, KrylovHandleType &handle)
-      : _D(D), _diag(diag), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length), _N_iteration(N_iteration), _tol(tol), _ortho_strategy(ortho_strategy), _handle(handle) {
+                                  const VectorViewType &B, const int N_team,
+                                  const int team_size, const int vector_length,
+                                  const int N_iteration, const double tol,
+                                  int ortho_strategy, const int arnoldi_level,
+                                  const int other_level, KrylovHandleType &handle)
+      : _D(D), _diag(diag), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length),
+      _N_iteration(N_iteration), _tol(tol), _ortho_strategy(ortho_strategy), _arnoldi_level(arnoldi_level), _other_level(other_level),
+      _handle(handle) {
   }
 
   template <typename MemberType>
@@ -246,8 +260,10 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
     using Operator = KokkosBatched::CrsMatrix<ValuesViewType, ScratchPadIntViewType>;
 
-    ScratchPadIntViewType r(member.team_scratch(0), _r.extent(0));
-    ScratchPadIntViewType c(member.team_scratch(0), _c.extent(0));
+    ScratchPadIntViewType tmp_1D_int(member.team_scratch(0), _r.extent(0) + _c.extent(0));
+
+    auto r = Kokkos::subview(tmp_1D_int, Kokkos::make_pair(0, (int) _r.extent(0)));
+    auto c = Kokkos::subview(tmp_1D_int, Kokkos::make_pair((int) _r.extent(0), (int) tmp_1D_int.extent(0)));
 
     TeamVectorCopy1D::invoke(member, _r, r);
     TeamVectorCopy1D::invoke(member, _c, c);
@@ -262,7 +278,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
       P.setComputedInverse();
 
       KokkosBatched::TeamVectorGMRES<MemberType>::template invoke<Operator,
-                                                              VectorViewType, PrecOperator, KrylovHandleType, 1, 1>(
+                                                              VectorViewType, PrecOperator, KrylovHandleType>(
           member, A, b, x, P, _handle);
     }
     else {
@@ -282,6 +298,9 @@ struct Functor_TestBatchedTeamVectorGMRES {
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
     _handle.set_ortho_strategy(_ortho_strategy);
+    _handle.set_Arnoldi_level(_arnoldi_level);
+    _handle.set_other_level(_other_level);
+
     int maximum_iteration = _handle.get_max_iteration();
 
     using ScalarType = typename ValuesViewType::non_const_value_type;
@@ -295,18 +314,31 @@ struct Functor_TestBatchedTeamVectorGMRES {
     using ViewType2D = Kokkos::View<ScalarType **, Layout, EXSP>;
     using ViewType3D = Kokkos::View<ScalarType ***, Layout, EXSP>;
 
-    size_t bytes_1D = ViewType1D::shmem_size(_N_team);
+    size_t bytes_1D = ViewType2D::shmem_size(_N_team, 1);
     size_t bytes_row_ptr = IntView::shmem_size(_r.extent(0));
     size_t bytes_col_idc = IntView::shmem_size(_c.extent(0));
     size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _X.extent(1));
     size_t bytes_2D_2 = ViewType2D::shmem_size(_N_team, maximum_iteration+1);
-    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, maximum_iteration, _X.extent(1));
+    size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, _X.extent(1), maximum_iteration);
     size_t bytes_3D_2 = ViewType3D::shmem_size(_N_team, maximum_iteration+1, maximum_iteration);
-    size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, maximum_iteration, 2);
+    size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, 2, maximum_iteration);
 
-    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_row_ptr + bytes_col_idc + 3 * bytes_1D + 4 * bytes_2D_1 + bytes_3D_3 + bytes_2D_2 ));
-    policy.set_scratch_size(
-        1, Kokkos::PerTeam(bytes_3D_1  + bytes_3D_2 ));
+
+    size_t bytes_int = bytes_row_ptr + bytes_col_idc;
+    size_t bytes_diag = bytes_2D_1;
+    size_t bytes_Arnoldi = bytes_3D_1 + bytes_3D_2 + bytes_3D_3;
+    size_t bytes_tmp = 2 * bytes_2D_1 + 2 * bytes_1D + bytes_2D_2;
+
+    if ( _arnoldi_level == 0 && _other_level == 0) {
+      policy.set_scratch_size(0, Kokkos::PerTeam(bytes_tmp + bytes_diag + bytes_int + bytes_Arnoldi));
+    }
+    if ( _arnoldi_level == 1 && _other_level == 0) {
+      policy.set_scratch_size(0, Kokkos::PerTeam(bytes_tmp + bytes_diag + bytes_int));
+      policy.set_scratch_size(1, Kokkos::PerTeam(bytes_Arnoldi));
+    }
+    if ( _arnoldi_level == 1 && _other_level == 1) {
+      policy.set_scratch_size(1, Kokkos::PerTeam(bytes_tmp + bytes_diag + bytes_int + bytes_Arnoldi));
+    }
 
     exec_space().fence();
     timer.reset();
@@ -345,6 +377,8 @@ int main(int argc, char *argv[]) {
     int vector_length   = 8;
     int N_team_potential = 1;
     int ortho_strategy = 0;
+    int other_level = 0;
+    int arnoldi_level = 0;
 
     std::string name_A = "A.mm";
     std::string name_B = "B.mm";
@@ -366,6 +400,9 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-timers")) name_timer = argv[++i];
 
       if (token == std::string("-ortho_strategy")) ortho_strategy = std::atoi(argv[++i]);
+
+      if (token == std::string("-arnoldi_level")) arnoldi_level = std::atoi(argv[++i]);
+      if (token == std::string("-other_level")) other_level = std::atoi(argv[++i]);
 
       if (token == std::string("-n1")) n_rep_1 = std::atoi(argv[++i]);
       if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
@@ -498,34 +535,42 @@ int main(int argc, char *argv[]) {
 
           if (i_impl%2 == 0 && layout_left) {
             if (use_preconditioner)
-              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>(valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>
+              (valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
                   .run();
             else 
-              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>
+              (valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
                   .run();
           }
           if (i_impl%2 == 1 && layout_left) {
             if (use_preconditioner)
-              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>(valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, true>
+              (valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, arnoldi_level, other_level, handle)
                   .run();
             else
-              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType, false>
+              (valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, arnoldi_level, other_level, handle)
                   .run();
           }
           if (i_impl%2 == 0 && layout_right) {
             if (use_preconditioner)
-              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>(valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>
+              (valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
                   .run();
             else
-              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>
+              (valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
                   .run();
           }
           if (i_impl%2 == 1 && layout_right) {
             if (use_preconditioner)
-              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>(valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, true>
+              (valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, arnoldi_level, other_level, handle)
                   .run();
             else
-              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, handle)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType, false>
+              (valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, arnoldi_level, other_level, handle)
                   .run();
           }
           exec_space().fence();
@@ -533,7 +578,7 @@ int main(int argc, char *argv[]) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
 #endif
-
+/*
           if(layout_right) {
             NormViewType sqr_norm_0("sqr_norm_0", N);
             NormViewType sqr_norm_j("sqr_norm_j", N);
@@ -596,6 +641,7 @@ int main(int argc, char *argv[]) {
               if (1e-7 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
                 std::cout << std::setprecision (15) << "Left: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
           }
+*/
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }

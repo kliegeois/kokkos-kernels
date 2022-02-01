@@ -72,15 +72,21 @@ class KrylovHandle {
   int batched_size;
   int N_team;
   int ortho_strategy;
+  int arnoldi_level;
+  int other_level;
+  bool compute_last_residual;
 
  public:
   KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200) : 
   max_iteration(_max_iteration), batched_size(_batched_size), N_team(_N_team) {
     tolerance     = Kokkos::Details::ArithTraits<norm_type>::epsilon();
-    residual_norms = NormViewType("",batched_size, max_iteration);
+    residual_norms = NormViewType("",batched_size, max_iteration+1);
     iteration_numbers = IntViewType("",batched_size);
     // Default Classical GS
     ortho_strategy = 1;
+    arnoldi_level = 0;
+    other_level = 0;
+    compute_last_residual = true;
   }
 
   /// \brief set_tolerance
@@ -124,6 +130,16 @@ class KrylovHandle {
   }
 
   KOKKOS_INLINE_FUNCTION
+  void set_last_norm(int batched_id, norm_type norm_i) const {
+    residual_norms(batched_id, max_iteration + 1) = norm_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void set_last_norm(int team_id, int batched_id, norm_type norm_i) const {
+    residual_norms(team_id * N_team + batched_id, max_iteration + 1) = norm_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
   norm_type get_norm(int batched_id, int iteration_id) const {
     return residual_norms(batched_id, iteration_id);
   }
@@ -148,6 +164,24 @@ class KrylovHandle {
 
   KOKKOS_INLINE_FUNCTION
   int get_ortho_strategy() const { return ortho_strategy; }
+
+  KOKKOS_INLINE_FUNCTION
+  void set_Arnoldi_level(int _arnoldi_level) { arnoldi_level = _arnoldi_level; }
+
+  KOKKOS_INLINE_FUNCTION
+  int get_Arnoldi_level() const { return arnoldi_level; }  
+
+  KOKKOS_INLINE_FUNCTION
+  void set_other_level(int _other_level) { other_level = _other_level; }
+
+  KOKKOS_INLINE_FUNCTION
+  int get_other_level() const { return other_level; }
+
+  KOKKOS_INLINE_FUNCTION
+  void set_compute_last_residual(bool _compute_last_residual) { compute_last_residual = _compute_last_residual; }
+
+  KOKKOS_INLINE_FUNCTION
+  bool get_compute_last_residual() const { return compute_last_residual; }  
 };
 
 }  // namespace KokkosBatched

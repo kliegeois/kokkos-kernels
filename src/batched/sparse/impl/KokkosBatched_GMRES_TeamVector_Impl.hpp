@@ -67,7 +67,7 @@ namespace KokkosBatched {
 template <typename MemberType>
 struct TeamVectorGMRES {
   template <typename OperatorType, typename VectorViewType,
-            typename PrecOperatorType, typename KrylovHandleType, int levelArnoldi = 1, int levelOther = 1>
+            typename PrecOperatorType, typename KrylovHandleType>
   KOKKOS_INLINE_FUNCTION static int invoke(
       const MemberType& member, const OperatorType& A, const VectorViewType& _B,
       const VectorViewType& _X,
@@ -100,24 +100,38 @@ struct TeamVectorGMRES {
     const MagnitudeType tolerance     = handle.get_tolerance();
     const MagnitudeType max_tolerance = 0.;
 
-    ScratchPadMultiVectorViewType V(member.team_scratch(levelArnoldi), numMatrices,
-                                    maximum_iteration, numRows);
-    // Put on level 0
+    int n_V = numRows;
+    int n_H = maximum_iteration + 1;
+    int n_Givens = 2;
 
-    ScratchPadMultiVectorViewType Givens(member.team_scratch(0), numMatrices,
-                                         maximum_iteration, 2);
-    ScratchPadVectorViewType G(member.team_scratch(0), numMatrices,
-                               maximum_iteration + 1);
+    int offset_V = 0;
+    int offset_H = offset_V + n_V;
+    int offset_Givens = offset_H + n_H;
 
-    ScratchPadVectorViewType W(member.team_scratch(0), numMatrices, numRows);
-    ScratchPadVectorViewType X(member.team_scratch(0), numMatrices, numRows);
+    ScratchPadMultiVectorViewType tmp_3D(member.team_scratch(handle.get_Arnoldi_level()), numMatrices, maximum_iteration, n_V+n_H+n_Givens);
+    auto V = Kokkos::subview(tmp_3D, Kokkos::ALL, Kokkos::ALL, Kokkos::make_pair(offset_V, offset_V + n_V));
+    auto H = Kokkos::subview(tmp_3D, Kokkos::ALL, Kokkos::ALL, Kokkos::make_pair(offset_H, offset_H + n_H));
+    auto Givens = Kokkos::subview(tmp_3D, Kokkos::ALL, Kokkos::ALL, Kokkos::make_pair(offset_Givens, offset_Givens + n_Givens));
 
-    ScratchPadNormViewType beta(member.team_scratch(0), numMatrices);
-    ScratchPadNormViewType mask(member.team_scratch(0), numMatrices);
-    ScratchPadNormViewType tmp(member.team_scratch(0), numMatrices);
+    int n_G = maximum_iteration + 1;
+    int n_W = numRows;
+    int n_X = numRows;
+    int n_mask = 1;
+    int n_tmp = 1;
 
-    ScratchPadMultiVectorViewType H(member.team_scratch(1), numMatrices,
-                                    maximum_iteration + 1, maximum_iteration);
+    int offset_G = 0;
+    int offset_W = offset_G + n_G;
+    int offset_X = offset_W + n_W;
+    int offset_mask = offset_X + n_X;
+    int offset_tmp = offset_mask + n_mask;
+  
+    ScratchPadVectorViewType tmp_2D(member.team_scratch(handle.get_other_level()), numMatrices, n_G+n_W+n_X+n_mask+n_tmp);
+
+    auto G = Kokkos::subview(tmp_2D, Kokkos::ALL, Kokkos::make_pair(offset_G, offset_G + n_G));
+    auto W = Kokkos::subview(tmp_2D, Kokkos::ALL, Kokkos::make_pair(offset_W, offset_W + n_W));
+    auto X = Kokkos::subview(tmp_2D, Kokkos::ALL, Kokkos::make_pair(offset_X, offset_X + n_X));
+    auto mask = Kokkos::subview(tmp_2D, Kokkos::ALL, offset_mask);
+    auto tmp = Kokkos::subview(tmp_2D, Kokkos::ALL, offset_tmp);
 
     TeamVectorCopy<MemberType>::invoke(member, _X, X);
     // Deep copy of b into r_0:
@@ -128,14 +142,10 @@ struct TeamVectorGMRES {
 
     // r_0 := b - A x_0
     member.team_barrier();
-    A.template apply<MemberType, ScratchPadVectorViewType,
-                     ScratchPadVectorViewType, Trans::NoTranspose,
-                     Mode::TeamVector>(member, X, W, -1, 1);
+    A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, X, W, -1, 1);
     member.team_barrier();
 
-    P.template apply<MemberType, ScratchPadVectorViewType,
-                     ScratchPadVectorViewType, Trans::NoTranspose,
-                     Mode::TeamVector, 1>(member, W, W);
+    P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
     member.team_barrier();
 
     TeamVectorDot<MemberType>::invoke(member, W, W, tmp);
@@ -168,18 +178,14 @@ struct TeamVectorGMRES {
       // q := A p_j
       auto V_j = Kokkos::subview(V, Kokkos::ALL, j, Kokkos::ALL);
 
-      A.template apply<MemberType, ScratchPadVectorViewType,
-                       ScratchPadVectorViewType, Trans::NoTranspose,
-                       Mode::TeamVector>(member, V_j, W);
+      A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, V_j, W);
       member.team_barrier();
-      P.template apply<MemberType, ScratchPadVectorViewType,
-                       ScratchPadVectorViewType, Trans::NoTranspose,
-                       Mode::TeamVector, 1>(member, W, W);
+      P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
       member.team_barrier();
 
       if (handle.get_ortho_strategy()==0) {
         auto V_old = Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL);
-        auto H_old = Kokkos::subview(H, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), j);
+        auto H_old = Kokkos::subview(H, Kokkos::ALL, j, Kokkos::make_pair(0, (int) j+1));
         member.team_barrier();
         // Inner products
         TeamVectorGemv<MemberType, Trans::NoTranspose, Algo::Gemv::Unblocked>::invoke(member, 1, 
@@ -197,7 +203,7 @@ struct TeamVectorGMRES {
           TeamVectorDot<MemberType>::invoke(member, W, V_i, tmp);
           member.team_barrier();
           TeamVectorCopy1D::invoke(member, tmp,
-                                  Kokkos::subview(H, Kokkos::ALL, i, j));
+                                  Kokkos::subview(H, Kokkos::ALL, j, i));
           member.team_barrier();
           Kokkos::parallel_for(
               Kokkos::TeamVectorRange(member, 0, numMatrices),
@@ -215,8 +221,8 @@ struct TeamVectorGMRES {
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, 0, numMatrices),
           [&](const OrdinalType& i) {
-            H(i, j + 1, j) = ATM::sqrt(tmp(i));
-            tmp(i) = H(i, j + 1, j) > max_tolerance ? 1. / H(i, j + 1, j) : 0.;
+            H(i, j, j + 1) = ATM::sqrt(tmp(i));
+            tmp(i) = H(i, j, j + 1) > max_tolerance ? 1. / H(i, j, j + 1) : 0.;
           });
       member.team_barrier();
       if (j + 1 < maximum_iteration) {
@@ -235,7 +241,7 @@ struct TeamVectorGMRES {
           Kokkos::TeamVectorRange(member, 0, numMatrices),
           [&](const OrdinalType& l) {
             // Apply the previous Givens rotations:
-            auto H_j = Kokkos::subview(H, l, Kokkos::ALL, j);
+            auto H_j = Kokkos::subview(H, l, j, Kokkos::ALL);
 
             if (mask(l) == 1.) {
               for (size_t i = 0; i < j; ++i) {
@@ -297,15 +303,26 @@ struct TeamVectorGMRES {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices),
         [&](const OrdinalType& l) {
-          SerialTrsm<Side::Left, Uplo::Upper, Trans::NoTranspose, Diag::NonUnit,
+          if(member.league_rank() == 0 && l == 0) {
+            for (size_t i = 0; i < H.extent(1); ++i)
+              for (size_t j = 0; j < H.extent(2); ++j)
+                printf(" H(%d, %d) = %f\n", (int) i, (int) j, H(l, i, j));
+            for (size_t i = 0; i < G.extent(1); ++i)
+              printf("before  G(%d) = %f\n", (int) i, G(l, i));
+          }
+          SerialTrsm<Side::Left, Uplo::Upper, Trans::Transpose, Diag::NonUnit,
                      Algo::Trsm::Unblocked>::template invoke(1,
                                                              Kokkos::subview(
                                                                  H, l,
-                                                                 Kokkos::ALL,
-                                                                 Kokkos::ALL),
+                                                                 Kokkos::make_pair(0, (int) maximum_iteration),
+                                                                 Kokkos::make_pair(0, (int) maximum_iteration)),
                                                              Kokkos::subview(
                                                                  G, l,
-                                                                 Kokkos::ALL));
+                                                                 Kokkos::make_pair(0, (int) maximum_iteration)));
+          if(member.league_rank() == 0 && l == 0) {
+            for (size_t i = 0; i < G.extent(1); ++i)
+              printf("after  G(%d) = %f\n", (int) i, G(l, i));
+          }
         });
 
     member.team_barrier();  // Finish writing to G
@@ -327,6 +344,25 @@ struct TeamVectorGMRES {
     member.team_barrier();  // Finish writing to X
 
     TeamVectorCopy<MemberType>::invoke(member, X, _X);
+
+    member.team_barrier();
+
+    if (handle.get_compute_last_residual()) {
+      TeamVectorCopy<MemberType>::invoke(member, _B, W);
+      member.team_barrier();
+      A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, X, W, -1, 1);
+      member.team_barrier();
+      P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
+      member.team_barrier();
+      TeamVectorDot<MemberType>::invoke(member, W, W, tmp);
+      member.team_barrier();
+
+      Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
+                          [&](const OrdinalType& i) {
+                            tmp(i) = ATM::sqrt(tmp(i));
+                            handle.set_last_norm(member.league_rank(), i, tmp(i));
+                          });
+    }
     return status;
   }
 

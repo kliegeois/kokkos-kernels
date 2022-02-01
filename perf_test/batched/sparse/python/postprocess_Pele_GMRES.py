@@ -77,7 +77,7 @@ specie = 'gri30'
 
 base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
 base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
-base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_7_1_sorted/'
+base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_7_1_1_0_sorted/'
 
 implementations = [3]
 n_implementations = len(implementations)

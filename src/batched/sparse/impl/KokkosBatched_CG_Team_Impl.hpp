@@ -102,8 +102,7 @@ struct TeamCG {
 
     // r_0 := b - A x_0
     member.team_barrier();
-    A.template apply<MemberType, ScratchPadVectorViewType,
-                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team>(
+    A.template apply<Trans::NoTranspose, Mode::Team>(
         member, X, R, -1, 1);
     member.team_barrier();
 
@@ -126,9 +125,7 @@ struct TeamCG {
 
     for (size_t j = 0; j < maximum_iteration; ++j) {
       // q := A p_j
-      A.template apply<MemberType, ScratchPadVectorViewType,
-                       ScratchPadVectorViewType, Trans::NoTranspose,
-                       Mode::Team>(member, P, Q);
+      A.template apply<Trans::NoTranspose, Mode::Team>(member, P, Q);
       member.team_barrier();
 
       TeamDot<MemberType>::invoke(member, P, Q, tmp);

@@ -314,7 +314,7 @@ struct SerialTrsm<Side::Left, Uplo::Lower, Trans::Transpose, ArgDiag,
   }
 };
 ///
-/// L/U/NT
+/// L/U/T
 ///
 /// B := inv(triu(AT)) (alpha*B)
 /// A(m x m), B(m x n)

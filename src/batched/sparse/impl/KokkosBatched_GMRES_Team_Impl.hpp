@@ -125,14 +125,11 @@ struct TeamGMRES {
 
     // r_0 := b - A x_0
     member.team_barrier();
-    A.template apply<MemberType, ScratchPadVectorViewType,
-                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team>(
+    A.template apply<Trans::NoTranspose, Mode::Team>(
         member, X, R, -1, 1);
     member.team_barrier();
 
-    P.template apply<MemberType, ScratchPadVectorViewType,
-                     ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team,
-                     1>(member, R, R);
+    P.template apply<Trans::NoTranspose, Mode::Team, 1>(member, R, R);
     member.team_barrier();
 
     TeamDot<MemberType>::invoke(member, R, R, beta);
@@ -165,13 +162,9 @@ struct TeamGMRES {
       // q := A p_j
       auto V_j = Kokkos::subview(V, Kokkos::ALL, j, Kokkos::ALL);
 
-      A.template apply<MemberType, ScratchPadVectorViewType,
-                       ScratchPadVectorViewType, Trans::NoTranspose,
-                       Mode::Team>(member, V_j, W);
+      A.template apply<Trans::NoTranspose, Mode::Team>(member, V_j, W);
       member.team_barrier();
-      P.template apply<MemberType, ScratchPadVectorViewType,
-                       ScratchPadVectorViewType, Trans::NoTranspose, Mode::Team,
-                       1>(member, W, W);
+      P.template apply<Trans::NoTranspose, Mode::Team, 1>(member, W, W);
       member.team_barrier();
 
       for (size_t i = 0; i < j + 1; ++i) {
