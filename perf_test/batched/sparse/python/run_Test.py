@@ -6,25 +6,20 @@ import socket
 import re
 
 
-def getBuildDirectory():
+def getHostName():
     host_name = socket.gethostname().split(".")[0]
+    host_name = re.sub('[0-9]+$', '', host_name)
+    return host_name
+
+
+def getBuildDirectory():
+    host_name = getHostName()
 
     if os.path.exists(host_name+'.txt'):
         with open(host_name+'.txt') as f:
             directory = f.read()
-    else:
-        m = re.search(r'\d+$', host_name)
-        if m is not None:
-            n_int = len(m.group())
-            base_host_name = host_name[0:(len(host_name)-n_int)]
-            for i in range(0, 10**n_int):
-                tmp_host_name = base_host_name+str(i)
-                if os.path.exists(tmp_host_name+'.txt'):
-                    with open(tmp_host_name+'.txt') as f:
-                        directory = f.read()
-                    break
-                
     return directory
+
 
 def run_test(exec_name, A_file_name, B_file_name, X_file_name, timer_filename, rows_per_thread=1, team_size=8, n1=10, n2=10, implementations=[0], layout='Left', quantiles=[0,0.1,0.2,0.5,0.8,0.9,1.], extra_args=''):
     n_implementations = len(implementations)
