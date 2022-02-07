@@ -69,7 +69,7 @@ def ginkgo_data(specie):
 
 specie = 'gri30'
 
-data_base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/'
+data_base = 'Pele_pGMRES_'+specie+'_data_all_0_0_0_Scaled/'
 implementations = [3]
 n_implementations = len(implementations)
 n_quantiles = 7

@@ -300,6 +300,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
     _handle.set_ortho_strategy(_ortho_strategy);
     _handle.set_Arnoldi_level(_arnoldi_level);
     _handle.set_other_level(_other_level);
+    _handle.set_compute_last_residual(false);
 
     int maximum_iteration = _handle.get_max_iteration();
 
@@ -337,7 +338,8 @@ struct Functor_TestBatchedTeamVectorGMRES {
       policy.set_scratch_size(1, Kokkos::PerTeam(bytes_Arnoldi));
     }
     if ( _arnoldi_level == 1 && _other_level == 1) {
-      policy.set_scratch_size(1, Kokkos::PerTeam(bytes_tmp + bytes_diag + bytes_int + bytes_Arnoldi));
+      policy.set_scratch_size(0, Kokkos::PerTeam(bytes_diag + bytes_int));
+      policy.set_scratch_size(1, Kokkos::PerTeam(bytes_tmp + bytes_Arnoldi));
     }
 
     exec_space().fence();

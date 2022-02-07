@@ -25,7 +25,11 @@ def main():
     with open('binary_dir.txt') as f:
         directory = f.read()
 
-    data_base = 'Pele_pGMRES_' + specie + '_data_all_Scaled'
+    ortho_strategy = 0
+    arnoldi_level = 0
+    other_level = 0
+
+    data_base = 'Pele_pGMRES_' + specie + '_data_all_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_Scaled'
 
     if not os.path.isdir(data_base):
         os.mkdir(data_base)
@@ -34,7 +38,7 @@ def main():
     vector_lengths = np.array([1, 2, 4, 8, 16])
     N_teams = np.array([1, 2, 4, 8, 16])
 
-    n_iterations = 10
+    n_iterations = 7
     tol = 1e-8
 
     for team_size in team_sizes:
@@ -77,11 +81,14 @@ def main():
                         mmwrite(name_A, V, r, c, n, n)
                         mmwrite(name_B, B)
 
-                        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, 1, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
+                        extra_arg = '-P -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
+                        extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
+                        
+                        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, 1, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=extra_arg)
                         for j in range(0, n_implementations_left):
                             CPU_time_left[j,i,:] = data[j,:]
                         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-                        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, 1, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
+                        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, 1, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=extra_arg)
                         for j in range(0, n_implementations_right):
                             CPU_time_right[j,i,:] = data[j,:]
                         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
