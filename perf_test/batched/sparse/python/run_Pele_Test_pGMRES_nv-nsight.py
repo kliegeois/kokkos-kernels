@@ -2,7 +2,7 @@ import numpy as np
 
 import time
 from test_io import mmwrite, mmread
-from run_Test import run_test
+from run_Test import run_test, getBuildDirectory
 from create_matrices import *
 from read_pele_matrices import *
 import os
@@ -52,8 +52,7 @@ def main():
 
     N *= n_files
 
-    with open('binary_dir.txt') as f:
-        directory = f.read()
+    directory = getBuildDirectory()
 
     if sort:
         data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_sorted_nv'

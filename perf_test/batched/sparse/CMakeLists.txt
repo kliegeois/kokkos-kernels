@@ -13,6 +13,8 @@ KOKKOSKERNELS_ADD_EXECUTABLE(KokkosBatched_Test_SPMV
   SOURCES KokkosBatched_Test_SPMV.cpp
 )
 
-FILE(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/python/binary_dir.txt
+cmake_host_system_information(RESULT HOST_NAME QUERY HOSTNAME)
+
+FILE(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/python/binary_dir_${HOST_NAME}.txt
 "${CMAKE_CURRENT_BINARY_DIR}"
 )

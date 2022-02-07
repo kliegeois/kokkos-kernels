@@ -2,7 +2,7 @@ import numpy as np
 
 import time
 from test_io import mmwrite, mmread
-from run_Test import run_test
+from run_Test import run_test, getBuildDirectory
 from create_matrices import *
 from read_pele_matrices import *
 import os
@@ -53,8 +53,7 @@ def main():
 
     Ns *= n_files
 
-    with open('binary_dir.txt') as f:
-        directory = f.read()
+    directory = getBuildDirectory()
 
     for ortho_strategy in [0, 1]:
         for arnoldi_level in [0, 1]:

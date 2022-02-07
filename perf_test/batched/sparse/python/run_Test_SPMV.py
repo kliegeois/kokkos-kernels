@@ -2,7 +2,7 @@ import numpy as np
 
 import time
 from test_io import mmwrite, mmread
-from run_Test import run_test
+from run_Test import run_test, getBuildDirectory
 from create_matrices import *
 import os
 
@@ -39,8 +39,7 @@ def main():
     tic = time.perf_counter()
     Bs = np.arange(10,501, 10)
 
-    with open('binary_dir.txt') as f:
-        directory = f.read()
+    directory = getBuildDirectory()
 
     data_d = 'SPMV_data_1'
 
