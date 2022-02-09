@@ -15,8 +15,8 @@ def getHostName():
 def getBuildDirectory():
     host_name = getHostName()
 
-    if os.path.exists(host_name+'.txt'):
-        with open(host_name+'.txt') as f:
+    if os.path.exists('binary_dir_'+host_name+'.txt'):
+        with open('binary_dir_'+host_name+'.txt') as f:
             directory = f.read()
     return directory
 

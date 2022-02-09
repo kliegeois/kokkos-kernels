@@ -67,6 +67,7 @@ class KrylovHandle {
  public:
   NormViewType residual_norms;
   IntViewType iteration_numbers;
+  NormViewType internal_timers;
   norm_type tolerance;
   int max_iteration;
   int batched_size;
@@ -75,18 +76,21 @@ class KrylovHandle {
   int arnoldi_level;
   int other_level;
   bool compute_last_residual;
+  bool measure_internal_timers;
 
  public:
-  KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200) : 
+  KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200, int n_timers = 20) : 
   max_iteration(_max_iteration), batched_size(_batched_size), N_team(_N_team) {
     tolerance     = Kokkos::Details::ArithTraits<norm_type>::epsilon();
     residual_norms = NormViewType("",batched_size, max_iteration+1);
+    internal_timers = NormViewType("",batched_size, n_timers);
     iteration_numbers = IntViewType("",batched_size);
     // Default Classical GS
     ortho_strategy = 1;
     arnoldi_level = 0;
     other_level = 0;
     compute_last_residual = true;
+    measure_internal_timers = false;
   }
 
   /// \brief set_tolerance
@@ -127,6 +131,24 @@ class KrylovHandle {
   KOKKOS_INLINE_FUNCTION
   void set_norm(int team_id, int batched_id, int iteration_id, norm_type norm_i) const {
     residual_norms(team_id * N_team + batched_id, iteration_id) = norm_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void set_measure_internal_timers(bool _measure_internal_timers) { measure_internal_timers = _measure_internal_timers; }
+
+  KOKKOS_INLINE_FUNCTION
+  bool get_measure_internal_timers() const { return measure_internal_timers; } 
+
+  KOKKOS_INLINE_FUNCTION
+  void add_timer(int batched_id, int time_id, norm_type time_i) const {
+    if(measure_internal_timers)
+      internal_timers(batched_id, time_id) += time_i;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void add_timer(int team_id, int batched_id, int time_id, norm_type time_i) const {
+    if(measure_internal_timers)
+      internal_timers(team_id * N_team + batched_id, time_id) += time_i;
   }
 
   KOKKOS_INLINE_FUNCTION

@@ -2,7 +2,7 @@ import numpy as np
 
 import time
 from test_io import mmwrite, mmread
-from run_Test import run_test, getBuildDirectory
+from run_Test import run_test, getHostName, getBuildDirectory
 from create_matrices import *
 from read_pele_matrices import *
 import os
@@ -34,7 +34,7 @@ def getSortedIndices(specie, order):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.array([1,  32])
+    Ns = np.array([1,  16,  32, 128, 192])
 
     specie = 'gri30'
     scaled = True
@@ -46,7 +46,7 @@ def main():
     ortho_strategy = 0
     arnoldi_level = 0
     other_level = 0
-    N_team = 4
+    N_team = 6
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     if specie == 'gri30':
@@ -57,22 +57,23 @@ def main():
     Ns *= n_files
 
     directory = getBuildDirectory()
+    hostname = getHostName()
 
     if sort:
-        data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_sorted'
+        data_d = hostname + '_Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_sorted'
     else:
-        data_d = 'Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
+        data_d = hostname + '_Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
 
     rows_per_thread = 1
-    team_size = 56 #32
-    vector_length = 4 #8
+    team_size = 54 #32
+    vector_length = 6 #8
     implementations_left = [3]
     implementations_right = [3]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
-    n1 = 2
-    n2 = 2
+    n1 = 5
+    n2 = 5
 
     n_quantiles = 7
 
@@ -120,7 +121,7 @@ def main():
         np.savetxt(data_d+'/nnzs.txt', nnzs)
 
     toc = time.perf_counter()
-    print(f"Elapsed time {toc - tic:0.4f} seconds")
+    #print(f"Elapsed time {toc - tic:0.4f} seconds")
 
 
 if __name__ == "__main__":

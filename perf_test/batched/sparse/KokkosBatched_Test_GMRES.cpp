@@ -301,6 +301,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
     _handle.set_Arnoldi_level(_arnoldi_level);
     _handle.set_other_level(_other_level);
     _handle.set_compute_last_residual(false);
+    _handle.set_measure_internal_timers(true);
 
     int maximum_iteration = _handle.get_max_iteration();
 
@@ -688,6 +689,12 @@ int main(int argc, char *argv[]) {
       }
       if (monitor_convergence) {
         writeArrayToMM(name_conv + std::to_string(i_impl) + ".mm", handle.residual_norms);
+      }
+      {
+        if (layout_left)
+          writeArrayToMM(name_timer + "_internal_" + std::to_string(N) + "_" + std::to_string(i_impl) + "_left.mm", handle.internal_timers);
+        if (layout_right)
+          writeArrayToMM(name_timer + "_internal_" + std::to_string(N) + "_" + std::to_string(i_impl) + "_right.mm", handle.internal_timers);
       }
     }
   }

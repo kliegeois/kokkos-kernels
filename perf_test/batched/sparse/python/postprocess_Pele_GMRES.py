@@ -78,6 +78,9 @@ specie = 'gri30'
 base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
 base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
 base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_7_0_0_0_sorted/'
+base = 'caraway_Pele_pGMRES_gri30_data_Scaled_Jacobi_7_0_0_0_sorted/'
+base = 'inouye_Pele_pGMRES_gri30_data_Scaled_Jacobi_7_0_0_0_sorted/'
+base = 'weaver_Pele_pGMRES_gri30_data_Scaled_Jacobi_7_0_0_0_sorted/'
 
 implementations = [3]
 n_implementations = len(implementations)
