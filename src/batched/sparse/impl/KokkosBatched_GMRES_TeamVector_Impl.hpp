@@ -113,6 +113,109 @@ struct InternalTimers {
   }
 };
 
+
+template <typename ValueType, typename MagnitudeType>
+struct MyDotFunctor {
+  typedef MagnitudeType value_type[];
+
+  MyDotFunctor(const int N, const int m,
+      const ValueType *KOKKOS_RESTRICT A, const int as0, const int as1,
+      const ValueType *KOKKOS_RESTRICT B, const int bs0, const int bs1,
+      /* */ MagnitudeType *KOKKOS_RESTRICT C, const int cs)
+      : N_(N),
+        m_(m),
+        A_(A),
+        as0_(as0),
+        as1_(as1),
+        B_(B),
+        bs0_(bs0),
+        bs1_(bs1),
+        C_(C),
+        cs_(cs) { }
+
+ public:
+  KOKKOS_INLINE_FUNCTION void init(value_type y_cur) const {
+    for (int j = 0; j < N_; ++j) {
+      y_cur[j] = Kokkos::ArithTraits<MagnitudeType>::zero();
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION void join(volatile value_type dst,
+                                   const volatile value_type src) const {
+    for (int j = 0; j < N_; ++j) {
+      dst[j] += src[j];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION void final(value_type y_result) const {
+    for (int j = 0; j < N_; ++j) {
+      C_[j * cs_] = y_result[j];
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION void operator()(const int& i,
+                                         value_type y_cur) const {
+    using ats = Kokkos::ArithTraits<ValueType>;
+    for (int j = 0; j < N_; ++j) {
+      y_cur[j] += ats::conj(A_[j * as0_ + i * as1_]) * B_[j * bs0_ + i * bs1_];
+    }
+  }
+
+ private:
+  const int N_;
+  const int m_;
+  const ValueType *A_;
+  const int as0_;
+  const int as1_;
+  const ValueType *B_;
+  const int bs0_;
+  const int bs1_;
+  MagnitudeType *C_;
+  const int cs_;
+};
+
+template <typename MemberType>
+struct MyTeamVectorDotInternal {
+  template <typename ValueType, typename MagnitudeType>
+  KOKKOS_FORCEINLINE_FUNCTION static int invoke(
+      const MemberType &member, const int N, const int m,
+      const ValueType *KOKKOS_RESTRICT A, const int as0, const int as1,
+      const ValueType *KOKKOS_RESTRICT B, const int bs0, const int bs1,
+      /* */ MagnitudeType *KOKKOS_RESTRICT C, const int cs) {
+    using ats = Kokkos::ArithTraits<ValueType>;
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(member, N), [&](const int &j) {
+      ValueType t(0);
+      const ValueType *KOKKOS_RESTRICT A_at_j = A + j * as0;
+      const ValueType *KOKKOS_RESTRICT B_at_j = B + j * bs0;
+      Kokkos::parallel_reduce(
+          Kokkos::ThreadVectorRange(member, m),
+          [&](const int &i, ValueType &update) {
+            const int idx_a = i * as1, idx_b = i * bs1;
+            update += ats::conj(A_at_j[idx_a]) * B_at_j[idx_b];
+          },
+          t);
+      Kokkos::single(Kokkos::PerThread(member), [&]() { C[j * cs] = t; });
+    });
+    return 0;
+  }
+};
+
+
+template <typename MemberType>
+struct MyTeamVectorDot {
+  template <typename XViewType, typename YViewType, typename NormViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
+                                           const XViewType &X,
+                                           const YViewType &Y,
+                                           const NormViewType &dot) {
+    return MyTeamVectorDotInternal<MemberType>::template invoke<
+        typename XViewType::non_const_value_type,
+        typename NormViewType::non_const_value_type>(
+        member, X.extent(0), X.extent(1), X.data(), X.stride_0(), X.stride_1(),
+        Y.data(), Y.stride_0(), Y.stride_1(), dot.data(), dot.stride_0());
+  }
+};
+
 ///
 /// TeamVector GMRES
 ///   Two nested parallel_for with both TeamVectorRange and ThreadVectorRange
@@ -221,7 +324,7 @@ struct TeamVectorGMRES {
       timer_2.setBegin(member, timer_1.getBegin());
     }
 
-    TeamVectorDot<MemberType>::invoke(member, W, W, tmp);
+    MyTeamVectorDot<MemberType>::invoke(member, W, W, tmp);
     member.team_barrier();
 
     if(handle.get_measure_internal_timers()) {
@@ -304,7 +407,7 @@ struct TeamVectorGMRES {
       if (handle.get_ortho_strategy()==1) {
         for (size_t i = 0; i < j + 1; ++i) {
           auto V_i = Kokkos::subview(V, Kokkos::ALL, i, Kokkos::ALL);
-          TeamVectorDot<MemberType>::invoke(member, W, V_i, tmp);
+          MyTeamVectorDot<MemberType>::invoke(member, W, V_i, tmp);
           member.team_barrier();
           TeamVectorCopy1D::invoke(member, tmp,
                                   Kokkos::subview(H, Kokkos::ALL, j, i));
@@ -330,7 +433,7 @@ struct TeamVectorGMRES {
         timer_2.setBegin(member, timer_1.getBegin());
       }
 
-      TeamVectorDot<MemberType>::invoke(member, W, W, tmp);
+      MyTeamVectorDot<MemberType>::invoke(member, W, W, tmp);
       member.team_barrier();
       if(handle.get_measure_internal_timers()) {
         timer_2.add_timer(member, 12, handle);
@@ -480,7 +583,7 @@ struct TeamVectorGMRES {
       member.team_barrier();
       P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
       member.team_barrier();
-      TeamVectorDot<MemberType>::invoke(member, W, W, tmp);
+      MyTeamVectorDot<MemberType>::invoke(member, W, W, tmp);
       member.team_barrier();
 
       Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
