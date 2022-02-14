@@ -271,10 +271,24 @@ struct TeamVectorGMRES {
     int offset_H = offset_V + n_V;
     int offset_Givens = offset_H + n_H;
 
-    ScratchPadMultiVectorViewType tmp_3D(member.team_scratch(handle.get_Arnoldi_level()), numMatrices, maximum_iteration, n_V+n_H+n_Givens);
-    auto V = Kokkos::subview(tmp_3D, Kokkos::ALL, Kokkos::ALL, Kokkos::make_pair(offset_V, offset_V + n_V));
-    auto H = Kokkos::subview(tmp_3D, Kokkos::ALL, Kokkos::ALL, Kokkos::make_pair(offset_H, offset_H + n_H));
-    auto Givens = Kokkos::subview(tmp_3D, Kokkos::ALL, Kokkos::ALL, Kokkos::make_pair(offset_Givens, offset_Givens + n_Givens));
+    bool arnoldi_prealocated = handle.get_Arnoldi_level() < 2 ? false : true;
+
+    //KrylovHandleType::ArnoldiViewType view_3D = handle.Arnoldi_view;
+    //if(!arnoldi_prealocated)
+    //  ScratchPadMultiVectorViewType tmp_3D(member.team_scratch(handle.get_Arnoldi_level()), numMatrices, maximum_iteration, n_V+n_H+n_Givens);
+    //  view_3D = tmp_3D;
+    //}
+
+    const int first_matrix = static_cast<int>(member.league_rank()) * numMatrices;
+    const int N            = handle.Arnoldi_view.extent(0);
+    const int last_matrix =
+        (static_cast<int>(member.league_rank() + 1) * numMatrices < N
+             ? static_cast<int>(member.league_rank() + 1) * numMatrices
+             : N);
+
+    auto V = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_V, offset_V + n_V));
+    auto H = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_H, offset_H + n_H));
+    auto Givens = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_Givens, offset_Givens + n_Givens));
 
     int n_G = maximum_iteration + 1;
     int n_W = numRows;
@@ -303,33 +317,41 @@ struct TeamVectorGMRES {
     Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
                          [&](const OrdinalType& i) { mask(i) = 1.; });
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_1.add_timer(member, 0, handle);
     }
+#endif
 
     // r_0 := b - A x_0
     member.team_barrier();
     A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, X, W, -1, 1);
     member.team_barrier();
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_1.add_timer(member, 1, handle);
     }
+#endif
 
     P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
     member.team_barrier();
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_1.add_timer(member, 2, handle);
       timer_2.setBegin(member, timer_1.getBegin());
     }
+#endif
 
     MyTeamVectorDot<MemberType>::invoke(member, W, W, tmp);
     member.team_barrier();
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_2.add_timer(member, 12, handle);
     }
+#endif
 
     Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
                          [&](const OrdinalType& i) {
@@ -341,9 +363,11 @@ struct TeamVectorGMRES {
 
     member.team_barrier();  // Finish writing to tmp
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_2.add_timer(member, 13, handle);
     }
+#endif
 
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
@@ -354,11 +378,13 @@ struct TeamVectorGMRES {
           V(iMatrix, 0, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
         });
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_2.add_timer(member, 14, handle);
       timer_1.setEnd(member, timer_2.getEnd());
       timer_1.add_timer(member, 3, handle);
     }
+#endif
 
     int status = 1;
     // int number_not_converged = 0;
@@ -371,16 +397,20 @@ struct TeamVectorGMRES {
       A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, V_j, W);
       member.team_barrier();
 
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_1.add_timer(member, 1, handle);
       }
+#endif
 
       P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
       member.team_barrier();
 
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_1.add_timer(member, 2, handle);
       }
+#endif
 
       if (handle.get_ortho_strategy()==0) {
         auto V_old = Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL);
@@ -390,19 +420,23 @@ struct TeamVectorGMRES {
         TeamVectorGemv<MemberType, Trans::NoTranspose, Algo::Gemv::Unblocked>::invoke(member, 1, 
         V_old, W, 0, H_old);
         member.team_barrier();
- 
+
+#if 1
         if(handle.get_measure_internal_timers()) {
           timer_1.add_timer(member, 4, handle);
         }
+#endif
 
         // Update
         TeamVectorGemv<MemberType, Trans::Transpose, Algo::Gemv::Unblocked>::invoke(member, -1, 
         V_old, H_old, 1, W);
         member.team_barrier();
 
+#if 1
         if(handle.get_measure_internal_timers()) {
           timer_1.add_timer(member, 5, handle);
         }
+#endif
       }
       if (handle.get_ortho_strategy()==1) {
         for (size_t i = 0; i < j + 1; ++i) {
@@ -418,26 +452,34 @@ struct TeamVectorGMRES {
 
           member.team_barrier();  // Finish writing to tmp
 
+#if 1
           if(handle.get_measure_internal_timers()) {
             timer_1.add_timer(member, 4, handle);
           }
+#endif
           TeamVectorAxpy<MemberType>::invoke(member, tmp, V_i, W);
           member.team_barrier();  // Finish writing to W
+
+#if 1
           if(handle.get_measure_internal_timers()) {
             timer_1.add_timer(member, 5, handle);
           }
+#endif
         }
       }
 
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_2.setBegin(member, timer_1.getBegin());
       }
-
+#endif
       MyTeamVectorDot<MemberType>::invoke(member, W, W, tmp);
       member.team_barrier();
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_2.add_timer(member, 12, handle);
       }
+#endif
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, 0, numMatrices),
           [&](const OrdinalType& i) {
@@ -445,9 +487,11 @@ struct TeamVectorGMRES {
             tmp(i) = H(i, j, j + 1) > max_tolerance ? 1. / H(i, j, j + 1) : 0.;
           });
       member.team_barrier();
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_2.add_timer(member, 13, handle);
-      }      
+      }
+#endif    
       if (j + 1 < maximum_iteration) {
         Kokkos::parallel_for(
             Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
@@ -460,11 +504,13 @@ struct TeamVectorGMRES {
         member.team_barrier();
       }
 
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_2.add_timer(member, 14, handle);
         timer_1.setEnd(member, timer_2.getEnd());
         timer_1.add_timer(member, 3, handle);
       }
+#endif
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, 0, numMatrices),
           [&](const OrdinalType& l) {
@@ -517,9 +563,11 @@ struct TeamVectorGMRES {
             }
           });
       member.team_barrier();
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_1.add_timer(member, 6, handle);
       }
+#endif
       bool all_converged = true;
       for (OrdinalType l = 0; l < numMatrices; ++l)
         all_converged = (all_converged && mask(l) == 0.);
@@ -527,9 +575,11 @@ struct TeamVectorGMRES {
         maximum_iteration = j;
         break;
       }
+#if 1
       if(handle.get_measure_internal_timers()) {
         timer_1.add_timer(member, 6, handle);
       }
+#endif
     }
 
     member.team_barrier();  // Finish writing to G
@@ -548,10 +598,11 @@ struct TeamVectorGMRES {
 
     member.team_barrier();  // Finish writing to G
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_1.add_timer(member, 7, handle);
     }
-
+#endif
     if (handle.get_ortho_strategy()==0) {
       TeamVectorGemv<MemberType, Trans::Transpose, Algo::Gemv::Unblocked>::invoke(member, 1, 
       Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) maximum_iteration), Kokkos::ALL), 
@@ -572,10 +623,12 @@ struct TeamVectorGMRES {
 
     member.team_barrier();
 
+#if 1
     if(handle.get_measure_internal_timers()) {
       timer_1.add_timer(member, 8, handle);
       timer_total.add_timer(member, 9, handle);
     }
+#endif    
     if (handle.get_compute_last_residual()) {
       TeamVectorCopy<MemberType>::invoke(member, _B, W);
       member.team_barrier();

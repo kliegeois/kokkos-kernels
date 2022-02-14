@@ -331,6 +331,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
     size_t bytes_Arnoldi = bytes_3D_1 + bytes_3D_2 + bytes_3D_3;
     size_t bytes_tmp = 2 * bytes_2D_1 + 2 * bytes_1D + bytes_2D_2;
 
+/*
     if ( _arnoldi_level == 0 && _other_level == 0) {
       policy.set_scratch_size(0, Kokkos::PerTeam(bytes_tmp + bytes_diag + bytes_int + bytes_Arnoldi));
     }
@@ -342,6 +343,8 @@ struct Functor_TestBatchedTeamVectorGMRES {
       policy.set_scratch_size(0, Kokkos::PerTeam(bytes_diag + bytes_int));
       policy.set_scratch_size(1, Kokkos::PerTeam(bytes_tmp + bytes_Arnoldi));
     }
+*/
+    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_tmp + bytes_diag + bytes_int));
 
     exec_space().fence();
     timer.reset();
@@ -517,10 +520,20 @@ int main(int argc, char *argv[]) {
       using NormViewType = Kokkos::View<MagnitudeType *, Layout, EXSP>;
       
       using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
+      using Scalar3DViewType = Kokkos::View<ScalarType ***, Layout, EXSP>;
       using IntViewType = Kokkos::View<int*, Layout, EXSP>;
 
-      using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType>;
+
+      const int order[]            = {0, 1, 2};
+      const int dim[]            = {N, n_iterations, Blk+n_iterations+3};
+
+      Kokkos::LayoutStride stride =
+          Kokkos::LayoutStride::order_dimensions(3, order, dim);
+
+      using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType, Scalar3DViewType>;
       KrylovHandleType handle(N, N_team, n_iterations+1);
+
+      handle.Arnoldi_view = Scalar3DViewType("", N, n_iterations, Blk+n_iterations+3);
       
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
         double t_spmv = 0;
@@ -581,7 +594,7 @@ int main(int argc, char *argv[]) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
 #endif
-/*
+
           if(layout_right) {
             NormViewType sqr_norm_0("sqr_norm_0", N);
             NormViewType sqr_norm_j("sqr_norm_j", N);
@@ -644,7 +657,7 @@ int main(int argc, char *argv[]) {
               if (1e-7 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
                 std::cout << std::setprecision (15) << "Left: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
           }
-*/
+
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }
