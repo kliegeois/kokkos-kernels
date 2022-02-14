@@ -111,13 +111,13 @@ class CrsMatrix {
       MagnitudeType beta =
           Kokkos::Details::ArithTraits<MagnitudeType>::zero()) const {
     if (beta == 0)
-      KokkosBatched::Spmv<MemberType, ArgTrans, ArgMode>::template invoke<
-          ValuesViewType, IntViewType, XViewType, YViewType, 0>(
-          member, alpha, values, row_ptr, colIndices, X, beta, Y);
+      KokkosBatched::TeamVectorSpmv<MemberType, ArgTrans>::template invoke<
+                ValuesViewType, IntViewType, XViewType, YViewType, 0>(
+                member, alpha, values, row_ptr, colIndices, X, beta, Y);    
     else
-      KokkosBatched::Spmv<MemberType, ArgTrans, ArgMode>::template invoke<
-          ValuesViewType, IntViewType, XViewType, YViewType, 1>(
-          member, alpha, values, row_ptr, colIndices, X, beta, Y);
+      KokkosBatched::TeamVectorSpmv<MemberType, ArgTrans>::template invoke<
+                ValuesViewType, IntViewType, XViewType, YViewType, 1>(
+                member, alpha, values, row_ptr, colIndices, X, beta, Y);   
   }
 
 /*

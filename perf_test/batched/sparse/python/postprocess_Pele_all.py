@@ -69,7 +69,7 @@ def ginkgo_data(specie):
 
 specie = 'gri30'
 
-data_base = 'Pele_pGMRES_'+specie+'_data_all_0_0_0_Scaled/'
+data_base = '1_Pele_pGMRES_'+specie+'_data_all_0_0_0_Scaled/'
 implementations = [3]
 n_implementations = len(implementations)
 n_quantiles = 7
@@ -80,7 +80,7 @@ team_sizes = np.array([1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64])
 vector_lengths = np.array([1, 2, 4, 8, 16])
 N_teams = np.array([1, 2, 4, 8, 16])
 
-n_Ns = 2
+n_Ns = 1
 
 CPU_l = np.ones((len(team_sizes), len(vector_lengths), len(N_teams), n_Ns))
 CPU_r = np.ones((len(team_sizes), len(vector_lengths), len(N_teams), n_Ns))

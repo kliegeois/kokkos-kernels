@@ -75,7 +75,7 @@ def ginkgo_data(specie):
 
 specie = 'gri30'
 
-base = 'weaver_Pele_pGMRES_gri30_data_Scaled_Jacobi_8_0_0_0_sorted/'
+base = 'weaver_Pele_pGMRES_gri30_data_Scaled_Jacobi_8_0_8_0_unsorted/'
 
 implementations = [3]
 n_implementations = len(implementations)

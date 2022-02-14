@@ -96,9 +96,10 @@ void impl_test_batched_CG(const int N, const int BlkSize, const int N_team) {
   using NormViewType = Kokkos::View<MagnitudeType *, Layout, EXSP>;
 
   using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
+  using Scalar3DViewType = Kokkos::View<ScalarType ***, Layout, EXSP>;
   using IntViewType = Kokkos::View<int*, Layout, EXSP>;
 
-  using KrylovHandleType = KrylovHandle<Norm2DViewType, IntViewType>;
+  using KrylovHandleType = KrylovHandle<Norm2DViewType, IntViewType, Scalar3DViewType>;
 
   NormViewType sqr_norm_0("sqr_norm_0", N);
   NormViewType sqr_norm_j("sqr_norm_j", N);

@@ -96,28 +96,58 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const ScalarType* KOKKOS_RESTRICT beta, const OrdinalType betas0,
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
-  if (numMatrices < 3) {
+  if (numMatrices < 0) {
+#if 0 //def __CUDA_ARCH__
+    for (OrdinalType iMatrix = 0; iMatrix < numMatrices; ++iMatrix) {
+      for (int iRow = threadIdx.x; iRow < numRows; iRow += blockDim.x) {
+        const OrdinalType row_start = row_ptr[iRow * row_ptrs0];
+        const OrdinalType row_end = row_ptr[(iRow + 1) * row_ptrs0];
+
+        ValueType sum = 0;
+        for (OrdinalType i = threadIdx.y + row_start; i < row_end;
+          i += blockDim.y) {
+          const OrdinalType col = colIndices[i * colIndicess0];
+          const ValueType val = values[iMatrix * valuess0 + i * valuess1];
+          sum += val * X[iMatrix * xs0 + col * xs1];
+        }
+/*
+#pragma unroll
+        for (int i = static_cast<int>(blockDim.y) / 2; i > 0; i >>= 1) {
+          ValueType tmp = Kokkos::shfl_down(sum, 1, 32);
+          if (threadIdx.x + i < blockDim.y) sum += tmp;
+        }
+*/
+        Kokkos::single(Kokkos::PerThread(member), [&]() {
+          Y[iMatrix * ys0 + iRow * ys1] = alpha[iMatrix * alphas0] * sum 
+            + beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1];
+        });
+      }
+    }
+#else
     for (OrdinalType iMatrix = 0; iMatrix < numMatrices; ++iMatrix) {
       Kokkos::parallel_for(
           Kokkos::TeamThreadRange(member, 0, numRows),
           [&](const OrdinalType& iRow) {
-            const OrdinalType rowLength =
-                row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+            const OrdinalType row_start = row_ptr[iRow * row_ptrs0];
+            const OrdinalType row_end = row_ptr[(iRow + 1) * row_ptrs0];
+            const OrdinalType rowLength = row_end-row_start;
             ValueType sum = 0;
 
             Kokkos::parallel_reduce(
                 Kokkos::ThreadVectorRange(member, rowLength),
                 [&](const OrdinalType& iEntry, ValueType& lsum) {
                   lsum += values[iMatrix * valuess0 +
-                                (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
+                                (row_start + iEntry) * valuess1] *
                         X[iMatrix * xs0 +
-                          colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                          colIndices[(row_start + iEntry) *
                                       colIndicess0] *
                               xs1];
                 },
                 sum);
 
             Kokkos::single(Kokkos::PerThread(member), [&]() {
+              //Y[iMatrix * ys0 + iRow * ys1] = sum;
+              
               sum *= alpha[iMatrix * alphas0];
 
               if (dobeta == 0) {
@@ -126,9 +156,11 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
                 Y[iMatrix * ys0 + iRow * ys1] =
                     beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] + sum;
               }
+              
             });
           });
     }
+#endif
   }
   else {
     Kokkos::parallel_for(
@@ -178,22 +210,53 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const OrdinalType xs0, const OrdinalType xs1, const ScalarType beta,
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
-  if (numMatrices < 3) {
+  if (numMatrices < 0) {
+#if 0
+    for (OrdinalType iMatrix = 0; iMatrix < numMatrices; ++iMatrix) {
+      for (int iRow = threadIdx.x; iRow < numRows; iRow += blockDim.x) {
+        const OrdinalType row_start = row_ptr[iRow * row_ptrs0];
+        const OrdinalType row_end = row_ptr[(iRow + 1) * row_ptrs0];
+
+        ValueType sum = 0;
+        for (OrdinalType i = threadIdx.y + row_start; i < row_end;
+          i += blockDim.y) {
+          const OrdinalType col = colIndices[i * colIndicess0];
+          const ValueType val = values[iMatrix * valuess0 + i * valuess1];
+          sum += val * X[iMatrix * xs0 + col * xs1];
+        }
+      }
+    }
+/*
+        printf("blockDim.x = %d, blockDim.y = %d\n", blockDim.x, blockDim.y);
+#pragma unroll
+        for (int i = static_cast<int>(blockDim.y) / 2; i > 0; i /= 2) {
+          sum += __shfl_down_sync(0xFFFFFFFF, sum, i, blockDim.y);
+        }
+*/
+/*
+        if (threadIdx.x == 0 && threadIdx.y == 0)
+          Y[iMatrix * ys0 + iRow * ys1] = alpha * sum 
+            + beta * Y[iMatrix * ys0 + iRow * ys1];
+      }
+    }
+*/    
+#else
     for (OrdinalType iMatrix = 0; iMatrix < numMatrices; ++iMatrix) {
       Kokkos::parallel_for(
           Kokkos::TeamThreadRange(member, 0, numRows),
           [&](const OrdinalType& iRow) {
-            const OrdinalType rowLength =
-                row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+            const OrdinalType row_start = row_ptr[iRow * row_ptrs0];
+            const OrdinalType row_end = row_ptr[(iRow + 1) * row_ptrs0];
+            const OrdinalType rowLength = row_end-row_start;
             ValueType sum = 0;
 
             Kokkos::parallel_reduce(
                 Kokkos::ThreadVectorRange(member, rowLength),
                 [&](const OrdinalType& iEntry, ValueType& lsum) {
                   lsum += values[iMatrix * valuess0 +
-                                (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
+                                (row_start + iEntry) * valuess1] *
                         X[iMatrix * xs0 +
-                          colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                          colIndices[(row_start + iEntry) *
                                       colIndicess0] *
                               xs1];
                 },
@@ -211,6 +274,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
             });
           });
     }
+#endif    
   }
   else {
     Kokkos::parallel_for(

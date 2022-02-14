@@ -72,10 +72,10 @@ def ginkgo_data(specie):
         time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
     return n, time
 
-specie = 'isooctane'
+specie = 'gri30'
 
-base = 'Pele_SPMV_'+specie+'data_1/'
-implementations = [3]
+base = 'Pele_SPMV_'+specie+'_data_3/'
+implementations = [0,1,2,3]
 n_implementations = len(implementations)
 n_quantiles = 7
 

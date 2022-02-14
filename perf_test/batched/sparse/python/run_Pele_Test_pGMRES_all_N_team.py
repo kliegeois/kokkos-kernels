@@ -15,7 +15,7 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = 90*np.array([1, 100])
+    Ns = 90*np.array([1, 10])
 
     specie = 'gri30'
 
@@ -28,14 +28,14 @@ def main():
     arnoldi_level = 0
     other_level = 0
 
-    data_base = 'Pele_pGMRES_' + specie + '_data_all_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_Scaled'
+    data_base = '2_Pele_pGMRES_' + specie + '_data_all_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_Scaled'
 
     if not os.path.isdir(data_base):
         os.mkdir(data_base)
 
-    team_sizes = np.array([1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64])
-    vector_lengths = np.array([1, 2, 4, 8, 16])
-    N_teams = np.array([1, 2, 4, 8, 16])
+    team_sizes = np.array([1, 2, 4, 8, 16, 24, 32, 40, 48, 54])
+    vector_lengths = np.array([1, 2, 3, 5, 6])
+    N_teams = np.array([1, 2, 3, 5, 6])
 
     n_iterations = 7
     tol = 1e-8

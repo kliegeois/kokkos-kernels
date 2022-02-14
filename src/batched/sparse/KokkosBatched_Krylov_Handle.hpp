@@ -57,17 +57,20 @@ namespace KokkosBatched {
 ///
 /// \tparam scalar_type: Scalar type of the linear solver
 
-template <class NormViewType, class IntViewType>
+template <class NormViewType, class IntViewType, class ViewType3D>
 class KrylovHandle {
  public:
   using norm_type =
       typename NormViewType::non_const_value_type;
+  
+  typedef ViewType3D ArnoldiViewType;
 
 
  public:
   NormViewType residual_norms;
   IntViewType iteration_numbers;
   NormViewType internal_timers;
+  ViewType3D Arnoldi_view;
   norm_type tolerance;
   int max_iteration;
   int batched_size;

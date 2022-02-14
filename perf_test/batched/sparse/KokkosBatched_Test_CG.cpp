@@ -308,9 +308,10 @@ int main(int argc, char *argv[]) {
       using NormViewType = Kokkos::View<MagnitudeType *, Layout, EXSP>;
       
       using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
+      using Scalar3DViewType = Kokkos::View<ScalarType ***, Layout, EXSP>;
       using IntViewType = Kokkos::View<int*, Layout, EXSP>;
 
-      using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType>;
+      using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType, Scalar3DViewType>;
       KrylovHandleType handle(N, N_team);
 
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {

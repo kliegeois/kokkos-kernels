@@ -15,9 +15,9 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.array([1, 100])#np.arange(100, 15000, 50)
+    Ns = 90*np.array([1, 100, 1000])#np.arange(100, 15000, 50)
 
-    specie = 'isooctane'
+    specie = 'gri30'
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     n_files = 72
@@ -27,7 +27,7 @@ def main():
     data_d = 'Pele_SPMV_' + specie + '_data_3'
 
     rows_per_thread=1
-    team_size = 8
+    team_size = 32
     vector_length = 8
     N_team = 8
     implementations_left = [0, 1, 2, 3]

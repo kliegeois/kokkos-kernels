@@ -41,12 +41,12 @@ def main():
     order = 'descending'
     indices = getSortedIndices(specie,order)
     sort = True
-    n_iterations = 7
+    n_iterations = 8
     tol = 1e-8
     ortho_strategy = 0
-    arnoldi_level = 0
+    arnoldi_level = 10
     other_level = 0
-    N_team = 6
+    N_team = 16
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     if specie == 'gri30':
@@ -65,15 +65,15 @@ def main():
         data_d = hostname + '_Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
 
     rows_per_thread = 1
-    team_size = 54 #32
-    vector_length = 6 #8
+    team_size = 16 #32
+    vector_length = 16 #8
     implementations_left = [3]
     implementations_right = [3]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
-    n1 = 5
-    n2 = 5
+    n1 = 20
+    n2 = 20
 
     n_quantiles = 7
 
