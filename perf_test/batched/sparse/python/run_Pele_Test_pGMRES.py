@@ -44,7 +44,7 @@ def main():
     n_iterations = 8
     tol = 1e-8
     ortho_strategy = 0
-    arnoldi_level = 10
+    arnoldi_level = 11
     other_level = 0
     N_team = 16
 
