@@ -69,6 +69,8 @@ class KrylovHandle {
  public:
   NormViewType residual_norms;
   IntViewType iteration_numbers;
+  IntViewType first_index;
+  IntViewType last_index;
   NormViewType internal_timers;
   ViewType3D Arnoldi_view;
   norm_type tolerance;
@@ -88,6 +90,24 @@ class KrylovHandle {
     residual_norms = NormViewType("",batched_size, max_iteration+1);
     internal_timers = NormViewType("",batched_size, n_timers);
     iteration_numbers = IntViewType("",batched_size);
+    int n_teams = ceil(1.*batched_size / N_team);
+    first_index = IntViewType("", n_teams);
+    last_index = IntViewType("", n_teams);
+
+    auto first_index_host = Kokkos::create_mirror_view(first_index);
+    auto last_index_host = Kokkos::create_mirror_view(last_index);
+
+    first_index_host(0) = 0;
+    last_index_host(0) = N_team;
+    for(int i = 1; i < n_teams; ++i) {
+      first_index_host(i) = last_index_host(i-1);
+      last_index_host(i) = first_index_host(i) + N_team;
+    }
+    last_index_host(n_teams-1) = batched_size;
+
+    Kokkos::deep_copy(first_index, first_index_host);
+    Kokkos::deep_copy(last_index, last_index_host);
+
     // Default Classical GS
     ortho_strategy = 1;
     arnoldi_level = 0;

@@ -279,16 +279,12 @@ struct TeamVectorGMRES {
     //  view_3D = tmp_3D;
     //}
 
-    const int first_matrix = static_cast<int>(member.league_rank()) * numMatrices;
-    const int N            = handle.Arnoldi_view.extent(0);
-    const int last_matrix =
-        (static_cast<int>(member.league_rank() + 1) * numMatrices < N
-             ? static_cast<int>(member.league_rank() + 1) * numMatrices
-             : N);
-
-    auto V = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_V, offset_V + n_V));
-    auto H = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_H, offset_H + n_H));
-    auto Givens = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_Givens, offset_Givens + n_Givens));
+    const int first_matrix = handle.first_index(member.league_rank());
+    const int last_matrix  = handle.last_index(member.league_rank());
+    
+    auto V_view = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_V, offset_V + n_V));
+    auto H_view = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_H, offset_H + n_H));
+    auto Givens_view = Kokkos::subview(handle.Arnoldi_view, Kokkos::make_pair(first_matrix, last_matrix), Kokkos::ALL, Kokkos::make_pair(offset_Givens, offset_Givens + n_Givens));
 
     int n_G = maximum_iteration + 1;
     int n_W = numRows;
@@ -369,13 +365,14 @@ struct TeamVectorGMRES {
     }
 #endif
 
+    auto V_0 = Kokkos::subview(V_view, Kokkos::ALL, 0, Kokkos::ALL);
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
         [&](const OrdinalType& iTemp) {
           OrdinalType iRow, iMatrix;
           getIndices<OrdinalType, typename VectorViewType::array_layout>(
               iTemp, numRows, numMatrices, iRow, iMatrix);
-          V(iMatrix, 0, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
+          V_0(iMatrix, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
         });
 
 #if 1
@@ -392,7 +389,7 @@ struct TeamVectorGMRES {
     for (size_t j = 0; j < maximum_iteration; ++j) {
       member.team_barrier();  // Finish writing to V
       // q := A p_j
-      auto V_j = Kokkos::subview(V, Kokkos::ALL, j, Kokkos::ALL);
+      auto V_j = Kokkos::subview(V_view, Kokkos::ALL, j, Kokkos::ALL);
 
       A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, V_j, W);
       member.team_barrier();
@@ -413,8 +410,8 @@ struct TeamVectorGMRES {
 #endif
 
       if (handle.get_ortho_strategy()==0) {
-        auto V_old = Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL);
-        auto H_old = Kokkos::subview(H, Kokkos::ALL, j, Kokkos::make_pair(0, (int) j+1));
+        auto V_old = Kokkos::subview(V_view, Kokkos::ALL, Kokkos::make_pair(0, (int) j+1), Kokkos::ALL);
+        auto H_old = Kokkos::subview(H_view, Kokkos::ALL, j, Kokkos::make_pair(0, (int) j+1));
         member.team_barrier();
         // Inner products
         TeamVectorGemv<MemberType, Trans::NoTranspose, Algo::Gemv::Unblocked>::invoke(member, 1, 
@@ -440,11 +437,11 @@ struct TeamVectorGMRES {
       }
       if (handle.get_ortho_strategy()==1) {
         for (size_t i = 0; i < j + 1; ++i) {
-          auto V_i = Kokkos::subview(V, Kokkos::ALL, i, Kokkos::ALL);
+          auto V_i = Kokkos::subview(V_view, Kokkos::ALL, i, Kokkos::ALL);
           MyTeamVectorDot<MemberType>::invoke(member, W, V_i, tmp);
           member.team_barrier();
           TeamVectorCopy1D::invoke(member, tmp,
-                                  Kokkos::subview(H, Kokkos::ALL, j, i));
+                                  Kokkos::subview(H_view, Kokkos::ALL, j, i));
           member.team_barrier();
           Kokkos::parallel_for(
               Kokkos::TeamVectorRange(member, 0, numMatrices),
@@ -459,7 +456,6 @@ struct TeamVectorGMRES {
 #endif
           TeamVectorAxpy<MemberType>::invoke(member, tmp, V_i, W);
           member.team_barrier();  // Finish writing to W
-
 #if 1
           if(handle.get_measure_internal_timers()) {
             timer_1.add_timer(member, 5, handle);
@@ -483,8 +479,8 @@ struct TeamVectorGMRES {
       Kokkos::parallel_for(
           Kokkos::TeamVectorRange(member, 0, numMatrices),
           [&](const OrdinalType& i) {
-            H(i, j, j + 1) = ATM::sqrt(tmp(i));
-            tmp(i) = H(i, j, j + 1) > max_tolerance ? 1. / H(i, j, j + 1) : 0.;
+            H_view(i, j, j + 1) = ATM::sqrt(tmp(i));
+            tmp(i) = H_view(i, j, j + 1) > max_tolerance ? 1. / H_view(i, j, j + 1) : 0.;
           });
       member.team_barrier();
 #if 1
@@ -493,13 +489,14 @@ struct TeamVectorGMRES {
       }
 #endif    
       if (j + 1 < maximum_iteration) {
+        auto V_j = Kokkos::subview(V_view, Kokkos::ALL, j + 1, Kokkos::ALL);
         Kokkos::parallel_for(
             Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
             [&](const OrdinalType& iTemp) {
               OrdinalType iRow, iMatrix;
               getIndices<OrdinalType, typename VectorViewType::array_layout>(
                   iTemp, numRows, numMatrices, iRow, iMatrix);
-              V(iMatrix, j + 1, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
+              V_j(iMatrix, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
             });
         member.team_barrier();
       }
@@ -515,14 +512,16 @@ struct TeamVectorGMRES {
           Kokkos::TeamVectorRange(member, 0, numMatrices),
           [&](const OrdinalType& l) {
             // Apply the previous Givens rotations:
-            auto H_j = Kokkos::subview(H, l, j, Kokkos::ALL);
+            auto H_j = Kokkos::subview(H_view, l, j, Kokkos::ALL);
+            auto Givens_0_l = Kokkos::subview(Givens_view, l, Kokkos::ALL, 0);
+            auto Givens_1_l = Kokkos::subview(Givens_view, l, Kokkos::ALL, 1);
 
             if (mask(l) == 1.) {
               for (size_t i = 0; i < j; ++i) {
                 auto tmp1 =
-                    Givens(l, i, 0) * H_j(i) + Givens(l, i, 1) * H_j(i + 1);
+                    Givens_0_l(i) * H_j(i) + Givens_1_l(i) * H_j(i + 1);
                 auto tmp2 =
-                    -Givens(l, i, 1) * H_j(i) + Givens(l, i, 0) * H_j(i + 1);
+                    -Givens_1_l(i) * H_j(i) + Givens_0_l(i) * H_j(i + 1);
                 H_j(i)     = tmp1;
                 H_j(i + 1) = tmp2;
               }
@@ -534,19 +533,19 @@ struct TeamVectorGMRES {
               typename VectorViewType::non_const_value_type alpha = 0;
               SerialGivensInternal::invoke(H_j(j), H_j(j + 1), &G_new, &alpha);
 
-              Givens(l, j, 0) = G_new.first;
-              Givens(l, j, 1) = G_new.second;
+              Givens_0_l(j) = G_new.first;
+              Givens_1_l(j) = G_new.second;
 
               // Apply the new Givens rotation:
               auto tmp1 =
-                  Givens(l, j, 0) * H_j(j) + Givens(l, j, 1) * H_j(j + 1);
+                  Givens_0_l(j) * H_j(j) + Givens_1_l(j) * H_j(j + 1);
               auto tmp2 =
-                  -Givens(l, j, 1) * H_j(j) + Givens(l, j, 0) * H_j(j + 1);
+                  -Givens_1_l(j) * H_j(j) + Givens_0_l(j) * H_j(j + 1);
               H_j(j)     = tmp1;
               H_j(j + 1) = tmp2;
 
-              G(l, j + 1) = -Givens(l, j, 1) * G(l, j);
-              G(l, j) *= Givens(l, j, 0);
+              G(l, j + 1) = -Givens_1_l(j) * G(l, j);
+              G(l, j) *= Givens_0_l(j);
             } else {
               H_j(j)      = 1.;
               G(l, j + 1) = 0.;
@@ -591,8 +590,8 @@ struct TeamVectorGMRES {
           for (size_t i = 0; i < maximum_iteration; ++i) {
             size_t row_i = maximum_iteration - 1 - i;
             for (size_t j = row_i + 1; j < maximum_iteration; ++j)
-              G(l, row_i) -= H(l, j, row_i) * G(l, j);
-            G(l, row_i) /= H(l, row_i, row_i);
+              G(l, row_i) -= H_view(l, j, row_i) * G(l, j);
+            G(l, row_i) /= H_view(l, row_i, row_i);
           }
         });
 
@@ -605,7 +604,7 @@ struct TeamVectorGMRES {
 #endif
     if (handle.get_ortho_strategy()==0) {
       TeamVectorGemv<MemberType, Trans::Transpose, Algo::Gemv::Unblocked>::invoke(member, 1, 
-      Kokkos::subview(V, Kokkos::ALL, Kokkos::make_pair(0, (int) maximum_iteration), Kokkos::ALL), 
+      Kokkos::subview(V_view, Kokkos::ALL, Kokkos::make_pair(0, (int) maximum_iteration), Kokkos::ALL), 
       Kokkos::subview(G, Kokkos::ALL, Kokkos::make_pair(0, (int) maximum_iteration)), 
       1, 
       X);
@@ -614,7 +613,7 @@ struct TeamVectorGMRES {
       for (size_t j = 0; j < maximum_iteration; ++j)
         TeamVectorAxpy<MemberType>::invoke(
             member, Kokkos::subview(G, Kokkos::ALL, j),
-            Kokkos::subview(V, Kokkos::ALL, j, Kokkos::ALL), X);
+            Kokkos::subview(V_view, Kokkos::ALL, j, Kokkos::ALL), X);
     }
 
     member.team_barrier();  // Finish writing to X

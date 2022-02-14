@@ -234,12 +234,9 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
-    const int first_matrix = static_cast<int>(member.league_rank()) * _N_team;
-    const int N            = _D.extent(0);
-    const int last_matrix =
-        (static_cast<int>(member.league_rank() + 1) * _N_team < N
-             ? static_cast<int>(member.league_rank() + 1) * _N_team
-             : N);
+    const int first_matrix = _handle.first_index(member.league_rank());
+    const int last_matrix = _handle.last_index(member.league_rank());
+
     using TeamVectorCopy1D = KokkosBatched::TeamVectorCopy<MemberType, KokkosBatched::Trans::NoTranspose, 1>;
 
     auto d = Kokkos::subview(_D, Kokkos::make_pair(first_matrix, last_matrix),
@@ -594,7 +591,7 @@ int main(int argc, char *argv[]) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
 #endif
-
+/*
           if(layout_right) {
             NormViewType sqr_norm_0("sqr_norm_0", N);
             NormViewType sqr_norm_j("sqr_norm_j", N);
@@ -623,7 +620,7 @@ int main(int argc, char *argv[]) {
                                                                 sqr_norm_j_host);
 
             for (int l = 0; l < N; ++l)
-              if (1e-7 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
+              if (1e-5 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
                 std::cout << std::setprecision (15) << "Right: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
           }
           else {
@@ -654,10 +651,10 @@ int main(int argc, char *argv[]) {
                                                                 sqr_norm_j_host);
 
             for (int l = 0; l < N; ++l)
-              if (1e-7 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
+              if (1e-5 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
                 std::cout << std::setprecision (15) << "Left: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
           }
-
+*/
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }
