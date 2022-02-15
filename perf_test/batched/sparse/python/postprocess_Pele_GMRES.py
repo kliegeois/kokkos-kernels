@@ -212,6 +212,11 @@ for i in range(0, N_right):
 
 iteration_count_ginkgo = np.loadtxt('pele_data/'+specie+'_iterations_count.txt')
 
+#print('increase')
+#indices = np.argsort(iteration_count_left[0:len(iteration_count_ginkgo)])
+#print(repr(indices))
+
+#print('decrease')
 #indices = np.argsort(-iteration_count_left[0:len(iteration_count_ginkgo)])
 #print(repr(indices))
 
