@@ -95,7 +95,7 @@ args = parser.parse_args()
 base = args.path +'/'
 specie = args.specie
 
-hostname = getHostName()
+hostname = base.partition('/')[0]
 
 implementations = [3]
 n_implementations = len(implementations)
