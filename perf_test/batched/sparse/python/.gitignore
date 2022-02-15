@@ -2,5 +2,6 @@
 *.mm
 *.png
 *.tex
+*.sh
 __pycache__
 data*

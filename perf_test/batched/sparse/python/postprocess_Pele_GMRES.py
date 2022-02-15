@@ -85,14 +85,15 @@ def dir_path(string):
     else:
         raise NotADirectoryError(string)
 
-specie = 'gri30'
-
 parser = argparse.ArgumentParser(description='Postprocess the results.')
 parser.add_argument('--path', type=dir_path, metavar='basedir',
                     help='basedir of the results')
+parser.add_argument('--specie', metavar='specie', default='gri30',
+                    help='used specie')
 
 args = parser.parse_args()
 base = args.path +'/'
+specie = args.specie
 
 hostname = getHostName()
 

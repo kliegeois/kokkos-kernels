@@ -45,7 +45,7 @@ def getParameters(specie, hostname):
             team_size = 16
             vector_length = 16
         if specie == 'isooctane':
-            n_iterations = 8
+            n_iterations = 20
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
@@ -62,7 +62,7 @@ def getParameters(specie, hostname):
             team_size = 16
             vector_length = 16
         if specie == 'isooctane':
-            n_iterations = 8
+            n_iterations = 20
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
@@ -75,16 +75,16 @@ def getParameters(specie, hostname):
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
-            N_team = 16
-            team_size = 16
-            vector_length = 16
+            N_team = 8
+            team_size = 6
+            vector_length = 8
         if specie == 'isooctane':
-            n_iterations = 8
+            n_iterations = 20
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
             N_team = 8
-            team_size = 32
+            team_size = 6
             vector_length = 8
     if hostname == 'blake':
         if specie == 'gri30':
@@ -92,16 +92,16 @@ def getParameters(specie, hostname):
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
-            N_team = 16
-            team_size = 16
-            vector_length = 16
+            N_team = 8
+            team_size = 8
+            vector_length = 8
         if specie == 'isooctane':
-            n_iterations = 8
+            n_iterations = 20
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
             N_team = 8
-            team_size = 32
+            team_size = 8
             vector_length = 8
     return n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length
 
