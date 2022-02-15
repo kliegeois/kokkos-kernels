@@ -1,9 +1,15 @@
+import string
 import numpy as np
 import matplotlib
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import tikzplotlib
 from test_io import mmread
+from run_Test import getHostName
+import os
+import argparse
+
+
 
 def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n_GPUs=1, throughput=True, unit='B/sec'):
 
@@ -49,7 +55,7 @@ def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False, p
     if dashed:
         line = ax.plot(x, ys[:, i_median], '--')
     else:
-        line = ax.plot(x, ys[:, i_median])
+        line = ax.plot(x, ys[:, i_median], '*-')
     if label != 'None':
         line[0].set_label(label)
     if plot_fill:
@@ -62,25 +68,33 @@ def ginkgo_data(specie):
         n = np.array([90,  1440,  2880,  5760, 11520, 17280])
         time = np.array([5.231000e-05, 1.643590e-04, 3.038220e-04, 5.694870e-04, 1.073582e-03, 1.574097e-03])
 
-        n = 90*np.array([  1,  16,  32, 128, 192])
-        time = np.array([0.00010079, 0.00038695, 0.00071774, 0.0029122 , 0.00437534])
+        n = 90*np.array([  1, 16, 32, 64, 96, 128, 160, 192, 224, 256])
+        time = np.array([0.0001136 , 0.00042409, 0.00078691, 0.00150753, 0.00222447, 0.0029204 , 0.00365782, 0.00438156, 0.00508972, 0.00581532])
         #time = np.array([0.00035001, 0.00063808, 0.00096812, 0.00317675, 0.00465993])
     if specie == 'isooctane':
         n = np.array([72,  1152,  2304,  4608,  9216, 13824])
         time = np.array([0.00010629, 0.00040689, 0.00069134, 0.00127151, 0.0024188,  0.00382598])
 
-        n = 72*np.array([  1,  16,  32, 128, 192])
-        time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
+        n = 72*np.array([  1, 16, 32, 64, 96, 128, 160, 192, 224, 256])
+        time = np.array([0.00075706, 0.00531739, 0.00953753, 0.01777734, 0.02652215, 0.03524549, 0.04393908, 0.05258815, 0.06129656, 0.06998952])
     return n, time
+
+def dir_path(string):
+    if os.path.isdir(string):
+        return string
+    else:
+        raise NotADirectoryError(string)
 
 specie = 'gri30'
 
-base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
-base = 'Pele_pGMRES_'+specie+'_data_all_Scaled/56_4_16/'
-base = 'Pele_pGMRES_'+specie+'_data_Scaled_Jacobi_7_0_0_0_sorted/'
-base = 'caraway_Pele_pGMRES_gri30_data_Scaled_Jacobi_7_0_0_0_sorted/'
-base = 'inouye_Pele_pGMRES_gri30_data_Scaled_Jacobi_7_0_0_0_sorted/'
-base = 'weaver_Pele_pGMRES_gri30_data_Scaled_Jacobi_8_0_11_0_sorted/'
+parser = argparse.ArgumentParser(description='Postprocess the results.')
+parser.add_argument('--path', type=dir_path, metavar='basedir',
+                    help='basedir of the results')
+
+args = parser.parse_args()
+base = args.path +'/'
+
+hostname = getHostName()
 
 implementations = [3]
 n_implementations = len(implementations)
@@ -117,11 +131,12 @@ for i in range(0, n_implementations):
         plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
         plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
 
-m,b = np.polyfit(n_ginkgo, time_gingko, 1)
-print('ginkgo '+str(m)+ ' '+str(b))
+if hostname == 'weaver':
+    m,b = np.polyfit(n_ginkgo, time_gingko, 1)
+    print('ginkgo '+str(m)+ ' '+str(b))
 
-line = plt.plot(n_ginkgo, time_gingko, '--')
-line[0].set_label('Ginkgo')
+    line = plt.plot(n_ginkgo, time_gingko, '--')
+    line[0].set_label('Ginkgo')
 plt.grid()
 #ax.set_ylim(0., 0.006)
 #plot_limits(Ns, ax, nnz_per_row, N, throughput=False)

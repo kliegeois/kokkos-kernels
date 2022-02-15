@@ -4,6 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import tikzplotlib
 from test_io import mmread
+import os
+import argparse
 
 def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n_GPUs=1, throughput=True, unit='B/sec'):
 
@@ -73,9 +75,20 @@ def ginkgo_data(specie):
         time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
     return n, time
 
+def dir_path(string):
+    if os.path.isdir(string):
+        return string
+    else:
+        raise NotADirectoryError(string)
+
 specie = 'gri30'
 
-base = 'weaver_Pele_pGMRES_gri30_data_Scaled_Jacobi_8_0_11_0_sorted/'
+parser = argparse.ArgumentParser(description='Postprocess the results.')
+parser.add_argument('--path', type=dir_path, metavar='basedir',
+                    help='basedir of the results')
+
+args = parser.parse_args()
+base = args.path +'/'
 
 implementations = [3]
 n_implementations = len(implementations)

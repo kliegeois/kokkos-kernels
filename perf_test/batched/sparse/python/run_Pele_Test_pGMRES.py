@@ -6,6 +6,7 @@ from run_Test import run_test, getHostName, getBuildDirectory
 from create_matrices import *
 from read_pele_matrices import *
 import os
+import argparse
 
 
 def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
@@ -32,21 +33,94 @@ def getSortedIndices(specie, order):
         return indices
 
 
+def getParameters(specie, hostname):
+    tol = 1e-8
+    if hostname == 'weaver':
+        if specie == 'gri30':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 16
+            team_size = 16
+            vector_length = 16
+        if specie == 'isooctane':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 6
+            team_size = 32
+            vector_length = 6
+    if hostname == 'caraway':
+        if specie == 'gri30':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 16
+            team_size = 16
+            vector_length = 16
+        if specie == 'isooctane':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 8
+            team_size = 32
+            vector_length = 8
+    if hostname == 'inouye':
+        if specie == 'gri30':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 16
+            team_size = 16
+            vector_length = 16
+        if specie == 'isooctane':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 8
+            team_size = 32
+            vector_length = 8
+    if hostname == 'blake':
+        if specie == 'gri30':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 16
+            team_size = 16
+            vector_length = 16
+        if specie == 'isooctane':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 8
+            team_size = 32
+            vector_length = 8
+    return n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length
+
 def main():
     tic = time.perf_counter()
-    Ns = np.array([1,  16,  32, 128, 192])
+    Ns = np.array([1, 16, 32, 64, 96, 128, 160, 192, 224, 256])
 
-    specie = 'gri30'
+    parser = argparse.ArgumentParser(description='Postprocess the results.')
+    parser.add_argument('--specie', metavar='specie', default='gri30',
+                        help='used specie')
+    parser.add_argument('-s', action="store_true", default=False)
+    args = parser.parse_args()
+
+    specie = args.specie
     scaled = True
     order = 'descending'
     indices = getSortedIndices(specie,order)
-    sort = True
-    n_iterations = 8
-    tol = 1e-8
-    ortho_strategy = 0
-    arnoldi_level = 11
-    other_level = 0
-    N_team = 16
+    sort = args.s
+
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     if specie == 'gri30':
@@ -59,14 +133,16 @@ def main():
     directory = getBuildDirectory()
     hostname = getHostName()
 
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, hostname)
+
+    if not os.path.isdir(hostname):
+        os.mkdir(hostname)
     if sort:
-        data_d = hostname + '_Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_sorted'
+        data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_sorted'
     else:
-        data_d = hostname + '_Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
+        data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
 
     rows_per_thread = 1
-    team_size = 16 #32
-    vector_length = 16 #8
     implementations_left = [3]
     implementations_right = [3]
     n_implementations_left = len(implementations_left)
