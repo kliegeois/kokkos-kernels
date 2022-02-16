@@ -51,7 +51,7 @@ def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n
 
 def plot_quantiles(x, ys, ax, alpha=0.2, i_skip=0, label='None', dashed=False, plot_fill=False):
     n_quantiles = np.shape(ys)[1]
-    i_median = 0#int(np.floor(n_quantiles/2))
+    i_median = int(np.floor(n_quantiles/2))
     if dashed:
         line = ax.plot(x, ys[:, i_median], '--')
     else:

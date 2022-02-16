@@ -41,11 +41,15 @@ def main():
 
     directory = getBuildDirectory()
 
-    data_d = 'SPMV_data_1'
+    data_d = 'SPMV_data_2'
 
     rows_per_thread=1
     team_size=32
     N = 1600*team_size
+    rows_per_thread=1
+    team_size = 16
+    vector_length = 16
+    N_team = 16
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
@@ -85,7 +89,8 @@ def main():
         mmwrite(name_A, V, r, c, Bs[i], Bs[i])
         mmwrite(name_B, B)
 
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left')
+        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left',
+            extra_args=' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
         for j in range(0, n_implementations_left):
             if verify:
                 res = verify_SPMV(name_A, name_B, name_X, implementations_left[j], 'Left')
@@ -93,7 +98,8 @@ def main():
                     data[j,:] *= 0
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right')
+        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right',
+            extra_args=' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
         for j in range(0, n_implementations_right):
             if verify:
                 res = verify_SPMV(name_A, name_B, name_X, implementations_right[j], 'Right')
