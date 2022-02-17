@@ -37,21 +37,25 @@ def verify_SPMV(name_A, name_B, name_X, implementation, layout):
 
 def main():
     tic = time.perf_counter()
-    B = 54
-    Ns = np.arange(5100, 5300, 50)
+    Bs = np.arange(10,501, 10)
 
     directory = getBuildDirectory()
 
-    data_d = 'SPMV_data_1'
+    data_d = 'SPMV_NVPROF_data_1'
 
     rows_per_thread=1
     team_size=32
+    N = 1600*team_size
+    rows_per_thread=1
+    team_size = 16
+    vector_length = 16
+    N_team = 16
     implementation = 3
 
     n1 = 2
     n2 = 10
 
-    nnzs = np.zeros((len(Ns), ))
+    nnzs = np.zeros((len(Bs), ))
 
     if not os.path.isdir(data_d):
         os.mkdir(data_d)
@@ -65,22 +69,22 @@ def main():
     offset = 4
     verify = False
 
-    for i in range(0, len(Ns)):
-        r, c = create_strided_graph(B, max_offset, offset)
+    for i in range(0, len(Bs)):
+        r, c = create_strided_graph(Bs[i], max_offset, offset)
         nnzs[i] = len(r)
-        n_ops = compute_n_ops(B, nnzs[i], Ns[i])
+        n_ops = compute_n_ops(Bs[i], nnzs[i], N)
 
-        V = create_SPD(B, r, c, Ns[i])
-        Bv = create_Vector(B, Ns[i])
+        V = create_SPD(Bs[i], r, c, N)
+        B = create_Vector(Bs[i], N)
     
-        mmwrite(name_A, V, r, c, B, B)
-        mmwrite(name_B, Bv)
+        mmwrite(name_A, V, r, c, Bs[i], Bs[i])
+        mmwrite(name_B, B)
 
-        testfile = data_d+'/nvprof.'+str(implementation)+'.'+str(B)+'.'+str(nnzs[i])+'.'+str(Ns[i])
+        testfile = data_d+'/nvprof.'+str(implementation)+'.'+str(Bs[i])+'.'+str(nnzs[i])+'.'+str(N)
 
         nvprof_exe = '/home/projects/ppc64le-pwr9-nvidia/cuda/10.2.2/bin/nvprof'
-        run_test_nvprof(nvprof_exe, directory+'/KokkosBatched_Test_SPMV', testfile, name_A, name_B, name_X, rows_per_thread, team_size, n1=n1, n2=n2, implementation=implementation, layout='Left', extra_args=' -P')
-        run_test_nvprof(nvprof_exe, directory+'/KokkosBatched_Test_SPMV', testfile, name_A, name_B, name_X, rows_per_thread, team_size, n1=n1, n2=n2, implementation=implementation, layout='Right', extra_args=' -P')
+        run_test_nvprof(nvprof_exe, directory+'/KokkosBatched_Test_SPMV', testfile, name_A, name_B, name_X, rows_per_thread, team_size, n1=n1, n2=n2, implementation=implementation, layout='Left', extra_args=' -P -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
+        run_test_nvprof(nvprof_exe, directory+'/KokkosBatched_Test_SPMV', testfile, name_A, name_B, name_X, rows_per_thread, team_size, n1=n1, n2=n2, implementation=implementation, layout='Right', extra_args=' -P -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
 
 
     toc = time.perf_counter()

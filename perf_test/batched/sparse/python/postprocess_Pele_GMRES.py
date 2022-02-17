@@ -85,17 +85,31 @@ def dir_path(string):
     else:
         raise NotADirectoryError(string)
 
+
+def write_data(filename, N, time):
+    data = np.zeros((len(N), 2))
+    data[:,0] = N
+    data[:,1] = time
+    np.savetxt(filename, data)
+
+
 parser = argparse.ArgumentParser(description='Postprocess the results.')
 parser.add_argument('--path', type=dir_path, metavar='basedir',
                     help='basedir of the results')
 parser.add_argument('--specie', metavar='specie', default='gri30',
                     help='used specie')
+parser.add_argument('-s', action="store_true", default=False)
 
 args = parser.parse_args()
 base = args.path +'/'
 specie = args.specie
+sort = args.s
 
 hostname = base.partition('/')[0]
+
+data_d = hostname+'/'+specie
+if not os.path.isdir(data_d):
+    os.mkdir(data_d)
 
 implementations = [3]
 n_implementations = len(implementations)
@@ -124,6 +138,12 @@ for i in range(0, n_implementations):
     if i < 5:
         plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' left')
         plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' right')
+        if sort:
+            write_data(data_d+'/left_s.txt', Ns, CPU_time_l[i,:,int(np.floor(n_quantiles/2))])
+            write_data(data_d+'/right_s.txt', Ns, CPU_time_r[i,:,int(np.floor(n_quantiles/2))])
+        else:
+            write_data(data_d+'/left_u.txt', Ns, CPU_time_l[i,:,int(np.floor(n_quantiles/2))])
+            write_data(data_d+'/right_u.txt', Ns, CPU_time_r[i,:,int(np.floor(n_quantiles/2))])
         m,b = np.polyfit(Ns, CPU_time_l[i,:,0], 1)
         print(str(i)+' left '+str(m)+ ' '+str(b))
         m,b = np.polyfit(Ns, CPU_time_r[i,:,0], 1)
@@ -212,13 +232,17 @@ for i in range(0, N_right):
 
 iteration_count_ginkgo = np.loadtxt('pele_data/'+specie+'_iterations_count.txt')
 
-#print('increase')
-#indices = np.argsort(iteration_count_left[0:len(iteration_count_ginkgo)])
-#print(repr(indices))
+if not sort:
+    #print('increase')
+    #indices = np.argsort(iteration_count_left[0:len(iteration_count_ginkgo)])
+    #print(repr(indices))
 
-#print('decrease')
-#indices = np.argsort(-iteration_count_left[0:len(iteration_count_ginkgo)])
-#print(repr(indices))
+    #print('decrease')
+    indices = np.argsort(-iteration_count_left[0:len(iteration_count_ginkgo)])
+    #print(repr(indices))
+
+    write_data(base+'iter_u.txt', np.arange(0, len(iteration_count_ginkgo)), iteration_count_left[0:len(iteration_count_ginkgo)])
+    write_data(base+'iter_s.txt', np.arange(0, len(iteration_count_ginkgo)), iteration_count_left[indices])
 
 plt.figure()
 plt.subplot(211)
