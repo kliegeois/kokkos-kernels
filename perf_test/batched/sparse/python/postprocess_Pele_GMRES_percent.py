@@ -148,6 +148,7 @@ for i in range(0, n_timers_1):
     plt.grid()    
 legend = ax.legend(loc='best', shadow=True)
 plt.savefig(base+'left_percent.png')
+tikzplotlib.save(base+'left_percent.tex')
 
 fig = plt.figure()
 ax = plt.gca()
@@ -157,6 +158,7 @@ for i in range(0, n_timers_1):
     plt.grid()    
 legend = ax.legend(loc='best', shadow=True)
 plt.savefig(base+'right_percent.png')
+tikzplotlib.save(base+'right_percent.tex')
 
 fig = plt.figure()
 ax = plt.gca()
@@ -166,6 +168,7 @@ for i in range(0, n_timers_1):
     plt.grid()    
 legend = ax.legend(loc='best', shadow=True)
 plt.savefig(base+'left_times.png')
+tikzplotlib.save(base+'left_times.tex')
 
 fig = plt.figure()
 ax = plt.gca()
@@ -175,6 +178,7 @@ for i in range(0, n_timers_1):
     plt.grid()    
 legend = ax.legend(loc='best', shadow=True)
 plt.savefig(base+'right_times.png')
+tikzplotlib.save(base+'right_times.tex')
 
 for i in range(0, n_timers):
     print(all_percent_cost_l[i,:])

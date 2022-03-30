@@ -293,7 +293,15 @@ struct Functor_TestBatchedTeamVectorGMRES {
     std::string name("KokkosBatched::Test::TeamVectorGMRES");
     Kokkos::Impl::Timer timer;
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(ceil(1.*_D.extent(0) / _N_team), _team_size, _vector_length);
+
+    Kokkos::TeamPolicy<DeviceType> auto_policy(ceil(1.*_D.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());
+    Kokkos::TeamPolicy<DeviceType> tuned_policy(ceil(1.*_D.extent(0) / _N_team), _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy;
+
+    if (_team_size < 1)
+      policy = auto_policy;
+    else
+      policy = tuned_policy;
 
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
