@@ -60,8 +60,7 @@ class Identity {
   KOKKOS_INLINE_FUNCTION
   ~Identity() {}
 
-  template <typename MemberType, typename XViewType, typename YViewType,
-            typename ArgTrans, typename ArgMode, int sameXY>
+  template <typename ArgTrans, typename ArgMode, int sameXY, typename MemberType, typename XViewType, typename YViewType>
   KOKKOS_INLINE_FUNCTION void apply(const MemberType &member,
                                     const XViewType &X,
                                     const YViewType &Y) const {

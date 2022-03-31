@@ -104,23 +104,23 @@ class CrsMatrix {
   /// \param beta [in]: input coefficient for Y (default value 0.)
   /// \param Y [in/out]: Output vector Y, a rank 2 view
 
-  template <typename MemberType, typename XViewType, typename YViewType,
-            typename ArgTrans, typename ArgMode>
+  template <typename ArgTrans, typename ArgMode, typename MemberType, typename XViewType, typename YViewType>
   KOKKOS_INLINE_FUNCTION void apply(
       const MemberType &member, const XViewType &X, const YViewType &Y,
       MagnitudeType alpha = Kokkos::Details::ArithTraits<MagnitudeType>::one(),
       MagnitudeType beta =
           Kokkos::Details::ArithTraits<MagnitudeType>::zero()) const {
     if (beta == 0)
-      KokkosBatched::Spmv<MemberType, ArgTrans, ArgMode>::template invoke<
-          ValuesViewType, IntViewType, XViewType, YViewType, 0>(
-          member, alpha, values, row_ptr, colIndices, X, beta, Y);
+      KokkosBatched::TeamVectorSpmv<MemberType, ArgTrans>::template invoke<
+                ValuesViewType, IntViewType, XViewType, YViewType, 0>(
+                member, alpha, values, row_ptr, colIndices, X, beta, Y);    
     else
-      KokkosBatched::Spmv<MemberType, ArgTrans, ArgMode>::template invoke<
-          ValuesViewType, IntViewType, XViewType, YViewType, 1>(
-          member, alpha, values, row_ptr, colIndices, X, beta, Y);
+      KokkosBatched::TeamVectorSpmv<MemberType, ArgTrans>::template invoke<
+                ValuesViewType, IntViewType, XViewType, YViewType, 1>(
+                member, alpha, values, row_ptr, colIndices, X, beta, Y);   
   }
 
+/*
   /// \brief apply version that uses variable coefficient alpha and no beta
   ///   y_l <- alpha_l * A_l * x_l  for all l = 1, ..., N
   /// where:
@@ -142,8 +142,8 @@ class CrsMatrix {
   /// \param X [in]: Input vector X, a rank 2 view
   /// \param Y [out]: Output vector Y, a rank 2 view
 
-  template <typename MemberType, typename XViewType, typename YViewType,
-            typename NormViewType, typename ArgTrans, typename ArgMode>
+  template <typename ArgTrans, typename ArgMode, typename MemberType, typename XViewType, typename YViewType,
+            typename NormViewType>
   KOKKOS_INLINE_FUNCTION void apply(const MemberType &member,
                                     const XViewType &X, const YViewType &Y,
                                     NormViewType alpha) const {
@@ -177,8 +177,8 @@ class CrsMatrix {
   /// \param beta [in]: input coefficient for Y, a rank 1 view
   /// \param Y [in/out]: Output vector Y, a rank 2 view
 
-  template <typename MemberType, typename XViewType, typename YViewType,
-            typename NormViewType, typename ArgTrans, typename ArgMode>
+  template <typename ArgTrans, typename ArgMode, typename MemberType, typename XViewType, typename YViewType,
+            typename NormViewType>
   KOKKOS_INLINE_FUNCTION void apply(const MemberType &member,
                                     const XViewType &X, const YViewType &Y,
                                     const NormViewType &alpha,
@@ -188,6 +188,7 @@ class CrsMatrix {
         NormViewType, 1>(member, alpha, values, row_ptr, colIndices, X, beta,
                          Y);
   }
+  */
 };
 
 }  // namespace KokkosBatched
