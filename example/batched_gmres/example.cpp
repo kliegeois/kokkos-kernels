@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
       readSizesFromMM(name_A, Blk, ncols, nnz, N);
     else {
       Blk = 10;
-      N = 10;
+      N = 100;
       nnz = (Blk - 2) * 3 + 2 * 2;
     }
 
@@ -289,6 +289,12 @@ int main(int argc, char *argv[]) {
     }
     else{
       create_tridiagonal_batched_matrices(nnz, Blk, N, rowOffsets, colIndices, values, x, y);
+
+      // Replace y by ones:
+      Kokkos::deep_copy(y, 1.);
+
+      // Replace x by zeros:
+      // Kokkos::deep_copy(x, 0.);
     }
     getInvDiagFromCRS(values, rowOffsets, colIndices, diag);
 
@@ -314,7 +320,7 @@ int main(int argc, char *argv[]) {
     const double tol = 1e-12;
     const int ortho_strategy = 0;
 
-    KrylovHandleType handle(N, N_team, n_iterations+1, true);
+    KrylovHandleType handle(N, N_team, n_iterations, true);
     handle.Arnoldi_view = Scalar3DViewType("", N, n_iterations, Blk+n_iterations+3);
 
     writeArrayToMM("initial_guess.mm", x);
@@ -324,6 +330,19 @@ int main(int argc, char *argv[]) {
                   (values, diag, rowOffsets, colIndices, x, y, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, 0, handle).run();
 
     printf("times = %f secondes\n", time);
+
+    for (size_t i = 0; i < N; ++i) {
+      if (handle.is_converged(i)) {
+        std::cout << "System " << i << " converged in " << handle.get_iteration(i) << " iterations, the initial absolute norm of the residual was " << handle.get_norm(i, 0) << " and is now " << handle.get_last_norm(i) << std::endl;
+      }
+      else {
+        std::cout << "System " << i << " did not converge in " << handle.get_max_iteration() << " iterations, the initial absolute norm of the residual was " << handle.get_norm(i, 0) << " and is now " << handle.get_last_norm(i) << std::endl;
+      }
+    }
+    if (handle.is_converged())
+      std::cout << "All the systems have converged." << std::endl;
+    else
+      std::cout << "There is at least one system that did not convegre." << std::endl;
 
     writeArrayToMM("solution.mm", x);
     writeArrayToMM("convergence.mm", handle.residual_norms);

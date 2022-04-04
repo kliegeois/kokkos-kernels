@@ -292,7 +292,7 @@ struct TeamGMRES {
             if (mask(l) == 1. && res_norm < tolerance) {
               mask(l)     = 0.;
               G(l, j + 1) = 0.;
-              handle.set_iteration(member.league_rank(), l, j);
+              handle.set_iteration(member.league_rank(), l, j + 1);
             }
           });
       member.team_barrier();

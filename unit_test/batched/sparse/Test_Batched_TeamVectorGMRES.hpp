@@ -190,7 +190,7 @@ void impl_test_batched_GMRES(const int N, const int BlkSize, const int N_team) {
   Kokkos::deep_copy(D_host, D);
 
   const int n_iterations = 10;
-  KrylovHandleType handle(N, N_team, n_iterations+1);
+  KrylovHandleType handle(N, N_team, n_iterations);
 
   KokkosBatched::SerialSpmv<Trans::NoTranspose>::template invoke<
       typename ValuesViewType::HostMirror, typename IntView::HostMirror,
