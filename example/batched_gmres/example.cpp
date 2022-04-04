@@ -91,7 +91,7 @@
 #include "KokkosBatched_Spmv_Serial_Impl.hpp"
 #include "KokkosBatched_Copy_Decl.hpp"
 
-typedef Kokkos::Serial exec_space;
+typedef Kokkos::DefaultExecutionSpace exec_space;
 
 template <typename DeviceType, typename ValuesViewType, typename IntView,
           typename VectorViewType, typename KrylovHandleType, bool UsePrec>
@@ -332,14 +332,14 @@ int main(int argc, char *argv[]) {
     printf("times = %f secondes\n", time);
 
     for (size_t i = 0; i < N; ++i) {
-      if (handle.is_converged(i)) {
-        std::cout << "System " << i << " converged in " << handle.get_iteration(i) << " iterations, the initial absolute norm of the residual was " << handle.get_norm(i, 0) << " and is now " << handle.get_last_norm(i) << std::endl;
+      if (handle.is_converged_host(i)) {
+        std::cout << "System " << i << " converged in " << handle.get_iteration_host(i) << " iterations, the initial absolute norm of the residual was " << handle.get_norm_host(i, 0) << " and is now " << handle.get_last_norm_host(i) << std::endl;
       }
       else {
-        std::cout << "System " << i << " did not converge in " << handle.get_max_iteration() << " iterations, the initial absolute norm of the residual was " << handle.get_norm(i, 0) << " and is now " << handle.get_last_norm(i) << std::endl;
+        std::cout << "System " << i << " did not converge in " << handle.get_max_iteration() << " iterations, the initial absolute norm of the residual was " << handle.get_norm_host(i, 0) << " and is now " << handle.get_last_norm_host(i) << std::endl;
       }
     }
-    if (handle.is_converged())
+    if (handle.is_converged_host())
       std::cout << "All the systems have converged." << std::endl;
     else
       std::cout << "There is at least one system that did not convegre." << std::endl;

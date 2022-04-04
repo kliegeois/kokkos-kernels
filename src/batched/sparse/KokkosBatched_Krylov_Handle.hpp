@@ -68,17 +68,21 @@ class KrylovHandle {
  public:
   NormViewType residual_norms;
   IntViewType iteration_numbers;
+  typename NormViewType::HostMirror residual_norms_host;
+  typename IntViewType::HostMirror iteration_numbers_host;
   IntViewType first_index;
   IntViewType last_index;
   ViewType3D Arnoldi_view;
+ private:
   norm_type tolerance;
   int max_iteration;
   int batched_size;
   int N_team;
   int ortho_strategy;
-  int scratch_pad_level;
+  int scratch_pad_level; 
   bool compute_last_residual;
   bool monitor_residual;
+  bool host_synchronised;
 
  public:
   KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200, bool _monitor_residual = false) : 
@@ -112,6 +116,7 @@ class KrylovHandle {
     ortho_strategy = 1;
     scratch_pad_level = 0;
     compute_last_residual = true;
+    host_synchronised = false;
   }
 
   /// \brief reset_iteration_numbers
@@ -122,6 +127,19 @@ class KrylovHandle {
   KOKKOS_INLINE_FUNCTION
   void reset_iteration_numbers() { 
     Kokkos::deep_copy(iteration_numbers, -1);
+    host_synchronised = false;
+  }
+
+  ///
+
+  void synchronise_host() {
+    iteration_numbers_host = Kokkos::create_mirror_view(iteration_numbers);
+    Kokkos::deep_copy(iteration_numbers_host, iteration_numbers);
+    if (monitor_residual) {
+      residual_norms_host = Kokkos::create_mirror_view(residual_norms);
+      Kokkos::deep_copy(residual_norms_host, residual_norms);
+    }
+    host_synchronised = true;
   }
 
   /// \brief is_converged
@@ -129,10 +147,25 @@ class KrylovHandle {
   ///
 
   KOKKOS_INLINE_FUNCTION
-  bool is_converged() {
+  bool is_converged() const {
     bool all_converged = true;
     for (size_t i = 0; i < batched_size; ++i)
       if (iteration_numbers(i) == -1) {
+        all_converged = false;
+        break;
+      }
+    return all_converged;
+  }
+
+  /// \brief is_converged_host
+  ///   Test if all the systems have converged (host).
+  ///
+
+  bool is_converged_host() {
+    if (!host_synchronised) this->synchronise_host();
+    bool all_converged = true; 
+    for (size_t i = 0; i < batched_size; ++i)
+      if (iteration_numbers_host(i) == -1) {
         all_converged = false;
         break;
       }
@@ -145,8 +178,18 @@ class KrylovHandle {
   /// \param batched_id [in]: Global batched ID
 
   KOKKOS_INLINE_FUNCTION
-  bool is_converged(int batched_id) { 
+  bool is_converged(int batched_id) const {
     return ( iteration_numbers(batched_id) != -1 );
+  }
+
+  /// \brief is_converged
+  ///   Test if one particular system has converged (host).
+  ///
+  /// \param batched_id [in]: Global batched ID
+
+  bool is_converged_host(int batched_id) {
+    if (!host_synchronised) this->synchronise_host();
+    return ( iteration_numbers_host(batched_id) != -1 );
   }
 
   /// \brief set_tolerance
@@ -214,8 +257,24 @@ class KrylovHandle {
 
   KOKKOS_INLINE_FUNCTION
   norm_type get_norm(int batched_id, int iteration_id) const {
-    if (monitor_residual)
+    if (monitor_residual) {
       return residual_norms(batched_id, iteration_id);
+    }
+    else
+      return 0;
+  }
+
+  /// \brief get_norm_host
+  ///   Get the norm of one system at a given iteration (host)
+  ///
+  /// \param batched_id [in]: Global batched ID
+  /// \param iteration_id [in]: Iteration ID
+
+  norm_type get_norm_host(int batched_id, int iteration_id) {
+    if (monitor_residual) {
+      if (!host_synchronised) this->synchronise_host();
+      return residual_norms_host(batched_id, iteration_id);
+    }
     else
       return 0;
   }
@@ -253,8 +312,23 @@ class KrylovHandle {
 
   KOKKOS_INLINE_FUNCTION
   norm_type get_last_norm(int batched_id) const {
-    if (monitor_residual && compute_last_residual)
+    if (monitor_residual && compute_last_residual) {
       return residual_norms(batched_id, max_iteration + 1);
+    }
+    else
+      return 0;
+  }
+
+  /// \brief get_last_norm_host
+  ///   Get the last norm of one system (host)
+  ///
+  /// \param batched_id [in]: Global batched ID
+
+  norm_type get_last_norm_host(int batched_id) {
+    if (monitor_residual && compute_last_residual) {
+      if (!host_synchronised) this->synchronise_host();
+      return residual_norms_host(batched_id, max_iteration + 1);
+    }
     else
       return 0;
   }
@@ -290,6 +364,16 @@ class KrylovHandle {
   KOKKOS_INLINE_FUNCTION
   int get_iteration(int batched_id) const {
     return iteration_numbers(batched_id);
+  }
+
+  /// \brief get_iteration_host
+  ///   Get the number of iteration after convergence for one system (host)
+  ///
+  /// \param batched_id [in]: Global batched ID
+
+  int get_iteration_host(int batched_id) {
+    if (!host_synchronised) this->synchronise_host();
+    return iteration_numbers_host(batched_id);
   }
 
   /// \brief set_ortho_strategy
