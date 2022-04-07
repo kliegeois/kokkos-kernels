@@ -40,9 +40,96 @@
 // ************************************************************************
 //@HEADER
 
-template <class MatrixType, class IntVectorType, class VectorType>
-KOKKOS_INLINE_FUNCTION void computePDD(const MatrixType A, const IntVectorType P, const VectorType D1, const VectorType D2) {
-  
+template <typename MemberType, class MatrixType, class IntVectorType, class VectorType>
+KOKKOS_INLINE_FUNCTION void computePDD(const MemberType &member,const MatrixType A, const IntVectorType P, const VectorType D1, const VectorType D2, const MatrixType tmp) {
+  const int N = A.extent(0);
+  const int n = A.extent(1);
+
+  Kokkos::parallel_for(
+      Kokkos::TeamVectorRange(member, 0, N),
+      [&](const int& l) {
+        auto A_l = Kokkos::subview(A, l, Kokkos::ALL, Kokkos::ALL);
+        auto P_l = Kokkos::subview(P, l, Kokkos::ALL);
+        auto D1_l = Kokkos::subview(D1, l, Kokkos::ALL);
+        auto D2_l = Kokkos::subview(D2, l, Kokkos::ALL);
+        auto tmp_l = Kokkos::subview(tmp, l, Kokkos::ALL, Kokkos::ALL);
+
+        for (int i = 0; i < n; ++i) {
+          D2_l(i) = 0.;
+          tmp_l(i, n) = 0;
+          for (int j = 0; j < n; ++j) {
+            if (D2_l(i) < Kokkos::abs(A_l(j, i)))
+              D2_l(i) = Kokkos::abs(A_l(j, i));
+            if (tmp_l(i, n) < Kokkos::abs(A_l(i, j)))
+              tmp_l(i, n) = Kokkos::abs(A_l(i, j));
+          }
+          D2_l(i) = 1./D2_l(i);
+        }
+
+        for (int i = 0; i < n; ++i) {
+          for (int j = 0; j < n; ++j) {
+            tmp_l(i, j) = A_l(i, j) * D2_l(j);
+          }
+        }
+
+        for (int i = 0; i < n; ++i) {
+          D1_l(i) = 0.;
+          for (int j = 0; j < n; ++j) {
+            if (D1_l(i) < Kokkos::abs(A_l(i, j)))
+              D1_l(i) = Kokkos::abs(A_l(i, j));
+          }
+          D1_l(i) = 1./D1_l(i);
+        }
+
+        for (int i = 0; i < n; ++i) {
+          for (int j = 0; j < n; ++j) {
+            tmp_l(i, j) *= D1_l(i);
+          }
+        }
+
+        for (int i = 0; i < n; ++i) {
+          int row_index = 0;
+          int col_index = 0;
+          double tmp_0 = 0.;
+          double tmp_1 = 0.;
+          for (int j = 0; j < n; ++j) {
+            if (tmp_0 < tmp_l(j, n)) {
+              tmp_0 = tmp_l(j, n);
+              row_index = j;
+            }
+            if (tmp_1 < Kokkos::abs(tmp_l(i, j))) {
+              tmp_1 = Kokkos::abs(tmp_l(i, j));
+              col_index = j;
+            }
+          }
+          P_l(col_index) = row_index;
+          tmp_l(row_index, n) = 0.;
+          for (int j = 0; j < n; ++j)
+            tmp_l(j, col_index) = 0.;
+        }
+      });
+}
+
+template <typename MemberType, class MatrixType, class IntVectorType, class VectorType>
+KOKKOS_INLINE_FUNCTION void applyPDD(const MemberType &member,const MatrixType A, const IntVectorType P, const VectorType D1, const VectorType D2, const MatrixType PDAD) {
+  const int N = A.extent(0);
+  const int n = A.extent(1);
+
+  Kokkos::parallel_for(
+      Kokkos::TeamVectorRange(member, 0, N),
+      [&](const int& l) {
+        auto A_l = Kokkos::subview(A, l, Kokkos::ALL, Kokkos::ALL);
+        auto P_l = Kokkos::subview(P, l, Kokkos::ALL);
+        auto D1_l = Kokkos::subview(D1, l, Kokkos::ALL);
+        auto D2_l = Kokkos::subview(D2, l, Kokkos::ALL);
+        auto PDAD_l = Kokkos::subview(PDAD, l, Kokkos::ALL, Kokkos::ALL);
+
+        for (int i = 0; i < n; ++i) {
+          for (int j = 0; j < n; ++j) {
+            PDAD_l(i,j) = D1_l(P_l(i)) * A_l(P_l(i), j) * D2_l(j);
+          }
+        }
+      });
 }
 
 template <class XType>

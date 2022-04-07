@@ -107,6 +107,8 @@ int main(int argc, char *argv[]) {
     int n = 10;
 
     AViewType A("A", N, n, n);
+    AViewType PDAD("PDAD", N, n, n);
+    AViewType tmp("tmp", N, n, n+2);
     XYViewType X("X", N, n);
     XYViewType Y("Y", N, n);
 
@@ -116,7 +118,8 @@ int main(int argc, char *argv[]) {
 
     create_saddle_point_matrices(A, Y);
 
-    computePDD(A, P, D1, D2);
+    computePDD(A, P, D1, D2, tmp);
+    applyPDD(A, P, D1, D2, PDAD);
 
     write3DArrayToMM("A.mm", A);
     write2DArrayToMM("rhs.mm", Y);
