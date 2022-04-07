@@ -75,6 +75,7 @@ class KrylovHandle {
   ViewType3D Arnoldi_view;
  private:
   norm_type tolerance;
+  norm_type max_tolerance;
   int max_iteration;
   int batched_size;
   int N_team;
@@ -88,6 +89,7 @@ class KrylovHandle {
   KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200, bool _monitor_residual = false) : 
   max_iteration(_max_iteration), batched_size(_batched_size), N_team(_N_team), monitor_residual(_monitor_residual) {
     tolerance     = Kokkos::Details::ArithTraits<norm_type>::epsilon();
+    max_tolerance = Kokkos::Details::ArithTraits<norm_type>::epsilon();
     if (monitor_residual) {
       residual_norms = NormViewType("",batched_size, max_iteration + 2);
     }
@@ -205,6 +207,20 @@ class KrylovHandle {
 
   KOKKOS_INLINE_FUNCTION
   norm_type get_tolerance() const { return tolerance; }
+
+  /// \brief set_max_tolerance
+  ///   Set the maximal tolerance of the batched Krylov solver
+  ///
+  /// \param _max_tolerance [in]: New tolerance
+
+  KOKKOS_INLINE_FUNCTION
+  void set_max_tolerance(norm_type _max_tolerance) { max_tolerance = _max_tolerance; }
+
+  /// \brief get_max_tolerance
+  ///   Get the maximal tolerance of the batched Krylov solver
+
+  KOKKOS_INLINE_FUNCTION
+  norm_type get_max_tolerance() const { return max_tolerance; }
 
   /// \brief set_max_iteration
   ///   Set the maximum number of iterations of the batched Krylov solver

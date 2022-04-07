@@ -99,7 +99,7 @@ struct TeamVectorGMRES {
                                    ? handle.get_max_iteration()
                                    : numRows;
     const MagnitudeType tolerance     = handle.get_tolerance();
-    const MagnitudeType max_tolerance = 0.;
+    const MagnitudeType max_tolerance = handle.get_max_tolerance();
 
     int n_V = numRows;
     int n_H = maximum_iteration + 1;
@@ -159,6 +159,7 @@ struct TeamVectorGMRES {
                            tmp(i) = ATM::sqrt(tmp(i));
                            G(i, 0) = tmp(i) > max_tolerance ? tmp(i) : 0.;
                            handle.set_norm(member.league_rank(), i, 0, tmp(i));
+                           mask(i) = tmp(i) > max_tolerance ? 1 : 0;
                            tmp(i) = tmp(i) > max_tolerance ? 1. / tmp(i) : 0.;
                          });
 
