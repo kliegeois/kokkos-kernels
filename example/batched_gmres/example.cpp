@@ -346,6 +346,7 @@ int main(int argc, char *argv[]) {
 
     writeArrayToMM("solution.mm", x);
     writeArrayToMM("convergence.mm", handle.residual_norms);
+    writeCRSToMM("newA.mm", values, rowOffsets, colIndices);
   }
   Kokkos::finalize();
 }
