@@ -93,6 +93,57 @@
 
 typedef Kokkos::DefaultExecutionSpace exec_space;
 
+template <typename DeviceType, typename AViewType, typename XYViewType, typename IntViewType>
+struct Functor_TestStaticPivoting {
+  const AViewType _A;
+  const AViewType _PDAD;
+  const AViewType _tmp;
+  const XYViewType _D1;
+  const XYViewType _D2;
+  const IntViewType _P;
+  const int _N_team;
+
+  KOKKOS_INLINE_FUNCTION
+  Functor_TestStaticPivoting(const AViewType &A, const AViewType &PDAD, const AViewType &tmp,
+                                  const XYViewType &D1, const XYViewType &D2,
+                                  const IntViewType &P, const int N_team)
+      : _A(A), _PDAD(PDAD), _tmp(tmp), _D1(D1), _D2(D2), _P(P), _N_team(N_team) {
+  }
+
+  template <typename MemberType>
+  KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
+    const int first_matrix = static_cast<int>(member.league_rank()) * _N_team;
+    const int N            = _A.extent(0);
+    const int last_matrix =
+        (static_cast<int>(member.league_rank() + 1) * _N_team < N
+             ? static_cast<int>(member.league_rank() + 1) * _N_team
+             : N);
+    auto a = Kokkos::subview(_A, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL,
+                             Kokkos::ALL);
+    auto pdad = Kokkos::subview(_PDAD, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL,
+                             Kokkos::ALL);
+    auto tmp = Kokkos::subview(_tmp, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL,
+                             Kokkos::ALL);
+    auto d1 = Kokkos::subview(_D1, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL);
+    auto d2 = Kokkos::subview(_D2, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL);
+    auto p = Kokkos::subview(_P, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL);
+
+    computePDD(member, a, p, d1, d2, tmp);
+    applyPDD(member, a, p, d1, d2, pdad);
+  }
+
+  inline void run() {
+    std::string name("KokkosBatched::Test::StaticPivoting");
+    Kokkos::TeamPolicy<DeviceType> policy(ceil(1.*_A.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());
+    Kokkos::parallel_for(name.c_str(), policy, *this);
+  }
+};
 
 int main(int argc, char *argv[]) {
   Kokkos::initialize();
@@ -103,7 +154,7 @@ int main(int argc, char *argv[]) {
     using XYViewType = Kokkos::View<double **, layout, exec_space>;
     using IntViewType = Kokkos::View<int **, layout, exec_space>;
 
-    int N = 100;
+    int N = 1;
     int n = 10;
 
     AViewType A("A", N, n, n);
@@ -118,10 +169,14 @@ int main(int argc, char *argv[]) {
 
     create_saddle_point_matrices(A, Y);
 
-    computePDD(A, P, D1, D2, tmp);
-    applyPDD(A, P, D1, D2, PDAD);
+    const int N_team = 1;
+
+    Functor_TestStaticPivoting<exec_space, AViewType, XYViewType, IntViewType>(A, PDAD, tmp, D1, D2, P, N_team).run();
+    //computePDD(A, P, D1, D2, tmp);
+    //applyPDD(A, P, D1, D2, PDAD);
 
     write3DArrayToMM("A.mm", A);
+    write3DArrayToMM("PDAD.mm", PDAD);
     write2DArrayToMM("rhs.mm", Y);
   }
   Kokkos::finalize();
