@@ -121,14 +121,17 @@ class KrylovHandle {
     host_synchronised = false;
   }
 
-  /// \brief reset_iteration_numbers
+  /// \brief reset
   ///   Reset the iteration numbers to the default value of -1
+  ///   and the residual norms if monitored.
   ///   (Usefull when mulitple consecutive solvers use the same handle)
   ///
 
-  KOKKOS_INLINE_FUNCTION
-  void reset_iteration_numbers() { 
+  void reset() { 
     Kokkos::deep_copy(iteration_numbers, -1);
+    if (monitor_residual) {
+      Kokkos::deep_copy(residual_norms, 0.);
+    }
     host_synchronised = false;
   }
 
