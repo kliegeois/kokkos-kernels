@@ -358,7 +358,7 @@ struct TeamVectorGMRES {
 
       Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
                           [&](const OrdinalType& i) {
-                            tmp(i) = ATM::sqrt(tmp(i)) / G(i, 0);
+                            tmp(i) = ATM::sqrt(tmp(i));
                             handle.set_last_norm(member.league_rank(), i, tmp(i));
                           });
     }
