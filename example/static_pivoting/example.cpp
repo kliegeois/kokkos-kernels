@@ -77,6 +77,10 @@
 #include <KokkosBatched_LU_Serial_Impl.hpp>
 #include <KokkosBatched_LU_Team_Impl.hpp>
 #include <KokkosSparse_CrsMatrix.hpp>
+#include "KokkosBatched_Trsm_Decl.hpp"
+#include "KokkosBatched_Trsm_Team_Impl.hpp"
+#include "KokkosBatched_LU_Decl.hpp"
+#include "KokkosBatched_LU_Team_Impl.hpp"
 
 #include "examples_helper.hpp"
 
@@ -101,23 +105,28 @@ struct Functor_TestStaticPivoting {
   const XYViewType _D1;
   const XYViewType _D2;
   const IntViewType _P;
+  const XYViewType _X;
+  const XYViewType _Y;
   const int _N_team;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestStaticPivoting(const AViewType &A, const AViewType &PDAD, const AViewType &tmp,
                                   const XYViewType &D1, const XYViewType &D2,
-                                  const IntViewType &P, const int N_team)
-      : _A(A), _PDAD(PDAD), _tmp(tmp), _D1(D1), _D2(D2), _P(P), _N_team(N_team) {
+                                  const IntViewType &P, const XYViewType &X, const XYViewType &Y, const int N_team)
+      : _A(A), _PDAD(PDAD), _tmp(tmp), _D1(D1), _D2(D2), _P(P), _X(X), _Y(Y), _N_team(N_team) {
   }
 
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
     const int first_matrix = static_cast<int>(member.league_rank()) * _N_team;
     const int N            = _A.extent(0);
+    const int n            = _A.extent(1);
     const int last_matrix =
         (static_cast<int>(member.league_rank() + 1) * _N_team < N
              ? static_cast<int>(member.league_rank() + 1) * _N_team
              : N);
+    using TeamVectorCopy1D = KokkosBatched::TeamVectorCopy<MemberType, KokkosBatched::Trans::NoTranspose, 1>;
+
     auto a = Kokkos::subview(_A, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL,
                              Kokkos::ALL);
@@ -134,8 +143,35 @@ struct Functor_TestStaticPivoting {
     auto p = Kokkos::subview(_P, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
 
+    member.team_barrier();
     computePDD(member, a, p, d1, d2, tmp);
+    member.team_barrier();
     applyPDD(member, a, p, d1, d2, pdad);
+    member.team_barrier();
+
+    for (int i_matrix = first_matrix; i_matrix < last_matrix; ++i_matrix) {
+      auto pdad = Kokkos::subview(_PDAD, i_matrix, Kokkos::ALL, Kokkos::ALL);
+      auto d2 = Kokkos::subview(_D2, i_matrix, Kokkos::ALL);
+      auto x = Kokkos::subview(_X, i_matrix, Kokkos::ALL);
+      auto y = Kokkos::subview(_Y, i_matrix, Kokkos::ALL);
+
+      TeamVectorCopy1D::invoke(member, y, x);
+
+      member.team_barrier();
+ 
+      KokkosBatched::TeamLU<MemberType, KokkosBatched::Algo::Level3::Unblocked>::invoke(member, pdad);
+      member.team_barrier();
+      KokkosBatched::TeamTrsm<MemberType, KokkosBatched::Side::Left, KokkosBatched::Uplo::Lower,
+                KokkosBatched::Trans::NoTranspose, KokkosBatched::Diag::Unit,
+                KokkosBatched::Algo::Level3::Unblocked>::invoke(member, 1.0, pdad, x);
+      member.team_barrier();
+
+      Kokkos::parallel_for(
+          Kokkos::ThreadVectorRange(member, 0, n),
+          [&](const int& l) {
+            x(l) *= d2(l);
+          });
+    }
   }
 
   inline void run() {
@@ -171,13 +207,12 @@ int main(int argc, char *argv[]) {
 
     const int N_team = 1;
 
-    Functor_TestStaticPivoting<exec_space, AViewType, XYViewType, IntViewType>(A, PDAD, tmp, D1, D2, P, N_team).run();
-    //computePDD(A, P, D1, D2, tmp);
-    //applyPDD(A, P, D1, D2, PDAD);
+    Functor_TestStaticPivoting<exec_space, AViewType, XYViewType, IntViewType>(A, PDAD, tmp, D1, D2, P, X, Y, N_team).run();
 
     write3DArrayToMM("A.mm", A);
     write3DArrayToMM("PDAD.mm", PDAD);
     write2DArrayToMM("rhs.mm", Y);
+    write2DArrayToMM("solution.mm", X);
   }
   Kokkos::finalize();
 }
