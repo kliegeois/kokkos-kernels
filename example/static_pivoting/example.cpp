@@ -163,28 +163,27 @@ struct Functor_TestStaticPivoting {
 
     for (int i_matrix = first_matrix; i_matrix < last_matrix; ++i_matrix) {
       auto pdad = Kokkos::subview(_PDAD, i_matrix, Kokkos::ALL, Kokkos::ALL);
+      auto tmp = Kokkos::subview(_tmp, i_matrix, Kokkos::make_pair(0, n), Kokkos::make_pair(0, n));
       auto d2 = Kokkos::subview(_D2, i_matrix, Kokkos::ALL);
       auto x = Kokkos::subview(_X, i_matrix, Kokkos::ALL);
-      auto y = Kokkos::subview(_Y, i_matrix, Kokkos::ALL);
+      auto pdy = Kokkos::subview(_PDY, i_matrix, Kokkos::ALL);
 
-      TeamVectorCopy1D::invoke(member, y, x);
+      KokkosBatched::TeamVectorCopy<MemberType, KokkosBatched::Trans::NoTranspose>::invoke(member, pdad, tmp);
+      TeamVectorCopy1D::invoke(member, pdy, x);
 
       member.team_barrier();
- 
-      KokkosBatched::TeamLU<MemberType, KokkosBatched::Algo::Level3::Unblocked>::invoke(member, pdad);
+      KokkosBatched::TeamLU<MemberType, KokkosBatched::Algo::Level3::Unblocked>::invoke(member, tmp);
       member.team_barrier();
       KokkosBatched::TeamTrsm<MemberType, KokkosBatched::Side::Left, KokkosBatched::Uplo::Lower,
                 KokkosBatched::Trans::NoTranspose, KokkosBatched::Diag::Unit,
-                KokkosBatched::Algo::Level3::Unblocked>::invoke(member, 1.0, pdad, x);
+                KokkosBatched::Algo::Level3::Unblocked>::invoke(member, 1.0, tmp, x);
       member.team_barrier();
-
-      Kokkos::parallel_for(
-          Kokkos::ThreadVectorRange(member, 0, n),
-          [&](const int& l) {
-            x(l) *= d2(l);
-          });
+      
+      KokkosBatched::TeamTrsm<MemberType, KokkosBatched::Side::Left, KokkosBatched::Uplo::Upper,
+                KokkosBatched::Trans::NoTranspose, KokkosBatched::Diag::NonUnit,
+                KokkosBatched::Algo::Level3::Unblocked>::invoke(member, 1.0, tmp, x);
+      member.team_barrier();
     }
-    member.team_barrier();
     applyD(member, x, d2, dx);
     member.team_barrier();    
   }
@@ -228,6 +227,7 @@ int main(int argc, char *argv[]) {
 
     write3DArrayToMM("A.mm", A);
     write3DArrayToMM("PDAD.mm", PDAD);
+    write3DArrayToMM("tmp.mm", tmp);
     write2DArrayToMM("rhs.mm", Y);
     write2DArrayToMM("PDY.mm", PDY);
     write2DArrayToMM("solution.mm", X);

@@ -64,6 +64,7 @@ KOKKOS_INLINE_FUNCTION void computePDD(const MemberType &member,const MatrixType
               tmp_l(i, n) = Kokkos::abs(A_l(i, j));
           }
           D2_l(i) = 1./D2_l(i);
+          //printf("D2(%d,%d) = %f\n", l, i, D2_l(i));
         }
 
         for (int i = 0; i < n; ++i) {
@@ -79,6 +80,7 @@ KOKKOS_INLINE_FUNCTION void computePDD(const MemberType &member,const MatrixType
               D1_l(i) = Kokkos::abs(A_l(i, j));
           }
           D1_l(i) = 1./D1_l(i);
+          //printf("D1(%d,%d) = %f\n", l, i, D1_l(i));
         }
 
         for (int i = 0; i < n; ++i) {
@@ -127,6 +129,7 @@ KOKKOS_INLINE_FUNCTION void applyPDD(const MemberType &member,const MatrixType A
         for (int i = 0; i < n; ++i) {
           for (int j = 0; j < n; ++j) {
             PDAD_l(i,j) = D1_l(P_l(i)) * A_l(P_l(i), j) * D2_l(j);
+            //printf("PDAD(%d,%d,%d) = %f = %f * %f * %f with P_l(i) = %d.\n", l, i, j, PDAD_l(i,j), D1_l(P_l(i)), A_l(P_l(i), j), D2_l(j), P_l(i));
           }
         }
       });
