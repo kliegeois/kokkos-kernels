@@ -132,6 +132,43 @@ KOKKOS_INLINE_FUNCTION void applyPDD(const MemberType &member,const MatrixType A
       });
 }
 
+template <typename MemberType, class IntVectorType, class VectorType>
+KOKKOS_INLINE_FUNCTION void applyPD(const MemberType &member,const VectorType B, const IntVectorType P, const VectorType D1, const VectorType PDB) {
+  const int N = B.extent(0);
+  const int n = B.extent(1);
+
+  Kokkos::parallel_for(
+      Kokkos::TeamVectorRange(member, 0, N),
+      [&](const int& l) {
+        auto B_l = Kokkos::subview(B, l, Kokkos::ALL);
+        auto P_l = Kokkos::subview(P, l, Kokkos::ALL);
+        auto D1_l = Kokkos::subview(D1, l, Kokkos::ALL);
+        auto PDB_l = Kokkos::subview(PDB, l, Kokkos::ALL);
+
+        for (int i = 0; i < n; ++i) {
+          PDB_l(i) = D1_l(P_l(i)) * B_l(P_l(i));
+        }
+      });
+}
+
+template <typename MemberType, class VectorType>
+KOKKOS_INLINE_FUNCTION void applyD(const MemberType &member,const VectorType X, const VectorType D, const VectorType DX) {
+  const int N = X.extent(0);
+  const int n = X.extent(1);
+
+  Kokkos::parallel_for(
+      Kokkos::TeamVectorRange(member, 0, N),
+      [&](const int& l) {
+        auto X_l = Kokkos::subview(X, l, Kokkos::ALL);
+        auto D_l = Kokkos::subview(D, l, Kokkos::ALL);
+        auto DX_l = Kokkos::subview(DX, l, Kokkos::ALL);
+
+        for (int i = 0; i < n; ++i) {
+          DX_l(i) = D_l(i) * X_l(i);
+        }
+      });
+}
+
 template <class XType>
 void write2DArrayToMM(std::string name, const XType x) {
   std::ofstream myfile;

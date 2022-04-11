@@ -106,14 +106,16 @@ struct Functor_TestStaticPivoting {
   const XYViewType _D2;
   const IntViewType _P;
   const XYViewType _X;
+  const XYViewType _DX;
   const XYViewType _Y;
+  const XYViewType _PDY;
   const int _N_team;
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestStaticPivoting(const AViewType &A, const AViewType &PDAD, const AViewType &tmp,
                                   const XYViewType &D1, const XYViewType &D2,
-                                  const IntViewType &P, const XYViewType &X, const XYViewType &Y, const int N_team)
-      : _A(A), _PDAD(PDAD), _tmp(tmp), _D1(D1), _D2(D2), _P(P), _X(X), _Y(Y), _N_team(N_team) {
+                                  const IntViewType &P, const XYViewType &X, const XYViewType &DX, const XYViewType &Y, const XYViewType &PDY, const int N_team)
+      : _A(A), _PDAD(PDAD), _tmp(tmp), _D1(D1), _D2(D2), _P(P), _X(X), _DX(DX), _Y(Y), _PDY(PDY), _N_team(N_team) {
   }
 
   template <typename MemberType>
@@ -142,11 +144,21 @@ struct Functor_TestStaticPivoting {
                              Kokkos::ALL);
     auto p = Kokkos::subview(_P, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
+    auto x = Kokkos::subview(_X, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL);                             
+    auto dx = Kokkos::subview(_DX, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL); 
+    auto y = Kokkos::subview(_Y, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL);                             
+    auto pdy = Kokkos::subview(_PDY, Kokkos::make_pair(first_matrix, last_matrix),
+                             Kokkos::ALL); 
 
     member.team_barrier();
     computePDD(member, a, p, d1, d2, tmp);
     member.team_barrier();
     applyPDD(member, a, p, d1, d2, pdad);
+    member.team_barrier();
+    applyPD(member, y, p, d1, pdy);
     member.team_barrier();
 
     for (int i_matrix = first_matrix; i_matrix < last_matrix; ++i_matrix) {
@@ -172,6 +184,9 @@ struct Functor_TestStaticPivoting {
             x(l) *= d2(l);
           });
     }
+    member.team_barrier();
+    applyD(member, x, d2, dx);
+    member.team_barrier();    
   }
 
   inline void run() {
@@ -198,6 +213,8 @@ int main(int argc, char *argv[]) {
     AViewType tmp("tmp", N, n, n+2);
     XYViewType X("X", N, n);
     XYViewType Y("Y", N, n);
+    XYViewType PDY("PDY", N, n);
+    XYViewType DX("DX", N, n);
 
     IntViewType P("P", N, n);
     XYViewType D1("D1", N, n);
@@ -207,12 +224,17 @@ int main(int argc, char *argv[]) {
 
     const int N_team = 1;
 
-    Functor_TestStaticPivoting<exec_space, AViewType, XYViewType, IntViewType>(A, PDAD, tmp, D1, D2, P, X, Y, N_team).run();
+    Functor_TestStaticPivoting<exec_space, AViewType, XYViewType, IntViewType>(A, PDAD, tmp, D1, D2, P, X, DX, Y, PDY, N_team).run();
 
     write3DArrayToMM("A.mm", A);
     write3DArrayToMM("PDAD.mm", PDAD);
     write2DArrayToMM("rhs.mm", Y);
+    write2DArrayToMM("PDY.mm", PDY);
     write2DArrayToMM("solution.mm", X);
+    write2DArrayToMM("DX.mm", DX);
+    write2DArrayToMM("D1.mm", D1);
+    write2DArrayToMM("D2.mm", D2);
+    write2DArrayToMM("P.mm", P);
   }
   Kokkos::finalize();
 }
