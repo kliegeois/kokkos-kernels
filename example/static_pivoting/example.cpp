@@ -146,6 +146,40 @@ struct Functor_TeamTestStaticPivoting {
   }
 };
 
+template <typename DeviceType, typename AViewType, typename XYViewType>
+struct Functor_SerialTestStaticPivoting {
+  const AViewType _A;
+  const AViewType _tmp;
+  const XYViewType _X;
+  const XYViewType _Y;
+
+  KOKKOS_INLINE_FUNCTION
+  Functor_SerialTestStaticPivoting(const AViewType &A, const AViewType &tmp, const XYViewType &X, const XYViewType &Y)
+      : _A(A), _tmp(tmp), _X(X), _Y(Y) {
+  }
+
+  KOKKOS_INLINE_FUNCTION void operator()(const int &matrix_id) const {
+    auto A = Kokkos::subview(_A, matrix_id,
+                             Kokkos::ALL,
+                             Kokkos::ALL);
+    auto tmp = Kokkos::subview(_tmp, matrix_id,
+                             Kokkos::ALL,
+                             Kokkos::ALL);
+    auto X = Kokkos::subview(_X, matrix_id,
+                             Kokkos::ALL); 
+    auto Y = Kokkos::subview(_Y, matrix_id,
+                             Kokkos::ALL);
+    SerialGESV(A, X, Y, tmp);
+  }
+
+  inline void run() {
+    std::string name("KokkosBatched::Test::StaticPivoting");
+
+    const int N = _A.extent(0);
+    Kokkos::parallel_for(name.c_str(), N, *this);
+  }
+};
+
 int main(int argc, char *argv[]) {
   Kokkos::initialize();
   {
@@ -158,16 +192,25 @@ int main(int argc, char *argv[]) {
     int n = 10;
 
     AViewType A("A", N, n, n);
+    AViewType tmp("tmp", N, n, n+4);
     XYViewType X("X", N, n);
     XYViewType Y("Y", N, n);
 
     create_saddle_point_matrices(A, Y);
 
-    Functor_TeamTestStaticPivoting<exec_space, AViewType, XYViewType>(A, X, Y).run();
-
     write3DArrayToMM("A.mm", A);
     write2DArrayToMM("Y.mm", Y);
-    write2DArrayToMM("X.mm", X);
+
+    bool serial = true;
+
+    if (serial) {
+      Functor_SerialTestStaticPivoting<exec_space, AViewType, XYViewType>(A, tmp, X, Y).run();
+      write2DArrayToMM("X_serial.mm", X);
+    }
+    else {
+      Functor_TeamTestStaticPivoting<exec_space, AViewType, XYViewType>(A, X, Y).run();
+      write2DArrayToMM("X_team.mm", X);
+    }
   }
   Kokkos::finalize();
 }

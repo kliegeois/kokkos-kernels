@@ -111,8 +111,87 @@ KOKKOS_INLINE_FUNCTION void TeamStaticPivoting(const MemberType &member,
   }
 }
 
+template <class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
+KOKKOS_INLINE_FUNCTION void SerialStaticPivoting(const MatrixType1 A, 
+                                                 const MatrixType2 PDAD, 
+                                                 const VectorType1 Y, 
+                                                 const VectorType2 PDY, 
+                                                 const VectorType2 D2, 
+                                                 const VectorType2 tmp_v_1, 
+                                                 const VectorType2 tmp_v_2) {
+  using value_type = typename MatrixType1::non_const_value_type;
+  const int n = A.extent(0);
+
+  for (int i = 0; i < n; ++i) {
+    D2(i) = 0.;
+    tmp_v_1(i) = 0;
+    tmp_v_2(i) = 1.;
+    for (int j = 0; j < n; ++j) {
+      if (D2(i) < Kokkos::abs(A(j, i)))
+        D2(i) = Kokkos::abs(A(j, i));
+      if (tmp_v_1(i) < Kokkos::abs(A(i, j)))
+        tmp_v_1(i) = Kokkos::abs(A(i, j));
+    }
+    D2(i) = 1./D2(i);
+  }
+
+  for (int i = 0; i < n; ++i) {
+    for (int j = 0; j < n; ++j) {
+      A(i, j) *= D2(j);
+    }
+  }
+
+  for (int i = 0; i < n; ++i) {
+    value_type D1_i = 0.;
+    for (int j = 0; j < n; ++j) {
+      if (D1_i < Kokkos::abs(A(i, j)))
+        D1_i = Kokkos::abs(A(i, j));
+    }
+    D1_i = 1./D1_i;
+    for (int j = 0; j < n; ++j) {
+      A(i, j) *= D1_i;
+    }
+    Y(i) *= D1_i;
+  }
+
+  for (int i = 0; i < n; ++i) {
+    int row_index = 0;
+    int col_index = 0;
+    value_type tmp_0 = 0.;
+    value_type tmp_1 = 0.;
+    for (int j = 0; j < n; ++j) {
+      if (tmp_0 < tmp_v_1(j)) {
+        tmp_0 = tmp_v_1(j);
+        row_index = j;
+      }
+    }
+    for (int j = 0; j < n; ++j) {
+      if (tmp_1 < Kokkos::abs(A(row_index, j) * tmp_v_2(j))) {
+        tmp_1 = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
+        col_index = j;
+      }
+    }
+    tmp_v_1(row_index) = 0.;
+    tmp_v_2(col_index) = 0.;
+
+    for (int j = 0; j < n; ++j) {
+      PDAD(col_index, j) = A(row_index, j);
+    }
+    PDY(col_index) = Y(row_index);
+  }
+}
+
 template <typename MemberType, class VectorType1, class VectorType2, class VectorType3>
 KOKKOS_INLINE_FUNCTION void TeamScale(const MemberType &member,const VectorType1 X, const VectorType2 D, const VectorType3 DX) {
+  const int n = X.extent(0);
+
+  for (int i = 0; i < n; ++i) {
+    DX(i) = D(i) * X(i);
+  }
+}
+
+template <class VectorType1, class VectorType2, class VectorType3>
+KOKKOS_INLINE_FUNCTION void SerialScale(const VectorType1 X, const VectorType2 D, const VectorType3 DX) {
   const int n = X.extent(0);
 
   for (int i = 0; i < n; ++i) {
@@ -164,6 +243,27 @@ KOKKOS_INLINE_FUNCTION void TeamGESV(const MemberType &member,
 
 template <class MatrixType, class VectorType>
 KOKKOS_INLINE_FUNCTION void SerialGESV(const MatrixType A, const VectorType X, const VectorType Y, const MatrixType tmp) {
+  const int n = A.extent(0);
+
+  auto PDAD = Kokkos::subview(tmp, Kokkos::ALL, Kokkos::make_pair(0, n));
+  auto PDY = Kokkos::subview(tmp, Kokkos::ALL, n);
+  auto D2 = Kokkos::subview(tmp, Kokkos::ALL, n+1);
+  auto tmp_v_1 = Kokkos::subview(tmp, Kokkos::ALL, n+2);
+  auto tmp_v_2 = Kokkos::subview(tmp, Kokkos::ALL, n+3);
+
+  SerialStaticPivoting(A, PDAD, Y, PDY, D2, tmp_v_1, tmp_v_2);
+
+  KokkosBatched::SerialLU<KokkosBatched::Algo::Level3::Unblocked>::invoke(PDAD);
+
+  KokkosBatched::SerialTrsm<KokkosBatched::Side::Left, KokkosBatched::Uplo::Lower,
+            KokkosBatched::Trans::NoTranspose, KokkosBatched::Diag::Unit,
+            KokkosBatched::Algo::Level3::Unblocked>::invoke(1.0, PDAD, PDY);
+
+  KokkosBatched::SerialTrsm<KokkosBatched::Side::Left, KokkosBatched::Uplo::Upper,
+            KokkosBatched::Trans::NoTranspose, KokkosBatched::Diag::NonUnit,
+            KokkosBatched::Algo::Level3::Unblocked>::invoke(1.0, PDAD, PDY);
+
+  SerialScale(PDY, D2, X);  
 }
 
 template <typename MemberType, class MatrixType, class IntVectorType, class VectorType>
