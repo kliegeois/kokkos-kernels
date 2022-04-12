@@ -89,7 +89,9 @@ class KrylovHandle {
   KrylovHandle(int _batched_size, int _N_team, int _max_iteration = 200, bool _monitor_residual = false) : 
   max_iteration(_max_iteration), batched_size(_batched_size), N_team(_N_team), monitor_residual(_monitor_residual) {
     tolerance     = Kokkos::Details::ArithTraits<norm_type>::epsilon();
-    max_tolerance = Kokkos::Details::ArithTraits<norm_type>::epsilon();
+    max_tolerance = 1e-30;
+    if (std::is_same<norm_type, double>::value)
+      max_tolerance = 1e-50;
     if (monitor_residual) {
       residual_norms = NormViewType("",batched_size, max_iteration + 2);
     }

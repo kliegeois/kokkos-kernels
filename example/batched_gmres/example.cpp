@@ -208,7 +208,6 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
-    _handle.set_max_tolerance(1e-40);
     _handle.set_ortho_strategy(_ortho_strategy);
     _handle.set_scratch_pad_level(_scratch_pad_level);
     _handle.set_compute_last_residual(true);
