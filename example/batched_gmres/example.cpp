@@ -208,6 +208,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
     _handle.set_max_iteration(_N_iteration);
     _handle.set_tolerance(_tol);
+    _handle.set_max_tolerance(1e-40);
     _handle.set_ortho_strategy(_ortho_strategy);
     _handle.set_scratch_pad_level(_scratch_pad_level);
     _handle.set_compute_last_residual(true);
@@ -287,7 +288,6 @@ int main(int argc, char *argv[]) {
       readCRSFromMM(name_A, values, rowOffsets, colIndices);
       readArrayFromMM(name_B, y);
       Kokkos::deep_copy(x, 0.);
-      scale(y, 5.);
     }
     else{
       create_tridiagonal_batched_matrices(nnz, Blk, N, rowOffsets, colIndices, values, x, y);

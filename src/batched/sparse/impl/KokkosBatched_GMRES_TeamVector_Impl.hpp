@@ -140,9 +140,6 @@ struct TeamVectorGMRES {
     // Deep copy of b into r_0:
     TeamVectorCopy<MemberType>::invoke(member, _B, W);
 
-    Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
-                         [&](const OrdinalType& i) { mask(i) = 1.; });
-
     // r_0 := b - A x_0
     member.team_barrier();
     A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, X, W, -1, 1);
@@ -157,10 +154,18 @@ struct TeamVectorGMRES {
     Kokkos::parallel_for(Kokkos::TeamVectorRange(member, 0, numMatrices),
                          [&](const OrdinalType& i) {
                            tmp(i) = ATM::sqrt(tmp(i));
-                           G(i, 0) = tmp(i) > max_tolerance ? tmp(i) : 0.;
                            handle.set_norm(member.league_rank(), i, 0, tmp(i));
-                           mask(i) = tmp(i) > max_tolerance ? 1 : 0;
-                           tmp(i) = tmp(i) > max_tolerance ? 1. / tmp(i) : 0.;
+                           if (tmp(i) > max_tolerance) {
+                            mask(i) = 1;
+                            G(i, 0) = tmp(i);
+                            tmp(i) = 1. / tmp(i);
+                           }
+                           else {
+                            handle.set_iteration(member.league_rank(), i, 0);
+                            mask(i) = 0;
+                            G(i, 0) = 0.;
+                            tmp(i) = 0.;
+                           }
                          });
 
     member.team_barrier();  // Finish writing to tmp

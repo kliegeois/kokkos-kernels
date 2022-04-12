@@ -41,19 +41,6 @@
 //@HEADER
 
 template <class XType>
-void scale(const XType x, double s=1.) {
-
-  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
-  Kokkos::deep_copy(x_h, x);
-
-  for (size_t i = 0; i < x_h.extent(0); ++i)
-    for (size_t j = 0; j < x_h.extent(1); ++j)
-      x_h(i, j) *= s;
-
-  Kokkos::deep_copy(x, x_h);
-}
-
-template <class XType>
 void writeArrayToMM(std::string name, const XType x) {
   std::ofstream myfile;
   myfile.open(name);
