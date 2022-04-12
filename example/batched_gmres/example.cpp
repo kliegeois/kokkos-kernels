@@ -260,10 +260,10 @@ int main(int argc, char *argv[]) {
     using AMatrixValueView = Kokkos::View<double **, layout, exec_space>;
     using XYType           = Kokkos::View<double **, layout, exec_space>;
 
-    bool read_data = false;
+    bool read_data = true;
 
-    std::string name_A = "A.mm";
-    std::string name_B = "B.mm";
+    std::string name_A = "mat.mm";
+    std::string name_B = "rhs.mm";
 
     int N, Blk, nnz, ncols;
     if (read_data)
@@ -286,6 +286,8 @@ int main(int argc, char *argv[]) {
     if(read_data) {
       readCRSFromMM(name_A, values, rowOffsets, colIndices);
       readArrayFromMM(name_B, y);
+      Kokkos::deep_copy(x, 0.);
+      scale(y, 5.);
     }
     else{
       create_tridiagonal_batched_matrices(nnz, Blk, N, rowOffsets, colIndices, values, x, y);
@@ -297,6 +299,8 @@ int main(int argc, char *argv[]) {
       // Kokkos::deep_copy(x, 0.);
     }
     getInvDiagFromCRS(values, rowOffsets, colIndices, diag);
+
+    writeArrayToMM("iDiag.mm", diag);
 
     using ScalarType = typename AMatrixValueView::non_const_value_type;
     using Layout     = typename AMatrixValueView::array_layout;
@@ -312,19 +316,19 @@ int main(int argc, char *argv[]) {
 
     using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType, Scalar3DViewType>;
 
-    const int N_team = 10;
-    const int n_iterations = 10;
+    const int N_team = 2;
+    const int n_iterations = 150;
 
     const int team_size = -1;
     const int vector_length = -1;
-    const double tol = 1e-12;
+    const double tol = 1e-8;
     const int ortho_strategy = 0;
 
     KrylovHandleType handle(N, N_team, n_iterations, true);
     handle.Arnoldi_view = Scalar3DViewType("", N, n_iterations, Blk+n_iterations+3);
 
     writeArrayToMM("initial_guess.mm", x);
-    writeArrayToMM("rhs.mm", y);
+    writeArrayToMM("rhs_new.mm", y);
 
     double time = Functor_TestBatchedTeamVectorGMRES<exec_space, AMatrixValueView, IntView, XYType, KrylovHandleType, true>
                   (values, diag, rowOffsets, colIndices, x, y, N_team, team_size, vector_length, n_iterations, tol, ortho_strategy, 0, handle).run();
@@ -342,7 +346,7 @@ int main(int argc, char *argv[]) {
     if (handle.is_converged_host())
       std::cout << "All the systems have converged." << std::endl;
     else
-      std::cout << "There is at least one system that did not convegre." << std::endl;
+      std::cout << "There is at least one system that did not converge." << std::endl;
 
     writeArrayToMM("solution.mm", x);
     writeArrayToMM("convergence.mm", handle.residual_norms);
