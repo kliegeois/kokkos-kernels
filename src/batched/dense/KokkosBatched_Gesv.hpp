@@ -76,6 +76,20 @@ struct TeamGesv {
                                            const VectorType Y);
 };
 
+/// \brief Team Vector Batched GESV:
+///
+/// A nested parallel_for with TeamThreadRange is used.
+///
+
+template <typename MemberType>
+struct TeamVectorGesv {
+  template <typename MatrixType, typename VectorType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
+                                           const MatrixType A,
+                                           const VectorType X,
+                                           const VectorType Y);
+};
+
 }  // namespace KokkosBatched
 
 #include "KokkosBatched_Gesv_Impl.hpp"

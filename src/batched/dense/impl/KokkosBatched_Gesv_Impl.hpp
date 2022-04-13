@@ -48,79 +48,45 @@
 
 namespace KokkosBatched {
 
-template <typename MemberType, class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
-KOKKOS_INLINE_FUNCTION void TeamStaticPivoting(const MemberType &member, 
-                                               const MatrixType1 A, 
-                                               const MatrixType2 PDAD, 
-                                               const VectorType1 Y, 
-                                               const VectorType2 PDY, 
-                                               const VectorType2 D2, 
-                                               const VectorType2 tmp_v_1, 
-                                               const VectorType2 tmp_v_2) {
-  using value_type = typename MatrixType1::non_const_value_type;
-  const int n = A.extent(0);
+struct SerialStaticPivoting {
+  template <class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
+  KOKKOS_INLINE_FUNCTION static void invoke(const MatrixType1 A, 
+                                           const MatrixType2 PDAD, 
+                                           const VectorType1 Y, 
+                                           const VectorType2 PDY, 
+                                           const VectorType2 D2, 
+                                           const VectorType2 tmp_v_1, 
+                                           const VectorType2 tmp_v_2);
+};
 
-  for (int i = 0; i < n; ++i) {
-    D2(i) = 0.;
-    tmp_v_1(i) = 0;
-    tmp_v_2(i) = 1.;
-    for (int j = 0; j < n; ++j) {
-      if (D2(i) < Kokkos::abs(A(j, i)))
-        D2(i) = Kokkos::abs(A(j, i));
-      if (tmp_v_1(i) < Kokkos::abs(A(i, j)))
-        tmp_v_1(i) = Kokkos::abs(A(i, j));
-    }
-    D2(i) = 1./D2(i);
-  }
+template <typename MemberType>
+struct TeamStaticPivoting {
+  template <class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
+  KOKKOS_INLINE_FUNCTION static void invoke(const MemberType &member,
+                                           const MatrixType1 A, 
+                                           const MatrixType2 PDAD, 
+                                           const VectorType1 Y, 
+                                           const VectorType2 PDY, 
+                                           const VectorType2 D2, 
+                                           const VectorType2 tmp_v_1, 
+                                           const VectorType2 tmp_v_2);
+};
 
-  for (int i = 0; i < n; ++i) {
-    for (int j = 0; j < n; ++j) {
-      A(i, j) *= D2(j);
-    }
-  }
-
-  for (int i = 0; i < n; ++i) {
-    value_type D1_i = 0.;
-    for (int j = 0; j < n; ++j) {
-      if (D1_i < Kokkos::abs(A(i, j)))
-        D1_i = Kokkos::abs(A(i, j));
-    }
-    D1_i = 1./D1_i;
-    for (int j = 0; j < n; ++j) {
-      A(i, j) *= D1_i;
-    }
-    Y(i) *= D1_i;
-  }
-
-  for (int i = 0; i < n; ++i) {
-    int row_index = 0;
-    int col_index = 0;
-    value_type tmp_0 = 0.;
-    value_type tmp_1 = 0.;
-    for (int j = 0; j < n; ++j) {
-      if (tmp_0 < tmp_v_1(j)) {
-        tmp_0 = tmp_v_1(j);
-        row_index = j;
-      }
-    }
-    for (int j = 0; j < n; ++j) {
-      if (tmp_1 < Kokkos::abs(A(row_index, j) * tmp_v_2(j))) {
-        tmp_1 = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
-        col_index = j;
-      }
-    }
-    tmp_v_1(row_index) = 0.;
-    tmp_v_2(col_index) = 0.;
-
-    for (int j = 0; j < n; ++j) {
-      PDAD(col_index, j) = A(row_index, j);
-    }
-    PDY(col_index) = Y(row_index);
-  }
-}
+template <typename MemberType>
+struct TeamVectorStaticPivoting {
+  template <class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
+  KOKKOS_INLINE_FUNCTION static void invoke(const MemberType &member,
+                                           const MatrixType1 A, 
+                                           const MatrixType2 PDAD, 
+                                           const VectorType1 Y, 
+                                           const VectorType2 PDY, 
+                                           const VectorType2 D2, 
+                                           const VectorType2 tmp_v_1, 
+                                           const VectorType2 tmp_v_2);
+};
 
 template <class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
-KOKKOS_INLINE_FUNCTION void SerialStaticPivoting(const MatrixType1 A, 
+KOKKOS_INLINE_FUNCTION void SerialStaticPivoting::invoke(const MatrixType1 A, 
                                                  const MatrixType2 PDAD, 
                                                  const VectorType1 Y, 
                                                  const VectorType2 PDY, 
@@ -189,12 +155,147 @@ KOKKOS_INLINE_FUNCTION void SerialStaticPivoting(const MatrixType1 A,
   }
 }
 
-template <typename MemberType, class VectorType1, class VectorType2, class VectorType3>
-KOKKOS_INLINE_FUNCTION void TeamScale(const MemberType &member,const VectorType1 X, const VectorType2 D, const VectorType3 DX) {
-  const int n = X.extent(0);
+template <typename MemberType>
+template <class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
+KOKKOS_INLINE_FUNCTION void TeamStaticPivoting<MemberType>::invoke(const MemberType &member, 
+                                               const MatrixType1 A, 
+                                               const MatrixType2 PDAD, 
+                                               const VectorType1 Y, 
+                                               const VectorType2 PDY, 
+                                               const VectorType2 D2, 
+                                               const VectorType2 tmp_v_1, 
+                                               const VectorType2 tmp_v_2) {
+  using value_type = typename MatrixType1::non_const_value_type;
+  const int n = A.extent(0);
+
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
+    D2(i) = 0.;
+    tmp_v_1(i) = 0;
+    tmp_v_2(i) = 1.;
+    for (int j = 0; j < n; ++j) {
+      if (D2(i) < Kokkos::abs(A(j, i)))
+        D2(i) = Kokkos::abs(A(j, i));
+      if (tmp_v_1(i) < Kokkos::abs(A(i, j)))
+        tmp_v_1(i) = Kokkos::abs(A(i, j));
+    }
+    D2(i) = 1./D2(i);
+  });
+
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
+    for (int j = 0; j < n; ++j) {
+      A(i, j) *= D2(j);
+    }
+  });
+
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
+    value_type D1_i = 0.;
+    for (int j = 0; j < n; ++j) {
+      if (D1_i < Kokkos::abs(A(i, j)))
+        D1_i = Kokkos::abs(A(i, j));
+    }
+    D1_i = 1./D1_i;
+    for (int j = 0; j < n; ++j) {
+      A(i, j) *= D1_i;
+    }
+    Y(i) *= D1_i;
+  });
 
   for (int i = 0; i < n; ++i) {
-    DX(i) = D(i) * X(i);
+    int row_index = 0;
+    int col_index = 0;
+    value_type tmp_0 = 0.;
+    value_type tmp_1 = 0.;
+    for (int j = 0; j < n; ++j) {
+      if (tmp_0 < tmp_v_1(j)) {
+        tmp_0 = tmp_v_1(j);
+        row_index = j;
+      }
+    }
+    for (int j = 0; j < n; ++j) {
+      if (tmp_1 < Kokkos::abs(A(row_index, j) * tmp_v_2(j))) {
+        tmp_1 = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
+        col_index = j;
+      }
+    }
+    tmp_v_1(row_index) = 0.;
+    tmp_v_2(col_index) = 0.;
+
+    for (int j = 0; j < n; ++j) {
+      PDAD(col_index, j) = A(row_index, j);
+    }
+    PDY(col_index) = Y(row_index);
+  }
+}
+
+template <typename MemberType>
+template <class MatrixType1, class MatrixType2, class VectorType1, class VectorType2>
+KOKKOS_INLINE_FUNCTION void TeamVectorStaticPivoting<MemberType>::invoke(const MemberType &member, 
+                                               const MatrixType1 A, 
+                                               const MatrixType2 PDAD, 
+                                               const VectorType1 Y, 
+                                               const VectorType2 PDY, 
+                                               const VectorType2 D2, 
+                                               const VectorType2 tmp_v_1, 
+                                               const VectorType2 tmp_v_2) {
+  using value_type = typename MatrixType1::non_const_value_type;
+  const int n = A.extent(0);
+
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
+    D2(i) = 0.;
+    tmp_v_1(i) = 0;
+    tmp_v_2(i) = 1.;
+    for (int j = 0; j < n; ++j) {
+      if (D2(i) < Kokkos::abs(A(j, i)))
+        D2(i) = Kokkos::abs(A(j, i));
+      if (tmp_v_1(i) < Kokkos::abs(A(i, j)))
+        tmp_v_1(i) = Kokkos::abs(A(i, j));
+    }
+    D2(i) = 1./D2(i);
+  });
+
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(member, n), [&](const int& j) {
+      A(i, j) *= D2(j);
+    });
+  });
+
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
+    value_type D1_i = 0.;
+    for (int j = 0; j < n; ++j) {
+      if (D1_i < Kokkos::abs(A(i, j)))
+        D1_i = Kokkos::abs(A(i, j));
+    }
+    D1_i = 1./D1_i;
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(member, n), [&](const int& j) {
+      A(i, j) *= D1_i;
+    });
+    Y(i) *= D1_i;
+  });
+
+  for (int i = 0; i < n; ++i) {
+    int row_index = 0;
+    int col_index = 0;
+    value_type tmp_0 = 0.;
+    value_type tmp_1 = 0.;
+    for (int j = 0; j < n; ++j) {
+      if (tmp_0 < tmp_v_1(j)) {
+        tmp_0 = tmp_v_1(j);
+        row_index = j;
+      }
+    }
+    for (int j = 0; j < n; ++j) {
+      if (tmp_1 < Kokkos::abs(A(row_index, j) * tmp_v_2(j))) {
+        tmp_1 = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
+        col_index = j;
+      }
+    }
+    tmp_v_1(row_index) = 0.;
+    tmp_v_2(col_index) = 0.;
+
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(member, n), [&](const int& j) {
+      PDAD(col_index, j) = A(row_index, j);
+    });
+    PDY(col_index) = Y(row_index);
   }
 }
 
@@ -205,6 +306,24 @@ KOKKOS_INLINE_FUNCTION void SerialScale(const VectorType1 X, const VectorType2 D
   for (int i = 0; i < n; ++i) {
     DX(i) = D(i) * X(i);
   }
+}
+
+template <typename MemberType, class VectorType1, class VectorType2, class VectorType3>
+KOKKOS_INLINE_FUNCTION void TeamScale(const MemberType &member,const VectorType1 X, const VectorType2 D, const VectorType3 DX) {
+  const int n = X.extent(0);
+
+  Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
+    DX(i) = D(i) * X(i);
+  });
+}
+
+template <typename MemberType, class VectorType1, class VectorType2, class VectorType3>
+KOKKOS_INLINE_FUNCTION void TeamVectorScale(const MemberType &member,const VectorType1 X, const VectorType2 D, const VectorType3 DX) {
+  const int n = X.extent(0);
+
+  Kokkos::parallel_for(Kokkos::TeamVectorRange(member, n), [&](const int& i) {
+    DX(i) = D(i) * X(i);
+  });
 }
 
 ///
@@ -251,7 +370,7 @@ KOKKOS_INLINE_FUNCTION int SerialGesv::invoke(const MatrixType A, const VectorTy
   auto tmp_v_1 = Kokkos::subview(tmp, Kokkos::ALL, n+2);
   auto tmp_v_2 = Kokkos::subview(tmp, Kokkos::ALL, n+3);
 
-  SerialStaticPivoting(A, PDAD, Y, PDY, D2, tmp_v_1, tmp_v_2);
+  SerialStaticPivoting::invoke(A, PDAD, Y, PDY, D2, tmp_v_1, tmp_v_2);
 
   SerialLU<Algo::Level3::Unblocked>::invoke(PDAD);
 
@@ -310,7 +429,7 @@ KOKKOS_INLINE_FUNCTION int TeamGesv<MemberType>::invoke(
   auto tmp_v_1 = Kokkos::subview(tmp, Kokkos::ALL, n+2);
   auto tmp_v_2 = Kokkos::subview(tmp, Kokkos::ALL, n+3);
 
-  TeamStaticPivoting(member, A, PDAD, Y, PDY, D2, tmp_v_1, tmp_v_2);
+  TeamStaticPivoting<MemberType>::invoke(member, A, PDAD, Y, PDY, D2, tmp_v_1, tmp_v_2);
   member.team_barrier();
 
   TeamLU<MemberType, Algo::Level3::Unblocked>::invoke(member, PDAD);
@@ -327,6 +446,70 @@ KOKKOS_INLINE_FUNCTION int TeamGesv<MemberType>::invoke(
   member.team_barrier();
 
   TeamScale(member, PDY, D2, X);
+  member.team_barrier();
+  return 0;
+}
+
+///
+/// TeamVector Impl
+/// =========
+
+template <typename MemberType>
+template <typename MatrixType, typename VectorType>
+KOKKOS_INLINE_FUNCTION int TeamVectorGesv<MemberType>::invoke(
+    const MemberType& member, const MatrixType A, const VectorType X, const VectorType Y) {
+#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+  static_assert(Kokkos::is_view<MatrixType>::value,
+                "KokkosBatched::gesv: MatrixType is not a Kokkos::View.");
+  static_assert(Kokkos::is_view<VectorType>::value,
+                "KokkosBatched::gesv: VectorType is not a Kokkos::View.");
+  static_assert(Kokkos::is_view<alphaViewType>::value,
+                "KokkosBatched::gesv: alphaViewType is not a Kokkos::View.");
+  static_assert(MatrixType::Rank == 2,
+                "KokkosBatched::gesv: MatrixType must have rank 2.");
+  static_assert(VectorType::Rank == 1,
+                "KokkosBatched::gesv: VectorType must have rank 1.");
+
+  // Check compatibility of dimensions at run time.
+  if (A.extent(0) != X.extent(0) || A.extent(1) != X.extent(0) || A.extent(0) != Y.extent(0)) {
+    KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+        "KokkosBatched::gesv: dimensions of A and X and Y do not match: A: "
+        "%d x %d, X: %d, Y: %d\n",
+        (int)A.extent(0), (int)A.extent(1), (int)X.extent(0), (int)Y.extent(0));
+    return 1;
+  }
+#endif
+  using ScratchPadMatrixViewType = Kokkos::View<
+      typename MatrixType::non_const_value_type**,
+      typename MatrixType::array_layout,
+      typename MatrixType::execution_space::scratch_memory_space>;
+
+  const int n = A.extent(0);
+
+  ScratchPadMatrixViewType tmp(member.team_scratch(0), n, n + 4);
+  auto PDAD = Kokkos::subview(tmp, Kokkos::ALL, Kokkos::make_pair(0, n));
+  auto PDY = Kokkos::subview(tmp, Kokkos::ALL, n);
+  auto D2 = Kokkos::subview(tmp, Kokkos::ALL, n+1);
+  auto tmp_v_1 = Kokkos::subview(tmp, Kokkos::ALL, n+2);
+  auto tmp_v_2 = Kokkos::subview(tmp, Kokkos::ALL, n+3);
+
+  TeamVectorStaticPivoting<MemberType>::invoke(member, A, PDAD, Y, PDY, D2, tmp_v_1, tmp_v_2);
+  member.team_barrier();
+
+  TeamLU<MemberType, Algo::Level3::Unblocked>::invoke(member, PDAD);
+  member.team_barrier();
+
+  TeamTrsm<MemberType, Side::Left, Uplo::Lower,
+            Trans::NoTranspose, Diag::Unit,
+            Algo::Level3::Unblocked>::invoke(member, 1.0, PDAD, PDY);
+  member.team_barrier();
+
+  TeamTrsm<MemberType, Side::Left, Uplo::Upper,
+            Trans::NoTranspose, Diag::NonUnit,
+            Algo::Level3::Unblocked>::invoke(member, 1.0, PDAD, PDY);
+  member.team_barrier();
+
+  TeamVectorScale(member, PDY, D2, X);
   member.team_barrier();
   return 0;
 }
