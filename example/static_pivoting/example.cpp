@@ -94,6 +94,7 @@
 #include "KokkosBatched_Dot_Internal.hpp"
 #include "KokkosBatched_Spmv_Serial_Impl.hpp"
 #include "KokkosBatched_Copy_Decl.hpp"
+#include "KokkosBatched_Gesv.hpp"
 
 typedef Kokkos::DefaultExecutionSpace exec_space;
 
@@ -120,7 +121,7 @@ struct Functor_TeamTestStaticPivoting {
     auto Y = Kokkos::subview(_Y, matrix_id,
                              Kokkos::ALL);
     member.team_barrier();
-    TeamGESV(member, A, X, Y);
+    KokkosBatched::TeamGesv<MemberType>::invoke(member, A, X, Y);
     member.team_barrier();
   }
 
@@ -169,7 +170,7 @@ struct Functor_SerialTestStaticPivoting {
                              Kokkos::ALL); 
     auto Y = Kokkos::subview(_Y, matrix_id,
                              Kokkos::ALL);
-    SerialGESV(A, X, Y, tmp);
+    KokkosBatched::SerialGesv::invoke(A, X, Y, tmp);
   }
 
   inline void run() {
