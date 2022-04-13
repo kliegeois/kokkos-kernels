@@ -166,6 +166,7 @@ KOKKOS_INLINE_FUNCTION void TeamStaticPivoting<MemberType>::invoke(const MemberT
                                                const VectorType2 tmp_v_1, 
                                                const VectorType2 tmp_v_2) {
   using value_type = typename MatrixType1::non_const_value_type;
+  using reducer_value_type = typename Kokkos::MaxLoc<value_type, int>::value_type;
   const int n = A.extent(0);
 
   Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
@@ -201,22 +202,29 @@ KOKKOS_INLINE_FUNCTION void TeamStaticPivoting<MemberType>::invoke(const MemberT
   });
 
   for (int i = 0; i < n; ++i) {
-    int row_index = 0;
-    int col_index = 0;
-    value_type tmp_0 = 0.;
-    value_type tmp_1 = 0.;
-    for (int j = 0; j < n; ++j) {
-      if (tmp_0 < tmp_v_1(j)) {
-        tmp_0 = tmp_v_1(j);
-        row_index = j;
-      }
-    }
-    for (int j = 0; j < n; ++j) {
-      if (tmp_1 < Kokkos::abs(A(row_index, j) * tmp_v_2(j))) {
-        tmp_1 = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
-        col_index = j;
-      }
-    }
+    int row_index, col_index;
+    reducer_value_type value;
+    Kokkos::MaxLoc<value_type, int> reducer_value(value);
+    Kokkos::parallel_reduce(
+        Kokkos::TeamThreadRange(member, n),
+        [&](const int &j, reducer_value_type &update) {
+          if (tmp_v_1(j) > update.val) {
+            update.val = tmp_v_1(j);
+            update.loc = j;
+          }
+        },
+        reducer_value);
+    row_index = value.loc;
+    Kokkos::parallel_reduce(
+        Kokkos::TeamThreadRange(member, n),
+        [&](const int &j, reducer_value_type &update) {
+          if (Kokkos::abs(A(row_index, j) * tmp_v_2(j)) > update.val) {
+            update.val = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
+            update.loc = j;
+          }
+        },
+        reducer_value);
+    col_index = value.loc;
     tmp_v_1(row_index) = 0.;
     tmp_v_2(col_index) = 0.;
 
@@ -238,19 +246,35 @@ KOKKOS_INLINE_FUNCTION void TeamVectorStaticPivoting<MemberType>::invoke(const M
                                                const VectorType2 tmp_v_1, 
                                                const VectorType2 tmp_v_2) {
   using value_type = typename MatrixType1::non_const_value_type;
+  using reducer_value_type = typename Kokkos::MaxLoc<value_type, int>::value_type;
   const int n = A.extent(0);
 
   Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
     D2(i) = 0.;
     tmp_v_1(i) = 0;
     tmp_v_2(i) = 1.;
-    for (int j = 0; j < n; ++j) {
-      if (D2(i) < Kokkos::abs(A(j, i)))
-        D2(i) = Kokkos::abs(A(j, i));
-      if (tmp_v_1(i) < Kokkos::abs(A(i, j)))
-        tmp_v_1(i) = Kokkos::abs(A(i, j));
-    }
-    D2(i) = 1./D2(i);
+    reducer_value_type value;
+    Kokkos::MaxLoc<value_type, int> reducer_value(value);
+    Kokkos::parallel_reduce(
+        Kokkos::ThreadVectorRange(member, n),
+        [&](const int &j, reducer_value_type &update) {
+          if (Kokkos::abs(A(j, i)) > update.val) {
+            update.val = Kokkos::abs(A(j, i));
+            update.loc = j;
+          }
+        },
+        reducer_value);
+    D2(i) = 1./value.val;
+    Kokkos::parallel_reduce(
+        Kokkos::ThreadVectorRange(member, n),
+        [&](const int &j, reducer_value_type &update) {
+          if (Kokkos::abs(A(i, j)) > update.val) {
+            update.val = Kokkos::abs(A(i, j));
+            update.loc = j;
+          }
+        },
+        reducer_value);
+    tmp_v_1(i) = value.val;
   });
 
   Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
@@ -261,11 +285,18 @@ KOKKOS_INLINE_FUNCTION void TeamVectorStaticPivoting<MemberType>::invoke(const M
 
   Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n), [&](const int& i) {
     value_type D1_i = 0.;
-    for (int j = 0; j < n; ++j) {
-      if (D1_i < Kokkos::abs(A(i, j)))
-        D1_i = Kokkos::abs(A(i, j));
-    }
-    D1_i = 1./D1_i;
+    reducer_value_type value;
+    Kokkos::MaxLoc<value_type, int> reducer_value(value);
+    Kokkos::parallel_reduce(
+        Kokkos::ThreadVectorRange(member, n),
+        [&](const int &j, reducer_value_type &update) {
+          if (Kokkos::abs(A(i, j)) > update.val) {
+            update.val = Kokkos::abs(A(i, j));
+            update.loc = j;
+          }
+        },
+        reducer_value);
+    D1_i = 1./value.val;
     Kokkos::parallel_for(Kokkos::ThreadVectorRange(member, n), [&](const int& j) {
       A(i, j) *= D1_i;
     });
@@ -273,22 +304,29 @@ KOKKOS_INLINE_FUNCTION void TeamVectorStaticPivoting<MemberType>::invoke(const M
   });
 
   for (int i = 0; i < n; ++i) {
-    int row_index = 0;
-    int col_index = 0;
-    value_type tmp_0 = 0.;
-    value_type tmp_1 = 0.;
-    for (int j = 0; j < n; ++j) {
-      if (tmp_0 < tmp_v_1(j)) {
-        tmp_0 = tmp_v_1(j);
-        row_index = j;
-      }
-    }
-    for (int j = 0; j < n; ++j) {
-      if (tmp_1 < Kokkos::abs(A(row_index, j) * tmp_v_2(j))) {
-        tmp_1 = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
-        col_index = j;
-      }
-    }
+    int row_index, col_index;
+    reducer_value_type value;
+    Kokkos::MaxLoc<value_type, int> reducer_value(value);
+    Kokkos::parallel_reduce(
+        Kokkos::TeamVectorRange(member, n),
+        [&](const int &j, reducer_value_type &update) {
+          if (tmp_v_1(j) > update.val) {
+            update.val = tmp_v_1(j);
+            update.loc = j;
+          }
+        },
+        reducer_value);
+    row_index = value.loc;
+    Kokkos::parallel_reduce(
+        Kokkos::TeamVectorRange(member, n),
+        [&](const int &j, reducer_value_type &update) {
+          if (Kokkos::abs(A(row_index, j) * tmp_v_2(j)) > update.val) {
+            update.val = Kokkos::abs(A(row_index, j) * tmp_v_2(j));
+            update.loc = j;
+          }
+        },
+        reducer_value);
+    col_index = value.loc;
     tmp_v_1(row_index) = 0.;
     tmp_v_2(col_index) = 0.;
 
