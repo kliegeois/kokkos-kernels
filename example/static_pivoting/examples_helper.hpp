@@ -54,10 +54,10 @@ void write2DArrayToMM(std::string name, const XType x) {
     myfile << x_h.extent(0) << " " << x_h.extent(1) << std::endl;
 
     for (size_t i = 0; i < x_h.extent(0); ++i) {
-        for (size_t j = 0; j < x_h.extent(1); ++j) {
-            myfile << std::setprecision (15) << x_h(i, j) << " ";
-        }
-        myfile << std::endl;
+      for (size_t j = 0; j < x_h.extent(1); ++j) {
+        myfile << std::setprecision(15) << x_h(i, j) << " ";
+      }
+      myfile << std::endl;
     }
 
     myfile.close();
@@ -75,16 +75,17 @@ void write3DArrayToMM(std::string name, const XType x) {
 
   if (XType::Rank == 3) {
     myfile << "%% MatrixMarket 3D Array\n%" << std::endl;
-    myfile << x_h.extent(0) << " " << x_h.extent(1) << " " << x_h.extent(2) << std::endl;
+    myfile << x_h.extent(0) << " " << x_h.extent(1) << " " << x_h.extent(2)
+           << std::endl;
 
     for (size_t i = 0; i < x_h.extent(0); ++i) {
-        myfile << "Slice " << i << std::endl;
-        for (size_t j = 0; j < x_h.extent(1); ++j) {
-            for (size_t k = 0; k < x_h.extent(2); ++k) {
-                myfile << std::setprecision (15) << x_h(i, j, k) << " ";
-            }
-            myfile << std::endl;
+      myfile << "Slice " << i << std::endl;
+      for (size_t j = 0; j < x_h.extent(1); ++j) {
+        for (size_t k = 0; k < x_h.extent(2); ++k) {
+          myfile << std::setprecision(15) << x_h(i, j, k) << " ";
         }
+        myfile << std::endl;
+      }
     }
 
     myfile.close();
@@ -135,22 +136,21 @@ void readArrayFromMM(std::string name, const XType &x) {
 
   Kokkos::deep_copy(x, x_h);
 
-/*
-  std::ofstream myfile;
-  myfile.open("x-data.txt");
+  /*
+    std::ofstream myfile;
+    myfile.open("x-data.txt");
 
 
-  for (size_t i = 0; i < x_h.extent(0); ++i) {
-    for (size_t j = 0; j < x_h.extent(1); ++j) {
-      myfile << std::setprecision (15) << x_h(i, j) << " ";
+    for (size_t i = 0; i < x_h.extent(0); ++i) {
+      for (size_t j = 0; j < x_h.extent(1); ++j) {
+        myfile << std::setprecision (15) << x_h(i, j) << " ";
+      }
+      myfile << std::endl;
     }
-    myfile << std::endl;
-  }
 
-  myfile.close();
-  */
+    myfile.close();
+    */
 }
-
 
 template <typename IntView, typename VectorViewType>
 void create_tridiagonal_batched_matrices(const int nnz, const int BlkSize,
@@ -208,66 +208,65 @@ void create_tridiagonal_batched_matrices(const int nnz, const int BlkSize,
   Kokkos::fence();
 }
 
-
 template <typename MatrixViewType, typename VectorViewType>
-void create_saddle_point_matrices(const MatrixViewType &A, const VectorViewType &Y, const int n_2 = 4) {
-    Kokkos::Random_XorShift64_Pool<
-        typename MatrixViewType::device_type::execution_space>
-        random(13718);
-    const int N = A.extent(0);
-    const int n = A.extent(1);
-    const int n_1 = n - n_2;
+void create_saddle_point_matrices(const MatrixViewType &A,
+                                  const VectorViewType &Y, const int n_2 = 4) {
+  Kokkos::Random_XorShift64_Pool<
+      typename MatrixViewType::device_type::execution_space>
+      random(13718);
+  const int N   = A.extent(0);
+  const int n   = A.extent(1);
+  const int n_1 = n - n_2;
 
-    const int n_dim = n_2 - 1;
-    MatrixViewType xs("xs", N, n_1, n_dim);
-    VectorViewType ys("ys", N, n_1);
+  const int n_dim = n_2 - 1;
+  MatrixViewType xs("xs", N, n_1, n_dim);
+  VectorViewType ys("ys", N, n_1);
 
-    Kokkos::fill_random(
-        xs, random,
-        Kokkos::reduction_identity<typename MatrixViewType::value_type>::prod());
-    Kokkos::fill_random(
-        ys, random,
-        Kokkos::reduction_identity<typename VectorViewType::value_type>::prod());
+  Kokkos::fill_random(
+      xs, random,
+      Kokkos::reduction_identity<typename MatrixViewType::value_type>::prod());
+  Kokkos::fill_random(
+      ys, random,
+      Kokkos::reduction_identity<typename VectorViewType::value_type>::prod());
 
-    auto xs_host = Kokkos::create_mirror_view(xs);
-    auto ys_host = Kokkos::create_mirror_view(ys);
-    auto A_host = Kokkos::create_mirror_view(A);
-    auto Y_host = Kokkos::create_mirror_view(Y);
+  auto xs_host = Kokkos::create_mirror_view(xs);
+  auto ys_host = Kokkos::create_mirror_view(ys);
+  auto A_host  = Kokkos::create_mirror_view(A);
+  auto Y_host  = Kokkos::create_mirror_view(Y);
 
-    Kokkos::deep_copy(xs_host, xs);
-    Kokkos::deep_copy(ys_host, ys);
+  Kokkos::deep_copy(xs_host, xs);
+  Kokkos::deep_copy(ys_host, ys);
 
-    for (int i = 0; i < n_1; ++i) {
-        for (int j = 0; j < n_1; ++j) {
-            auto xs_j = Kokkos::subview(xs_host, Kokkos::ALL, j, Kokkos::ALL);
-            for (int l = 0; l < N; ++l) {
-                auto xs_i = Kokkos::subview(xs_host, l, i, Kokkos::ALL);
-                auto xs_j = Kokkos::subview(xs_host, l, j, Kokkos::ALL);
-                typename MatrixViewType::value_type d = 0;
-                for (int k = 0; k < n_dim; ++k)
-                    d += Kokkos::pow(xs_i(k) - xs_j(k), 2);
-                d = Kokkos::sqrt(d);
-                A_host(l, i, j) = Kokkos::pow(d, 5);
-            }
-        }
-        for (int l = 0; l < N; ++l) {
-            A_host(l, i, n_1) = (typename MatrixViewType::value_type) 1.0;
-            A_host(l, n_1, i) = (typename MatrixViewType::value_type) 1.0;
-            for (int k = 0; k < n_dim; ++k) {
-                A_host(l, i, n_1 + k + 1) = xs_host(l, i, k);
-                A_host(l, n_1 + k + 1, i) = xs_host(l, i, k);
-            }
-            Y_host(l, i) = ys_host(l, i);
-        }
+  for (int i = 0; i < n_1; ++i) {
+    for (int j = 0; j < n_1; ++j) {
+      auto xs_j = Kokkos::subview(xs_host, Kokkos::ALL, j, Kokkos::ALL);
+      for (int l = 0; l < N; ++l) {
+        auto xs_i = Kokkos::subview(xs_host, l, i, Kokkos::ALL);
+        auto xs_j = Kokkos::subview(xs_host, l, j, Kokkos::ALL);
+        typename MatrixViewType::value_type d = 0;
+        for (int k = 0; k < n_dim; ++k) d += Kokkos::pow(xs_i(k) - xs_j(k), 2);
+        d               = Kokkos::sqrt(d);
+        A_host(l, i, j) = Kokkos::pow(d, 5);
+      }
     }
-    for (int i = n_1; i < n; ++i) {
-        for (int l = 0; l < N; ++l) {
-            Y_host(l, i) = (typename MatrixViewType::value_type) 0.0;
-        }
+    for (int l = 0; l < N; ++l) {
+      A_host(l, i, n_1) = (typename MatrixViewType::value_type)1.0;
+      A_host(l, n_1, i) = (typename MatrixViewType::value_type)1.0;
+      for (int k = 0; k < n_dim; ++k) {
+        A_host(l, i, n_1 + k + 1) = xs_host(l, i, k);
+        A_host(l, n_1 + k + 1, i) = xs_host(l, i, k);
+      }
+      Y_host(l, i) = ys_host(l, i);
     }
+  }
+  for (int i = n_1; i < n; ++i) {
+    for (int l = 0; l < N; ++l) {
+      Y_host(l, i) = (typename MatrixViewType::value_type)0.0;
+    }
+  }
 
-    Kokkos::deep_copy(A, A_host);
-    Kokkos::deep_copy(Y, Y_host);
+  Kokkos::deep_copy(A, A_host);
+  Kokkos::deep_copy(Y, Y_host);
 
-    Kokkos::fence();
+  Kokkos::fence();
 }
