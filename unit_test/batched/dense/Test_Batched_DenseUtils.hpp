@@ -14,21 +14,20 @@ void create_tridiagonal_batched_matrices(const MatrixViewType &A,
 
   auto A_host = Kokkos::create_mirror_view(A);
 
-  const int N = A.extent(0);
+  const int N       = A.extent(0);
   const int BlkSize = A.extent(1);
 
   for (int l = 0; l < N; ++l) {
     for (int i = 0; i < BlkSize; ++i) {
       for (int j = i; j < BlkSize; ++j) {
-        if (i==j)
-          A_host(l,i,j) = typename VectorViewType::value_type(2.0);
-        else if (i==j-1) {
-          A_host(l,i,j) = typename VectorViewType::value_type(-1.0);
-          A_host(l,j,i) = typename VectorViewType::value_type(-1.0);
-        }
-        else {
-          A_host(l,i,j) = typename VectorViewType::value_type(0.0);
-          A_host(l,j,i) = typename VectorViewType::value_type(0.0);          
+        if (i == j)
+          A_host(l, i, j) = typename VectorViewType::value_type(2.0);
+        else if (i == j - 1) {
+          A_host(l, i, j) = typename VectorViewType::value_type(-1.0);
+          A_host(l, j, i) = typename VectorViewType::value_type(-1.0);
+        } else {
+          A_host(l, i, j) = typename VectorViewType::value_type(0.0);
+          A_host(l, j, i) = typename VectorViewType::value_type(0.0);
         }
       }
     }

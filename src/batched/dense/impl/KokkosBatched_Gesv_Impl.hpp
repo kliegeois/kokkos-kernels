@@ -319,8 +319,8 @@ KOKKOS_INLINE_FUNCTION void TeamVectorStaticPivoting<MemberType>::invoke(
 
 template <class VectorType1, class VectorType2, class VectorType3>
 KOKKOS_INLINE_FUNCTION void SerialHadamard1D(const VectorType1 X,
-                                        const VectorType2 D,
-                                        const VectorType3 DX) {
+                                             const VectorType2 D,
+                                             const VectorType3 DX) {
   const int n = X.extent(0);
 
   for (int i = 0; i < n; ++i) {
@@ -331,8 +331,9 @@ KOKKOS_INLINE_FUNCTION void SerialHadamard1D(const VectorType1 X,
 template <typename MemberType, class VectorType1, class VectorType2,
           class VectorType3>
 KOKKOS_INLINE_FUNCTION void TeamHadamard1D(const MemberType &member,
-                                      const VectorType1 X, const VectorType2 D,
-                                      const VectorType3 DX) {
+                                           const VectorType1 X,
+                                           const VectorType2 D,
+                                           const VectorType3 DX) {
   const int n = X.extent(0);
 
   Kokkos::parallel_for(Kokkos::TeamThreadRange(member, n),
@@ -342,9 +343,9 @@ KOKKOS_INLINE_FUNCTION void TeamHadamard1D(const MemberType &member,
 template <typename MemberType, class VectorType1, class VectorType2,
           class VectorType3>
 KOKKOS_INLINE_FUNCTION void TeamVectorHadamard1D(const MemberType &member,
-                                            const VectorType1 X,
-                                            const VectorType2 D,
-                                            const VectorType3 DX) {
+                                                 const VectorType1 X,
+                                                 const VectorType2 D,
+                                                 const VectorType3 DX) {
   const int n = X.extent(0);
 
   Kokkos::parallel_for(Kokkos::TeamVectorRange(member, n),
