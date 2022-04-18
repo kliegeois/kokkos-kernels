@@ -45,6 +45,8 @@
 /// \author Kim Liegeois (knliege@sandia.gov)
 
 #include "KokkosBatched_Util.hpp"
+#include <KokkosBatched_LU_Decl.hpp>
+#include "KokkosBatched_Trsm_Decl.hpp"
 
 namespace KokkosBatched {
 
@@ -316,7 +318,7 @@ KOKKOS_INLINE_FUNCTION void TeamVectorStaticPivoting<MemberType>::invoke(
 }
 
 template <class VectorType1, class VectorType2, class VectorType3>
-KOKKOS_INLINE_FUNCTION void SerialScale(const VectorType1 X,
+KOKKOS_INLINE_FUNCTION void SerialHadamard1D(const VectorType1 X,
                                         const VectorType2 D,
                                         const VectorType3 DX) {
   const int n = X.extent(0);
@@ -328,7 +330,7 @@ KOKKOS_INLINE_FUNCTION void SerialScale(const VectorType1 X,
 
 template <typename MemberType, class VectorType1, class VectorType2,
           class VectorType3>
-KOKKOS_INLINE_FUNCTION void TeamScale(const MemberType &member,
+KOKKOS_INLINE_FUNCTION void TeamHadamard1D(const MemberType &member,
                                       const VectorType1 X, const VectorType2 D,
                                       const VectorType3 DX) {
   const int n = X.extent(0);
@@ -339,7 +341,7 @@ KOKKOS_INLINE_FUNCTION void TeamScale(const MemberType &member,
 
 template <typename MemberType, class VectorType1, class VectorType2,
           class VectorType3>
-KOKKOS_INLINE_FUNCTION void TeamVectorScale(const MemberType &member,
+KOKKOS_INLINE_FUNCTION void TeamVectorHadamard1D(const MemberType &member,
                                             const VectorType1 X,
                                             const VectorType2 D,
                                             const VectorType3 DX) {
@@ -362,8 +364,6 @@ KOKKOS_INLINE_FUNCTION int SerialGesv::invoke(const MatrixType A,
                 "KokkosBatched::gesv: MatrixType is not a Kokkos::View.");
   static_assert(Kokkos::is_view<VectorType>::value,
                 "KokkosBatched::gesv: VectorType is not a Kokkos::View.");
-  static_assert(Kokkos::is_view<alphaViewType>::value,
-                "KokkosBatched::gesv: alphaViewType is not a Kokkos::View.");
   static_assert(MatrixType::Rank == 2,
                 "KokkosBatched::gesv: MatrixType must have rank 2.");
   static_assert(VectorType::Rank == 1,
@@ -377,7 +377,7 @@ KOKKOS_INLINE_FUNCTION int SerialGesv::invoke(const MatrixType A,
         "%d x %d, tmp (note: its second dimension should be the second "
         "dimension of A + 4): %d x %d\n",
         (int)A.extent(0), (int)A.extent(1), (int)tmp.extent(0),
-        (int)tmp.extent(0));
+        (int)tmp.extent(1));
     return 1;
   }
 
@@ -409,7 +409,7 @@ KOKKOS_INLINE_FUNCTION int SerialGesv::invoke(const MatrixType A,
   SerialTrsm<Side::Left, Uplo::Upper, Trans::NoTranspose, Diag::NonUnit,
              Algo::Level3::Unblocked>::invoke(1.0, PDAD, PDY);
 
-  SerialScale(PDY, D2, X);
+  SerialHadamard1D(PDY, D2, X);
   return 0;
 }
 
@@ -427,8 +427,6 @@ KOKKOS_INLINE_FUNCTION int TeamGesv<MemberType>::invoke(
                 "KokkosBatched::gesv: MatrixType is not a Kokkos::View.");
   static_assert(Kokkos::is_view<VectorType>::value,
                 "KokkosBatched::gesv: VectorType is not a Kokkos::View.");
-  static_assert(Kokkos::is_view<alphaViewType>::value,
-                "KokkosBatched::gesv: alphaViewType is not a Kokkos::View.");
   static_assert(MatrixType::Rank == 2,
                 "KokkosBatched::gesv: MatrixType must have rank 2.");
   static_assert(VectorType::Rank == 1,
@@ -474,7 +472,7 @@ KOKKOS_INLINE_FUNCTION int TeamGesv<MemberType>::invoke(
                                                            PDY);
   member.team_barrier();
 
-  TeamScale(member, PDY, D2, X);
+  TeamHadamard1D(member, PDY, D2, X);
   member.team_barrier();
   return 0;
 }
@@ -493,8 +491,6 @@ KOKKOS_INLINE_FUNCTION int TeamVectorGesv<MemberType>::invoke(
                 "KokkosBatched::gesv: MatrixType is not a Kokkos::View.");
   static_assert(Kokkos::is_view<VectorType>::value,
                 "KokkosBatched::gesv: VectorType is not a Kokkos::View.");
-  static_assert(Kokkos::is_view<alphaViewType>::value,
-                "KokkosBatched::gesv: alphaViewType is not a Kokkos::View.");
   static_assert(MatrixType::Rank == 2,
                 "KokkosBatched::gesv: MatrixType must have rank 2.");
   static_assert(VectorType::Rank == 1,
@@ -540,7 +536,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorGesv<MemberType>::invoke(
                                                            PDY);
   member.team_barrier();
 
-  TeamVectorScale(member, PDY, D2, X);
+  TeamVectorHadamard1D(member, PDY, D2, X);
   member.team_barrier();
   return 0;
 }
