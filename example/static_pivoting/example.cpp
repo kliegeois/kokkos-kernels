@@ -155,7 +155,8 @@ int main(int argc, char *argv[]) {
 
     create_saddle_point_matrices(A, Y);
 
-    // The matrices are modified by the GESV so we have to copy them if we want to solve the same systems twice.
+    // The matrices are modified by the GESV so we have to copy them if we want
+    // to solve the same systems twice.
     AViewType A2("A2", N, n, n);
     XYViewType Y2("Y2", N, n);
     Kokkos::deep_copy(A2, A);
@@ -164,8 +165,8 @@ int main(int argc, char *argv[]) {
     write3DArrayToMM("A.mm", A);
     write2DArrayToMM("Y.mm", Y);
 
-    Functor_SerialTestStaticPivoting<exec_space, AViewType, XYViewType>(
-        A, tmp, X, Y)
+    Functor_SerialTestStaticPivoting<exec_space, AViewType, XYViewType>(A, tmp,
+                                                                        X, Y)
         .run();
     write2DArrayToMM("X_serial.mm", X);
     Functor_TeamTestStaticPivoting<exec_space, AViewType, XYViewType>(A2, X, Y2)
