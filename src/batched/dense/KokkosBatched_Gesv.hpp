@@ -51,6 +51,18 @@ namespace KokkosBatched {
 
 /// \brief Serial Batched GESV:
 ///
+/// Solve A_l x_l = b_l for all l = 0, ..., N
+/// using a batched LU decomposition, 2 batched triangular solves, and a batched static pivoting.
+///
+/// \tparam MatrixType: Input type for the matrix, needs to be a 3D view
+/// \tparam VectorType: Input type for the right-hand side and the solution,
+/// needs to be a 2D view
+///
+/// \param A [in]: batched matrix, a rank 3 view
+/// \param X [out]: solution, a rank 2 view
+/// \param B [in]: right-hand side, a rank 2 view
+/// \param tmp [in]: a rank 3 view used to store temporary variable; dimension must be N x n x (n+4) where N is the batched size and n is the number of rows.
+///
 /// No nested parallel_for is used inside of the function.
 ///
 
@@ -63,6 +75,18 @@ struct SerialGesv {
 };
 
 /// \brief Team Batched GESV:
+///
+/// Solve A_l x_l = b_l for all l = 0, ..., N
+/// using a batched LU decomposition, 2 batched triangular solves, and a batched static pivoting.
+///
+/// \tparam MatrixType: Input type for the matrix, needs to be a 3D view
+/// \tparam VectorType: Input type for the right-hand side and the solution,
+/// needs to be a 2D view
+///
+/// \param member [in]: TeamPolicy member
+/// \param A [in]: batched matrix, a rank 3 view
+/// \param X [out]: solution, a rank 2 view
+/// \param B [in]: right-hand side, a rank 2 view
 ///
 /// A nested parallel_for with TeamThreadRange is used.
 ///
@@ -78,7 +102,20 @@ struct TeamGesv {
 
 /// \brief Team Vector Batched GESV:
 ///
-/// A nested parallel_for with TeamThreadRange is used.
+/// Solve A_l x_l = b_l for all l = 0, ..., N
+/// using a batched LU decomposition, 2 batched triangular solves, and a batched static pivoting.
+///
+/// \tparam MatrixType: Input type for the matrix, needs to be a 3D view
+/// \tparam VectorType: Input type for the right-hand side and the solution,
+/// needs to be a 2D view
+///
+/// \param member [in]: TeamPolicy member
+/// \param A [in]: batched matrix, a rank 3 view
+/// \param X [out]: solution, a rank 2 view
+/// \param B [in]: right-hand side, a rank 2 view
+///
+///   Two nested parallel_for with both TeamVectorRange and ThreadVectorRange
+///   (or one with TeamVectorRange) are used inside.
 ///
 
 template <typename MemberType>

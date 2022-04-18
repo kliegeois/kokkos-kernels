@@ -56,44 +56,13 @@
 
 #include <Kokkos_ArithTraits.hpp>
 #include <KokkosBatched_Util.hpp>
-#include <KokkosBatched_Vector.hpp>
-#include <KokkosBatched_Copy_Decl.hpp>
-#include <KokkosBatched_Copy_Impl.hpp>
-#include <KokkosBatched_AddRadial_Decl.hpp>
-#include <KokkosBatched_AddRadial_Impl.hpp>
-#include <KokkosBatched_Gemm_Decl.hpp>
-#include <KokkosBatched_Gemm_Serial_Impl.hpp>
-#include <KokkosBatched_Gemm_Team_Impl.hpp>
-#include <KokkosBatched_Gemv_Decl.hpp>
-#include <KokkosBatched_Gemv_Serial_Impl.hpp>
-#include <KokkosBatched_Gemv_Team_Impl.hpp>
-#include <KokkosBatched_Trsm_Decl.hpp>
-#include <KokkosBatched_Trsm_Serial_Impl.hpp>
-#include <KokkosBatched_Trsm_Team_Impl.hpp>
+#include "examples_helper.hpp"
 #include <KokkosBatched_Trsv_Decl.hpp>
 #include <KokkosBatched_Trsv_Serial_Impl.hpp>
 #include <KokkosBatched_Trsv_Team_Impl.hpp>
 #include <KokkosBatched_LU_Decl.hpp>
 #include <KokkosBatched_LU_Serial_Impl.hpp>
 #include <KokkosBatched_LU_Team_Impl.hpp>
-#include <KokkosSparse_CrsMatrix.hpp>
-#include "KokkosBatched_Trsm_Decl.hpp"
-#include "KokkosBatched_Trsm_Team_Impl.hpp"
-#include "KokkosBatched_LU_Decl.hpp"
-#include "KokkosBatched_LU_Team_Impl.hpp"
-
-#include "examples_helper.hpp"
-
-#include "KokkosBatched_Spmv.hpp"
-#include "KokkosBatched_CrsMatrix.hpp"
-#include "KokkosBatched_Krylov_Handle.hpp"
-#include "KokkosBatched_GMRES.hpp"
-#include "KokkosBatched_JacobiPrec.hpp"
-#include "KokkosBatched_Dot.hpp"
-#include "KokkosBatched_Util.hpp"
-#include "KokkosBatched_Dot_Internal.hpp"
-#include "KokkosBatched_Spmv_Serial_Impl.hpp"
-#include "KokkosBatched_Copy_Decl.hpp"
 #include "KokkosBatched_Gesv.hpp"
 
 typedef Kokkos::DefaultExecutionSpace exec_space;
@@ -130,10 +99,6 @@ struct Functor_TeamTestStaticPivoting {
         Kokkos::View<typename AViewType::non_const_value_type **,
                      typename AViewType::array_layout,
                      typename AViewType::execution_space>;
-    using VectorViewType =
-        Kokkos::View<typename XYViewType::non_const_value_type *,
-                     typename XYViewType::array_layout,
-                     typename XYViewType::execution_space>;
 
     const int n    = _A.extent(1);
     size_t bytes_0 = MatrixViewType::shmem_size(n, n + 4);
@@ -190,21 +155,22 @@ int main(int argc, char *argv[]) {
 
     create_saddle_point_matrices(A, Y);
 
+    // The matrices are modified by the GESV so we have to copy them if we want to solve the same systems twice.
+    AViewType A2("A2", N, n, n);
+    XYViewType Y2("Y2", N, n);
+    Kokkos::deep_copy(A2, A);
+    Kokkos::deep_copy(Y2, Y);
+
     write3DArrayToMM("A.mm", A);
     write2DArrayToMM("Y.mm", Y);
 
-    bool serial = true;
-
-    if (serial) {
-      Functor_SerialTestStaticPivoting<exec_space, AViewType, XYViewType>(
-          A, tmp, X, Y)
-          .run();
-      write2DArrayToMM("X_serial.mm", X);
-    } else {
-      Functor_TeamTestStaticPivoting<exec_space, AViewType, XYViewType>(A, X, Y)
-          .run();
-      write2DArrayToMM("X_team.mm", X);
-    }
+    Functor_SerialTestStaticPivoting<exec_space, AViewType, XYViewType>(
+        A, tmp, X, Y)
+        .run();
+    write2DArrayToMM("X_serial.mm", X);
+    Functor_TeamTestStaticPivoting<exec_space, AViewType, XYViewType>(A2, X, Y2)
+        .run();
+    write2DArrayToMM("X_team.mm", X);
   }
   Kokkos::finalize();
 }
