@@ -233,7 +233,9 @@ KOKKOS_INLINE_FUNCTION int TeamStaticPivoting<MemberType>::invoke(
         },
         reducer_value);
     col_index = value.loc;
-    if (value.val == Kokkos::ArithTraits<value_type>::zero()) return 1;
+    if (A(row_index, col_index) * tmp_v_2(col_index) ==
+        Kokkos::ArithTraits<value_type>::zero())
+      return 1;
     tmp_v_1(row_index) = Kokkos::ArithTraits<value_type>::zero();
     tmp_v_2(col_index) = Kokkos::ArithTraits<value_type>::zero();
 
@@ -336,7 +338,9 @@ KOKKOS_INLINE_FUNCTION int TeamVectorStaticPivoting<MemberType>::invoke(
         },
         reducer_value);
     col_index = value.loc;
-    if (value.val == Kokkos::ArithTraits<value_type>::zero()) return 1;
+    if (A(row_index, col_index) * tmp_v_2(col_index) ==
+        Kokkos::ArithTraits<value_type>::zero())
+      return 1;
     tmp_v_1(row_index) = Kokkos::ArithTraits<value_type>::zero();
     tmp_v_2(col_index) = Kokkos::ArithTraits<value_type>::zero();
 
