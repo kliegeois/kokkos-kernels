@@ -171,7 +171,7 @@ class KrylovHandle {
   bool is_converged_host() {
     if (!host_synchronised) this->synchronise_host();
     bool all_converged = true; 
-    for (size_t i = 0; i < batched_size; ++i)
+    for (int i = 0; i < batched_size; ++i)
       if (iteration_numbers_host(i) == -1) {
         all_converged = false;
         break;

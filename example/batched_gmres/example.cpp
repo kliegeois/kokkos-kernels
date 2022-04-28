@@ -152,25 +152,14 @@ struct Functor_TestBatchedTeamVectorGMRES {
     auto b = Kokkos::subview(_B, Kokkos::make_pair(first_matrix, last_matrix),
                              Kokkos::ALL);
 
-    using ScratchPadIntViewType = Kokkos::View<
-        typename IntView::non_const_value_type*,
-        typename IntView::array_layout,
-        typename IntView::execution_space::scratch_memory_space>;
     using ScratchPadValuesViewType = Kokkos::View<
         typename ValuesViewType::non_const_value_type**,
         typename ValuesViewType::array_layout,
         typename ValuesViewType::execution_space::scratch_memory_space>;
 
-    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, ScratchPadIntViewType>;
+    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, IntView>;
 
-    ScratchPadIntViewType tmp_1D_int(member.team_scratch(0), _r.extent(0) + _c.extent(0));
-
-    auto r = Kokkos::subview(tmp_1D_int, Kokkos::make_pair(0, (int) _r.extent(0)));
-    auto c = Kokkos::subview(tmp_1D_int, Kokkos::make_pair((int) _r.extent(0), (int) tmp_1D_int.extent(0)));
-
-    TeamVectorCopy1D::invoke(member, _r, r);
-    TeamVectorCopy1D::invoke(member, _c, c);
-    Operator A(d, r, c);
+    Operator A(d, _r, _c);
 
     if (UsePrec) {
       ScratchPadValuesViewType diag(member.team_scratch(0), last_matrix-first_matrix, _diag.extent(1));
@@ -226,8 +215,6 @@ struct Functor_TestBatchedTeamVectorGMRES {
     using ViewType3D = Kokkos::View<ScalarType ***, Layout, EXSP>;
 
     size_t bytes_1D = ViewType2D::shmem_size(_N_team, 1);
-    size_t bytes_row_ptr = IntView::shmem_size(_r.extent(0));
-    size_t bytes_col_idc = IntView::shmem_size(_c.extent(0));
     size_t bytes_2D_1 = ViewType2D::shmem_size(_N_team, _X.extent(1));
     size_t bytes_2D_2 = ViewType2D::shmem_size(_N_team, maximum_iteration+1);
     size_t bytes_3D_1 = ViewType3D::shmem_size(_N_team, _X.extent(1), maximum_iteration);
@@ -235,11 +222,10 @@ struct Functor_TestBatchedTeamVectorGMRES {
     size_t bytes_3D_3 = ViewType3D::shmem_size(_N_team, 2, maximum_iteration);
 
 
-    size_t bytes_int = bytes_row_ptr + bytes_col_idc;
     size_t bytes_diag = bytes_2D_1;
     size_t bytes_tmp = 2 * bytes_2D_1 + 2 * bytes_1D + bytes_2D_2;
 
-    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_tmp + bytes_diag + bytes_int));
+    policy.set_scratch_size(0, Kokkos::PerTeam(bytes_tmp + bytes_diag));
 
     exec_space().fence();
     timer.reset();
@@ -251,7 +237,7 @@ struct Functor_TestBatchedTeamVectorGMRES {
   }
 };
 
-int main(int argc, char *argv[]) {
+int main(int /*argc*/, char ** /*argv*/) {
   Kokkos::initialize();
   {
     using layout = Kokkos::LayoutLeft;
@@ -334,7 +320,7 @@ int main(int argc, char *argv[]) {
 
     printf("times = %f secondes\n", time);
 
-    for (size_t i = 0; i < N; ++i) {
+    for (int i = 0; i < N; ++i) {
       if (handle.is_converged_host(i)) {
         std::cout << "System " << i << " converged in " << handle.get_iteration_host(i) << " iterations, the initial absolute norm of the residual was " << handle.get_norm_host(i, 0) << " and is now " << handle.get_last_norm_host(i) << std::endl;
       }

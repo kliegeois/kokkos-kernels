@@ -80,7 +80,7 @@ void writeCRSToMM(std::string name, const VType &V, const IntType &r,
   myfile << r_h.extent(0) - 1 << " " << r_h.extent(0) - 1 << " " << V_h.extent(1) << " " << V_h.extent(0) << std::endl;
 
   for (size_t i_row = 0; i_row < r_h.extent(0) - 1; ++i_row) {
-    for (size_t i_nnz = r_h(i_row); i_nnz < r_h(i_row+1); ++i_nnz) {
+    for (int i_nnz = r_h(i_row); i_nnz < r_h(i_row+1); ++i_nnz) {
       myfile << i_row + 1 << " " << c_h(i_nnz) + 1 << " ";
       for (size_t j = 0; j < V_h.extent(0); ++j) {  
         myfile << std::setprecision (15) << V_h(j, i_nnz) << " ";

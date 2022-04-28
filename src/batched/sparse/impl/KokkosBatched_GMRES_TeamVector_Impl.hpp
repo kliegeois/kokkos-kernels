@@ -237,14 +237,14 @@ struct TeamVectorGMRES {
           });
       member.team_barrier(); 
       if (j + 1 < maximum_iteration) {
-        auto V_j = Kokkos::subview(V_view, Kokkos::ALL, j + 1, Kokkos::ALL);
+        auto V_n = Kokkos::subview(V_view, Kokkos::ALL, j + 1, Kokkos::ALL);
         Kokkos::parallel_for(
             Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
             [&](const OrdinalType& iTemp) {
               OrdinalType iRow, iMatrix;
               getIndices<OrdinalType, typename VectorViewType::array_layout>(
                   iTemp, numRows, numMatrices, iRow, iMatrix);
-              V_j(iMatrix, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
+              V_n(iMatrix, iRow) = W(iMatrix, iRow) * tmp(iMatrix);
             });
         member.team_barrier();
       }
