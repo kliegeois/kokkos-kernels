@@ -64,10 +64,19 @@ struct Functor_TestBatchedTeamCG {
 
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamCG(const ValuesViewType &D, const IntView &r,
-                                  const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length, KrylovHandleType &handle)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length), _handle(handle) {
-  }
+                            const IntView &c, const VectorViewType &X,
+                            const VectorViewType &B, const int N_team,
+                            const int team_size, const int vector_length,
+                            KrylovHandleType &handle)
+      : _D(D),
+        _r(r),
+        _c(c),
+        _X(X),
+        _B(B),
+        _N_team(N_team),
+        _team_size(team_size),
+        _vector_length(vector_length),
+        _handle(handle) {}
 
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
@@ -90,14 +99,15 @@ struct Functor_TestBatchedTeamCG {
     Operator A(d, _r, _c);
 
     KokkosBatched::TeamCG<MemberType>::template invoke<Operator,
-                                                             VectorViewType>(
+                                                       VectorViewType>(
         member, A, b, x, _handle);
   }
 
   inline void run() {
     std::string name("KokkosBatched::Test::TeamCG");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size,
+                                          _vector_length);
 
     size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
@@ -122,9 +132,18 @@ struct Functor_TestBatchedTeamVectorCG {
   KOKKOS_INLINE_FUNCTION
   Functor_TestBatchedTeamVectorCG(const ValuesViewType &D, const IntView &r,
                                   const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team, const int team_size, const int vector_length, KrylovHandleType &handle)
-      : _D(D), _r(r), _c(c), _X(X), _B(B), _N_team(N_team), _team_size(team_size), _vector_length(vector_length), _handle(handle) {
-  }
+                                  const VectorViewType &B, const int N_team,
+                                  const int team_size, const int vector_length,
+                                  KrylovHandleType &handle)
+      : _D(D),
+        _r(r),
+        _c(c),
+        _X(X),
+        _B(B),
+        _N_team(N_team),
+        _team_size(team_size),
+        _vector_length(vector_length),
+        _handle(handle) {}
 
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
@@ -154,7 +173,8 @@ struct Functor_TestBatchedTeamVectorCG {
   inline void run() {
     std::string name("KokkosBatched::Test::TeamCG");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size,
+                                          _vector_length);
 
     size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
@@ -179,13 +199,13 @@ int main(int argc, char *argv[]) {
     ///
     /// input arguments parsing
     ///
-    int n_rep_1         = 10;    // # of repetitions
-    int n_rep_2         = 1000;  // # of repetitions
-    int rows_per_thread = 1;
-    int team_size       = 8;
-    int n_impl          = 1;
-    bool layout_left    = true;
-    bool layout_right   = false;
+    int n_rep_1              = 10;    // # of repetitions
+    int n_rep_2              = 1000;  // # of repetitions
+    int rows_per_thread      = 1;
+    int team_size            = 8;
+    int n_impl               = 1;
+    bool layout_left         = true;
+    bool layout_right        = false;
     bool monitor_convergence = false;
 
     std::string name_A = "A.mm";
@@ -193,7 +213,7 @@ int main(int argc, char *argv[]) {
 
     std::string name_timer = "timers";
     std::string name_X     = "X";
-    std::string name_conv     = "res";
+    std::string name_conv  = "res";
 
     std::vector<int> impls;
     for (int i = 1; i < argc; ++i) {
@@ -224,13 +244,12 @@ int main(int argc, char *argv[]) {
         layout_left  = false;
         layout_right = true;
       }
-      if (token == std::string("-C"))
-        monitor_convergence = true;
+      if (token == std::string("-C")) monitor_convergence = true;
     }
 
     int N, Blk, nnz, ncols;
 
-    int vector_length          = 8;
+    int vector_length = 8;
 
     readSizesFromMM(name_A, Blk, ncols, nnz, N);
 
@@ -241,9 +260,8 @@ int main(int argc, char *argv[]) {
     constexpr size_t LLC_CAPACITY = 80 * 6 * 1024 * 1024;
     KokkosBatched::Flush<LLC_CAPACITY, exec_space> flush;
 
-    printf(
-        " :::: Testing (N = %d, Blk = %d, nnz = %d, vl = %d, n = %d)\n",
-        N, Blk, nnz, vector_length, n_rep_1);
+    printf(" :::: Testing (N = %d, Blk = %d, nnz = %d, vl = %d, n = %d)\n", N,
+           Blk, nnz, vector_length, n_rep_1);
 
     typedef Kokkos::LayoutRight LR;
     typedef Kokkos::LayoutLeft LL;
@@ -269,13 +287,12 @@ int main(int argc, char *argv[]) {
     XYTypeLL xLL("values", N, Blk);
     XYTypeLL yLL("values", N, Blk);
 
-    launch_parameters<exec_space>(Blk, nnz, rows_per_thread,
-                                                      team_size, vector_length);
+    launch_parameters<exec_space>(Blk, nnz, rows_per_thread, team_size,
+                                  vector_length);
 
     if (layout_left)
-      printf(
-          " :::: Testing left layout (team_size = %d, vector_length = %d)\n",
-          team_size, vector_length);
+      printf(" :::: Testing left layout (team_size = %d, vector_length = %d)\n",
+             team_size, vector_length);
     if (layout_right)
       printf(
           " :::: Testing right layout (team_size = %d, vector_length = %d)\n",
@@ -303,12 +320,14 @@ int main(int argc, char *argv[]) {
 
       using MagnitudeType =
           typename Kokkos::Details::ArithTraits<ScalarType>::mag_type;
-      
-      using Norm2DViewType = Kokkos::View<MagnitudeType **, Layout, EXSP>;
-      using Scalar3DViewType = Kokkos::View<ScalarType ***, Layout, EXSP>;
-      using IntViewType = Kokkos::View<int*, Layout, EXSP>;
 
-      using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType, Scalar3DViewType>;
+      using Norm2DViewType   = Kokkos::View<MagnitudeType **, Layout, EXSP>;
+      using Scalar3DViewType = Kokkos::View<ScalarType ***, Layout, EXSP>;
+      using IntViewType      = Kokkos::View<int *, Layout, EXSP>;
+
+      using KrylovHandleType =
+          KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType,
+                                      Scalar3DViewType>;
       KrylovHandleType handle(N, N_team);
 
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
@@ -326,20 +345,34 @@ int main(int argc, char *argv[]) {
           timer.reset();
           exec_space().fence();
 
-          if (i_impl%2 == 0 && layout_left) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, handle)
+          if (i_impl % 2 == 0 && layout_left) {
+            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView,
+                                      XYTypeLL, KrylovHandleType>(
+                valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size,
+                vector_length, handle)
                 .run();
           }
-          if (i_impl%2 == 1 && layout_left) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLL, IntView, XYTypeLL, KrylovHandleType>(valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size, vector_length, handle)
+          if (i_impl % 2 == 1 && layout_left) {
+            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLL,
+                                            IntView, XYTypeLL,
+                                            KrylovHandleType>(
+                valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size,
+                vector_length, handle)
                 .run();
           }
-          if (i_impl%2 == 0 && layout_right) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, handle)
+          if (i_impl % 2 == 0 && layout_right) {
+            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLR, IntView,
+                                      XYTypeLR, KrylovHandleType>(
+                valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size,
+                vector_length, handle)
                 .run();
           }
-          if (i_impl%2 == 1 && layout_right) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLR, IntView, XYTypeLR, KrylovHandleType>(valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size, vector_length, handle)
+          if (i_impl % 2 == 1 && layout_right) {
+            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLR,
+                                            IntView, XYTypeLR,
+                                            KrylovHandleType>(
+                valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size,
+                vector_length, handle)
                 .run();
           }
           exec_space().fence();
@@ -371,17 +404,14 @@ int main(int argc, char *argv[]) {
       double average_time = 0.;
 
       for (size_t i = 0; i < timers.size(); ++i)
-        average_time += timers[i]/timers.size();
-
+        average_time += timers[i] / timers.size();
 
       if (layout_left)
-        printf(
-            "Left layout: Implementation %d: solve time = %f\n",
-            i_impl, average_time);
+        printf("Left layout: Implementation %d: solve time = %f\n", i_impl,
+               average_time);
       if (layout_right)
-        printf(
-            "Right layout: Implementation %d: solve time = %f\n",
-            i_impl, average_time);
+        printf("Right layout: Implementation %d: solve time = %f\n", i_impl,
+               average_time);
 
       if (layout_left) {
         writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", xLL);
@@ -390,7 +420,8 @@ int main(int argc, char *argv[]) {
         writeArrayToMM(name_X + std::to_string(i_impl) + "_r.mm", xLR);
       }
       if (monitor_convergence) {
-        writeArrayToMM(name_conv + std::to_string(i_impl) + ".mm", handle.residual_norms);
+        writeArrayToMM(name_conv + std::to_string(i_impl) + ".mm",
+                       handle.residual_norms);
       }
     }
   }

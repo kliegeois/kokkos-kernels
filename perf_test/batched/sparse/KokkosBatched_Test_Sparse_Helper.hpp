@@ -12,7 +12,7 @@ void writeArrayToMM(std::string name, const XType x) {
 
   for (size_t i = 0; i < x_h.extent(0); ++i) {
     for (size_t j = 0; j < x_h.extent(1); ++j) {
-      myfile << std::setprecision (15) << x_h(i, j) << " ";
+      myfile << std::setprecision(15) << x_h(i, j) << " ";
     }
     myfile << std::endl;
   }
@@ -64,20 +64,20 @@ void readArrayFromMM(std::string name, const XType &x) {
 
   Kokkos::deep_copy(x, x_h);
 
-/*
-  std::ofstream myfile;
-  myfile.open("x-data.txt");
+  /*
+    std::ofstream myfile;
+    myfile.open("x-data.txt");
 
 
-  for (size_t i = 0; i < x_h.extent(0); ++i) {
-    for (size_t j = 0; j < x_h.extent(1); ++j) {
-      myfile << std::setprecision (15) << x_h(i, j) << " ";
+    for (size_t i = 0; i < x_h.extent(0); ++i) {
+      for (size_t j = 0; j < x_h.extent(1); ++j) {
+        myfile << std::setprecision (15) << x_h(i, j) << " ";
+      }
+      myfile << std::endl;
     }
-    myfile << std::endl;
-  }
 
-  myfile.close();
-  */
+    myfile.close();
+    */
 }
 
 template <class VType, class IntType>
@@ -97,7 +97,7 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
   int read_row;
 
   size_t nnz = c_h.extent(0);
-  int nrows = r_h.extent(0)-1;
+  int nrows  = r_h.extent(0) - 1;
 
   r_h(0) = 0;
 
@@ -105,7 +105,7 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
     input >> read_row >> c_h(i);
     --read_row;
     --c_h(i);
-    for (int tmp_row = current_row+1; tmp_row <= read_row; ++tmp_row)
+    for (int tmp_row = current_row + 1; tmp_row <= read_row; ++tmp_row)
       r_h(tmp_row) = i;
     current_row = read_row;
 
@@ -123,24 +123,25 @@ void readCRSFromMM(std::string name, const VType &V, const IntType &r,
   Kokkos::deep_copy(r, r_h);
   Kokkos::deep_copy(c, c_h);
 
-/*
-  std::ofstream myfile;
-  myfile.open("a-data.txt");
+  /*
+    std::ofstream myfile;
+    myfile.open("a-data.txt");
 
 
-  for (size_t i = 0; i < nrows; ++i) {
-    for (size_t j = r_h(i); j < r_h(i+1); ++j) {
-      myfile << std::setprecision (15) << i+1 << " " << c_h(j)+1 << " " << V_h(0, j) << std::endl;
+    for (size_t i = 0; i < nrows; ++i) {
+      for (size_t j = r_h(i); j < r_h(i+1); ++j) {
+        myfile << std::setprecision (15) << i+1 << " " << c_h(j)+1 << " " <<
+    V_h(0, j) << std::endl;
+      }
     }
-  }
 
-  myfile.close();
-  */
+    myfile.close();
+    */
 }
 
 template <class VType, class IntType>
-void getInvDiagFromCRS(const VType &V, const IntType &r,
-                   const IntType &c, const VType &diag) {
+void getInvDiagFromCRS(const VType &V, const IntType &r, const IntType &c,
+                       const VType &diag) {
   auto diag_values_host = Kokkos::create_mirror_view(diag);
   auto values_host      = Kokkos::create_mirror_view(V);
   auto row_ptr_host     = Kokkos::create_mirror_view(r);
@@ -151,31 +152,32 @@ void getInvDiagFromCRS(const VType &V, const IntType &r,
   Kokkos::deep_copy(colIndices_host, c);
 
   int current_index;
-  int N = diag.extent(0);
+  int N       = diag.extent(0);
   int BlkSize = diag.extent(1);
 
   for (int i = 0; i < BlkSize; ++i) {
     for (current_index = row_ptr_host(i); current_index < row_ptr_host(i + 1);
-          ++current_index) {
+         ++current_index) {
       if (colIndices_host(current_index) == i) break;
     }
     for (int j = 0; j < N; ++j)
-      diag_values_host(j, i) = 1./values_host(j, current_index);
+      diag_values_host(j, i) = 1. / values_host(j, current_index);
   }
 
   Kokkos::deep_copy(diag, diag_values_host);
 
-/*
-  std::ofstream myfile;
-  myfile.open("a-diag.txt");
+  /*
+    std::ofstream myfile;
+    myfile.open("a-diag.txt");
 
 
-  for (size_t i = 0; i < BlkSize; ++i) {
-    myfile << std::setprecision (15) << i+1 << " " << diag_values_host(0, i) << std::endl;
-  }
+    for (size_t i = 0; i < BlkSize; ++i) {
+      myfile << std::setprecision (15) << i+1 << " " << diag_values_host(0, i)
+    << std::endl;
+    }
 
-  myfile.close();
-  */
+    myfile.close();
+    */
 }
 
 template <class execution_space>

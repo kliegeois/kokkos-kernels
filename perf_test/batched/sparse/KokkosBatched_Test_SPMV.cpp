@@ -144,14 +144,14 @@ int main(int argc, char *argv[]) {
     ///
     /// input arguments parsing
     ///
-    int n_rep_1         = 10;    // # of repetitions
-    int n_rep_2         = 1000;  // # of repetitions
-    int team_size       = 8;
-    int vector_length   = 8;
+    int n_rep_1          = 10;    // # of repetitions
+    int n_rep_2          = 1000;  // # of repetitions
+    int team_size        = 8;
+    int vector_length    = 8;
     int N_team_potential = 1;
-    int n_impl          = 1;
-    bool layout_left    = true;
-    bool layout_right   = false;
+    int n_impl           = 1;
+    bool layout_left     = true;
+    bool layout_right    = false;
 
     std::string name_A = "A.mm";
     std::string name_B = "B.mm";
@@ -171,8 +171,10 @@ int main(int argc, char *argv[]) {
 
       if (token == std::string("-n1")) n_rep_1 = std::atoi(argv[++i]);
       if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
-      if (token == std::string("-N_team")) N_team_potential = std::atoi(argv[++i]);
-      if (token == std::string("-vector_length")) vector_length = std::atoi(argv[++i]);
+      if (token == std::string("-N_team"))
+        N_team_potential = std::atoi(argv[++i]);
+      if (token == std::string("-vector_length"))
+        vector_length = std::atoi(argv[++i]);
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
       if (token == std::string("-n_implementations"))
         n_impl = std::atoi(argv[++i]);
@@ -234,13 +236,9 @@ int main(int argc, char *argv[]) {
     double *s_b = new double[N];
 
     if (layout_left)
-      printf(
-          " :::: Testing left layout (team_size = %d)\n",
-          team_size);
+      printf(" :::: Testing left layout (team_size = %d)\n", team_size);
     if (layout_right)
-      printf(
-          " :::: Testing right layout (team_size = %d)\n",
-          team_size);
+      printf(" :::: Testing right layout (team_size = %d)\n", team_size);
 
     if (layout_left) {
       readCRSFromMM(name_A, valuesLL, rowOffsets, colIndices);
@@ -285,8 +283,9 @@ int main(int argc, char *argv[]) {
           timer.reset();
           exec_space().fence();
 
-          int number_of_teams = i_impl == 0 ? N : ceil(1.*N / N_team_potential);
-          int N_team          = i_impl == 0 ? 1 : N_team_potential;
+          int number_of_teams =
+              i_impl == 0 ? N : ceil(1. * N / N_team_potential);
+          int N_team = i_impl == 0 ? 1 : N_team_potential;
 
           if (layout_left) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
@@ -365,8 +364,7 @@ int main(int argc, char *argv[]) {
       double average_time = 0.;
 
       for (size_t i = 0; i < timers.size(); ++i)
-        average_time += timers[i]/timers.size();
-
+        average_time += timers[i] / timers.size();
 
       if (layout_left)
         printf(

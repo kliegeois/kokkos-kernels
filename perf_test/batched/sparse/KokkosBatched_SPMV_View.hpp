@@ -97,7 +97,10 @@ struct BSPMV_Functor_View {
     if (implementation == 1) {
       const int first_matrix =
           static_cast<int>(dev.league_rank()) * matrices_per_team;
-      const int last_matrix = static_cast<int>(dev.league_rank() + 1) * matrices_per_team < N ? static_cast<int>(dev.league_rank() + 1) * matrices_per_team : N;
+      const int last_matrix =
+          static_cast<int>(dev.league_rank() + 1) * matrices_per_team < N
+              ? static_cast<int>(dev.league_rank() + 1) * matrices_per_team
+              : N;
       const int n_matrices      = last_matrix - first_matrix;
       const ordinal_type n_rows = m_A_row_ptr.extent(0) - 1;
 
@@ -154,7 +157,10 @@ struct BSPMV_Functor_View {
 
       const int first_matrix =
           static_cast<int>(dev.league_rank()) * matrices_per_team;
-      const int last_matrix = static_cast<int>(dev.league_rank() + 1) * matrices_per_team < N ? static_cast<int>(dev.league_rank() + 1) * matrices_per_team : N;
+      const int last_matrix =
+          static_cast<int>(dev.league_rank() + 1) * matrices_per_team < N
+              ? static_cast<int>(dev.league_rank() + 1) * matrices_per_team
+              : N;
       const int n_matrices = last_matrix - first_matrix;
 
       Kokkos::parallel_for(
