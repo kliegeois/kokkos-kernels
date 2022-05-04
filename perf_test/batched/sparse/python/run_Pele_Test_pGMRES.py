@@ -65,7 +65,7 @@ def getParameters(specie, hostname):
             N_team = 6
             team_size = -1
             vector_length = 6
-    if hostname == 'caraway':
+    elif hostname == 'caraway':
         if specie == 'gri30':
             n_iterations = 8
             ortho_strategy = 0
@@ -82,7 +82,7 @@ def getParameters(specie, hostname):
             N_team = 8
             team_size = 32
             vector_length = 8
-    if hostname == 'inouye':
+    elif hostname == 'inouye':
         if specie == 'gri30':
             n_iterations = 8
             ortho_strategy = 0
@@ -99,7 +99,24 @@ def getParameters(specie, hostname):
             N_team = 8
             team_size = -1
             vector_length = 8
-    if hostname == 'blake':
+    elif hostname == 'blake':
+        if specie == 'gri30':
+            n_iterations = 8
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 8
+            team_size = -1
+            vector_length = 8
+        if specie == 'isooctane':
+            n_iterations = 20
+            ortho_strategy = 0
+            arnoldi_level = 11
+            other_level = 0
+            N_team = 8
+            team_size = -1
+            vector_length = 8
+    else:
         if specie == 'gri30':
             n_iterations = 8
             ortho_strategy = 0

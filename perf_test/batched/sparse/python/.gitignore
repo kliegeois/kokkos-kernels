@@ -4,5 +4,6 @@
 *.tex
 *.sh
 *.csv
+*.json
 __pycache__
 data*
