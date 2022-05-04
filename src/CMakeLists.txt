@@ -52,7 +52,7 @@ IF (KOKKOSKERNELS_ENABLE_TPL_BLAS OR KOKKOSKERNELS_ENABLE_TPL_MKL)
   APPEND_GLOB(SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/impl/tpls/KokkosBlas_Host_tpl.cpp)
 ENDIF()
 
-include(kokkoskernels_eti.cmake)
+include(cmake/kokkoskernels_eti.cmake)
 SET(ETI_HEADERS)
 
 #Build up a list of DECL, AVAIL, and INST macros
@@ -354,6 +354,13 @@ KOKKOSKERNELS_GENERATE_ETI(Sparse_spgemm_symbolic spgemm_symbolic
 )
 
 KOKKOSKERNELS_GENERATE_ETI(Sparse_spgemm_numeric spgemm_numeric
+  COMPONENTS  sparse
+  HEADER_LIST ETI_HEADERS
+  SOURCE_LIST SOURCES
+  TYPE_LISTS  FLOATS ORDINALS OFFSETS LAYOUTS DEVICES_W_SLOW_SPACE
+)
+
+KOKKOSKERNELS_GENERATE_ETI(Sparse_bspgemm_numeric bspgemm_numeric
   COMPONENTS  sparse
   HEADER_LIST ETI_HEADERS
   SOURCE_LIST SOURCES
