@@ -301,11 +301,6 @@ struct Functor_TestBatchedTeamVectorGMRES {
     else
       policy = tuned_policy;
 
-    _handle.set_max_iteration(_N_iteration);
-    _handle.set_tolerance(_tol);
-    _handle.set_ortho_strategy(_ortho_strategy);
-    _handle.set_compute_last_residual(false);
-
     int maximum_iteration = _handle.get_max_iteration();
 
     using ScalarType = typename ValuesViewType::non_const_value_type;
@@ -379,18 +374,12 @@ int main(int argc, char *argv[]) {
       const std::string &token = argv[i];
       if (token == std::string("-A")) name_A = argv[++i];
       if (token == std::string("-B")) name_B = argv[++i];
-
       if (token == std::string("-X")) name_X = argv[++i];
-
       if (token == std::string("-res")) name_conv = argv[++i];
-
       if (token == std::string("-timers")) name_timer = argv[++i];
-
       if (token == std::string("-ortho_strategy")) ortho_strategy = std::atoi(argv[++i]);
-
       if (token == std::string("-arnoldi_level")) arnoldi_level = std::atoi(argv[++i]);
       if (token == std::string("-other_level")) other_level = std::atoi(argv[++i]);
-
       if (token == std::string("-n1")) n_rep_1 = std::atoi(argv[++i]);
       if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
       if (token == std::string("-n_iterations")) n_iterations = std::atoi(argv[++i]);
@@ -504,9 +493,15 @@ int main(int argc, char *argv[]) {
       using IntViewType = Kokkos::View<int*, Layout, EXSP>;
 
       using KrylovHandleType = KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType, Scalar3DViewType>;
-      KrylovHandleType handle(N, N_team, n_iterations+1);
+      KrylovHandleType handle(N, N_team, n_iterations, true);
+      handle.Arnoldi_view =
+          Scalar3DViewType("", N, n_iterations, Blk + n_iterations + 3);
 
-      handle.Arnoldi_view = Scalar3DViewType("", N, n_iterations, Blk+n_iterations+3);
+      handle.set_max_iteration(n_iterations);
+      handle.set_tolerance(tol);
+      handle.set_ortho_strategy(ortho_strategy);
+      handle.set_scratch_pad_level(0);
+      handle.set_compute_last_residual(false);
       
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
         double t_spmv = 0;
@@ -567,70 +562,6 @@ int main(int argc, char *argv[]) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
 #endif
-/*
-          if(layout_right) {
-            NormViewType sqr_norm_0("sqr_norm_0", N);
-            NormViewType sqr_norm_j("sqr_norm_j", N);
-
-            auto sqr_norm_0_host = Kokkos::create_mirror_view(sqr_norm_0);
-            auto sqr_norm_j_host = Kokkos::create_mirror_view(sqr_norm_j);
-            auto R_host          = Kokkos::create_mirror_view(yLR);
-            auto X_host          = Kokkos::create_mirror_view(xLR);
-            auto D_host          = Kokkos::create_mirror_view(valuesLR);
-            auto r_host          = Kokkos::create_mirror_view(rowOffsets);
-            auto c_host          = Kokkos::create_mirror_view(colIndices);
-            
-            Kokkos::deep_copy(R_host, yLR);
-            Kokkos::deep_copy(X_host, xLR);
-            Kokkos::deep_copy(D_host, valuesLR);
-            Kokkos::deep_copy(r_host, rowOffsets);
-            Kokkos::deep_copy(c_host, colIndices);
-
-            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
-                                                                sqr_norm_0_host);
-            KokkosBatched::SerialSpmv<KokkosBatched::Trans::NoTranspose>::template invoke<
-                typename AMatrixValueViewLR::HostMirror, typename IntView::HostMirror,
-                typename XYTypeLR::HostMirror, typename XYTypeLR::HostMirror,
-                1>(-1, D_host, r_host, c_host, X_host, 1, R_host);
-            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
-                                                                sqr_norm_j_host);
-
-            for (int l = 0; l < N; ++l)
-              if (1e-5 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
-                std::cout << std::setprecision (15) << "Right: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
-          }
-          else {
-            NormViewType sqr_norm_0("sqr_norm_0", N);
-            NormViewType sqr_norm_j("sqr_norm_j", N);
-
-            auto sqr_norm_0_host = Kokkos::create_mirror_view(sqr_norm_0);
-            auto sqr_norm_j_host = Kokkos::create_mirror_view(sqr_norm_j);
-            auto R_host          = Kokkos::create_mirror_view(yLL);
-            auto X_host          = Kokkos::create_mirror_view(xLL);
-            auto D_host          = Kokkos::create_mirror_view(valuesLL);
-            auto r_host          = Kokkos::create_mirror_view(rowOffsets);
-            auto c_host          = Kokkos::create_mirror_view(colIndices);
-            
-            Kokkos::deep_copy(R_host, yLL);
-            Kokkos::deep_copy(X_host, xLL);
-            Kokkos::deep_copy(D_host, valuesLL);
-            Kokkos::deep_copy(r_host, rowOffsets);
-            Kokkos::deep_copy(c_host, colIndices);
-
-            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
-                                                                sqr_norm_0_host);
-            KokkosBatched::SerialSpmv<KokkosBatched::Trans::NoTranspose>::template invoke<
-                typename AMatrixValueViewLL::HostMirror, typename IntView::HostMirror,
-                typename XYTypeLL::HostMirror, typename XYTypeLL::HostMirror,
-                1>(-1, D_host, r_host, c_host, X_host, 1, R_host);
-            KokkosBatched::SerialDot<KokkosBatched::Trans::NoTranspose>::invoke(R_host, R_host,
-                                                                sqr_norm_j_host);
-
-            for (int l = 0; l < N; ++l)
-              if (1e-5 < std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) )
-                std::cout << std::setprecision (15) << "Left: System " << l << " relative residual " << std::sqrt(sqr_norm_j_host(l)) / std::sqrt(sqr_norm_0_host(l)) << " norm r_0 " << std::sqrt(sqr_norm_0_host(l)) << std::endl;
-          }
-*/
         }
         if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }
