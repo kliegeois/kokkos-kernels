@@ -209,7 +209,7 @@ void Trsm(const int NN) {
       for (int i = 0, iend = b.extent(0); i < iend; ++i)
         for (int j = 0, jend = b.extent(1); j < jend; ++j)
           for (int k = 0, kend = b.extent(2); k < kend; ++k)
-            sum += Kokkos::ArithTraits<value_type>::abs(bmat(i, j, k));
+            sum += std::abs(bmat(i, j, k));
 
       std::cout << std::setw(10) << "MKL TRSM"
                 << " BlkSize = " << std::setw(3) << BlkSize
@@ -327,8 +327,7 @@ void Trsm(const int NN) {
       for (int i = 0, iend = bref.extent(0); i < iend; ++i)
         for (int j = 0, jend = bref.extent(1); j < jend; ++j)
           for (int k = 0, kend = bref.extent(2); k < kend; ++k)
-            diff += Kokkos::ArithTraits<value_type>::abs(bref(i, j, k) -
-                                                         b(i, j, k));
+            diff += std::abs(bref(i, j, k) - b(i, j, k));
 
       std::cout << std::setw(10) << "MKL Batch"
                 << " BlkSize = " << std::setw(3) << BlkSize
@@ -444,8 +443,8 @@ void Trsm(const int NN) {
         for (int i = 0, iend = bref.extent(0); i < iend; ++i)
           for (int j = 0, jend = bref.extent(1); j < jend; ++j)
             for (int k = 0, kend = bref.extent(2); k < kend; ++k)
-              diff += Kokkos::ArithTraits<value_type>::abs(
-                  bref(i, j, k) - b(i / VectorLength, j, k)[i % VectorLength]);
+              diff += std::abs(bref(i, j, k) -
+                               b(i / VectorLength, j, k)[i % VectorLength]);
 
         std::cout << std::setw(10) << "MKL Cmpt"
                   << " BlkSize = " << std::setw(3) << BlkSize
@@ -524,8 +523,7 @@ void Trsm(const int NN) {
   //     for (int i=0,iend=bref.extent(0);i<iend;++i)
   //       for (int j=0,jend=bref.extent(1);j<jend;++j)
   //         for (int k=0,kend=bref.extent(2);k<kend;++k)
-  //           diff += Kokkos::ArithTraits<value_type>::abs(bref(i,j,k) -
-  //           b(i,j,k));
+  //           diff += std::abs(bref(i,j,k) - b(i,j,k));
 
   //     std::cout << std::setw(10) << "KK Scalar"
   //               << " BlkSize = " << std::setw(3) << BlkSize
@@ -601,8 +599,8 @@ void Trsm(const int NN) {
       for (int i = 0, iend = bref.extent(0); i < iend; ++i)
         for (int j = 0, jend = bref.extent(1); j < jend; ++j)
           for (int k = 0, kend = bref.extent(2); k < kend; ++k)
-            diff += Kokkos::ArithTraits<value_type>::abs(
-                bref(i, j, k) - b(i / VectorLength, j, k)[i % VectorLength]);
+            diff += std::abs(bref(i, j, k) -
+                             b(i / VectorLength, j, k)[i % VectorLength]);
 
       std::cout << std::setw(10) << "KK Vector"
                 << " BlkSize = " << std::setw(3) << BlkSize
