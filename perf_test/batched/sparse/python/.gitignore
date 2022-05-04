@@ -1,0 +1,8 @@
+*.txt
+*.mm
+*.png
+*.tex
+*.sh
+*.csv
+__pycache__
+data*
