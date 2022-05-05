@@ -86,19 +86,7 @@ def parse_args():
 
 
 def objectives(point):
-    '''
-    data_d='s/Pele_pGMRES_autotune'
-    directory='/home/knliege/dev/kokkos-kernels/kokkos-kernels_Release_B/perf_test/batched/sparse'
-    '''
     global exec_name, A_file_name, B_file_name, X_file_name, timer_filename
-
-    '''
-    exec_name = directory+'/KokkosBatched_Test_GMRES'
-    A_file_name = data_d+'/A.mm'
-    B_file_name = data_d+'/B.mm'
-    X_file_name = data_d+'/X.mm'
-    timer_filename = data_d+'/time'
-    '''
 
     team_size = 1 #point['team_size']
     N_team = point['N_team']
@@ -108,11 +96,11 @@ def objectives(point):
     n2 = 2
 
     tol = 1e-8
-    n_iterations = 20
+    n_iterations = 7
     ortho_strategy = 0
     other_level = 0
     implementation = 3
-    layout = 'Left'
+    layout = 'Right'
 
     exe = exec_name + ' -A ' +A_file_name+ ' -B '+B_file_name
     exe += ' -X ' + X_file_name + ' -timers '+ timer_filename
@@ -207,7 +195,7 @@ def main():
     os.environ['TUNER_NAME'] = TUNER_NAME
 
     specie = 'gri30'
-    N = 10
+    N = 100
     sort = True
     scaled = True
 

@@ -290,12 +290,8 @@ struct Functor_TestBatchedTeamVectorGMRES {
 
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
-    const int first_matrix = static_cast<int>(member.league_rank()) * _N_team;
-    const int N            = _D.extent(0);
-    const int last_matrix =
-        (static_cast<int>(member.league_rank() + 1) * _N_team < N
-             ? static_cast<int>(member.league_rank() + 1) * _N_team
-             : N);
+    const int first_matrix = _handle.first_index(member.league_rank());
+    const int last_matrix  = _handle.last_index(member.league_rank());
     using TeamVectorCopy1D =
         KokkosBatched::TeamVectorCopy<MemberType,
                                       KokkosBatched::Trans::NoTranspose, 1>;
