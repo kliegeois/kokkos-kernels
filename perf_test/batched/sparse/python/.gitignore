@@ -7,3 +7,5 @@
 *.json
 __pycache__
 data*
+!run_GPTune.sh
+!batchedGMRES_RCI.sh
