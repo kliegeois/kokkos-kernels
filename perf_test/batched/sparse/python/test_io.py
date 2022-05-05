@@ -1,10 +1,11 @@
+from __future__ import print_function
 import numpy as np
 try:
     from scipy.sparse import csr_matrix
     support_scipy = True
 except:
     support_scipy = False
-    
+
 def mmwrite_crs(name, m, n, r, c, v):
     with open(name, 'w') as f:
         print('%%MatrixMarket CRS matrix\n%', file=f)
