@@ -68,8 +68,8 @@ matrix=${input_para[0]}
 
 # get the tuning parameters, the parameters should follow the sequence of definition in the python file
 team_size=${tuning_para[0]}
-N_team=${tuning_para[1]}
-vector_length=${tuning_para[2]}
+vector_length=${tuning_para[1]}
+N_team=${tuning_para[2]}
 
 exec_name=$(sed -n '1p' config_batchedGMRES.txt)
 A_file_name=$(sed -n '2p' config_batchedGMRES.txt)

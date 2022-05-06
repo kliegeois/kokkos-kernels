@@ -9,12 +9,12 @@ export OMP_DYNAMIC=FALSE
 export OMP_NUM_THREADS=26
 export OMP_PROC_BIND=true
 #export OMP_DISPLAY_AFFINITY=TRUE
-export OMP_PLACES=threads
+export OMP_PLACES=cores
 #export OMP_DISPLAY_ENV=true
 
 rm -rf gptune.db/*.json # do not load any database 
 tp=batchedGMRES
 app_json=$(echo "{\"tuning_problem_name\":\"$tp\",\"no_load_check\": \"yes\"")
 echo "$app_json$machine_json$software_json$loadable_machine_json$loadable_software_json}" | jq '.' > .gptune/meta.json
-bash batchedGMRES_RCI.sh -a 100 -b 1 -c time
+bash batchedGMRES_RCI.sh -a 200 -b 1 -c time
 cp gptune.db/batchedGMRES.json  gptune.db/batchedGMRES.json_$(timestamp)
