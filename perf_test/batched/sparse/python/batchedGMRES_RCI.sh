@@ -28,8 +28,6 @@ database="gptune.db/batchedGMRES.json"  # the phrase batchedGMRES should match t
 # rm -rf $database
 
 
-python ./batchedGMRES_RCI_pre.py
-
 # start the main loop
 more=1
 while [ $more -eq 1 ]
@@ -64,7 +62,14 @@ declare -a tuning_para=($( jq -r --argjson v1 $idx '.func_eval[$v1].tuning_param
 
 
 # get the task input parameters, the parameters should follow the sequence of definition in the python file
-matrix=${input_para[0]}
+test_name=${input_para[0]}
+IFS='_' read -r -a array <<< "$test_name"
+
+if [ "${array[2]}" = "s" ]; then
+   python ./batchedGMRES_RCI_pre.py --specie "${array[0]}" -s
+else
+   python ./batchedGMRES_RCI_pre.py --specie "${array[0]}"
+fi
 
 # get the tuning parameters, the parameters should follow the sequence of definition in the python file
 team_size=${tuning_para[0]}
@@ -84,13 +89,21 @@ n_iterations=$(sed -n '10p' config_batchedGMRES.txt)
 tol=$(sed -n '11p' config_batchedGMRES.txt)
 ortho_strategy=$(sed -n '12p' config_batchedGMRES.txt)
 
-${exec_name} -A ${A_file_name} -B ${B_file_name} -X ${X_file_name} -timers ${timer_filename}\
- -n1 ${n1} -n2 ${n2} -vector_length ${vector_length} -N_team ${N_team} -team_size ${team_size} -implementation ${impl}\
- -other_level ${other_level} -n_iterations ${n_iterations} -tol ${tol} -ortho_strategy ${ortho_strategy} -r
+if [ "${array[1]}" = "left" ]; then
+   ${exec_name} -A ${A_file_name} -B ${B_file_name} -X ${X_file_name} -timers ${timer_filename}\
+   -n1 ${n1} -n2 ${n2} -vector_length ${vector_length} -N_team ${N_team} -team_size ${team_size} -implementation ${impl}\
+   -other_level ${other_level} -n_iterations ${n_iterations} -tol ${tol} -ortho_strategy ${ortho_strategy} -l
 
-# get result using batchedGMRES_RCI_post.py
-declare -a result=($(python batchedGMRES_RCI_post.py --timer_filename ${timer_filename} --implementation ${impl} --layout Right))
+   # get result using batchedGMRES_RCI_post.py
+   declare -a result=($(python batchedGMRES_RCI_post.py --timer_filename ${timer_filename} --implementation ${impl} --layout Left))
+else
+   ${exec_name} -A ${A_file_name} -B ${B_file_name} -X ${X_file_name} -timers ${timer_filename}\
+   -n1 ${n1} -n2 ${n2} -vector_length ${vector_length} -N_team ${N_team} -team_size ${team_size} -implementation ${impl}\
+   -other_level ${other_level} -n_iterations ${n_iterations} -tol ${tol} -ortho_strategy ${ortho_strategy} -r
 
+   # get result using batchedGMRES_RCI_post.py
+   declare -a result=($(python batchedGMRES_RCI_post.py --timer_filename ${timer_filename} --implementation ${impl} --layout Right))
+fi
 echo $result
 
 # write the data back to the database file

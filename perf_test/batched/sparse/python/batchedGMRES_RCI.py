@@ -49,14 +49,14 @@ def main():
 	TUNER_NAME = 'GPTune'
 	os.environ['MACHINE_NAME'] = machine
 
-	matrices = ["gri30"]
+	matrices = ["gri30_left_s", "gri30_right_s", "gri30_left_u", "gri30_right_u", "isooctane_left_s", "isooctane_right_s", "isooctane_left_u", "isooctane_right_u"]
 
 	# Task parameters
 	matrix    = Categoricalnorm (matrices, transform="onehot", name="matrix")
 
 	# Input parameters
 	team_size = Integer(1, 2, transform="normalize", name="team_size")
-	vector_length = Integer(1, 8, transform="normalize", name="vector_length")
+	vector_length = Integer(1, 32, transform="normalize", name="vector_length")
 	N_team = Integer(1, 32, transform="normalize", name="N_team")
 
 	result = Real(float("-Inf") , float("Inf"),name="time")
@@ -86,7 +86,7 @@ def main():
 	options.validate(computer = computer)
 	
 	# """ Building MLA with the given list of tasks """
-	giventask = [["gri30"]]		
+	giventask = [["gri30_left_s"],["isooctane_right_u"]]		
 
 	data = Data(problem)
 

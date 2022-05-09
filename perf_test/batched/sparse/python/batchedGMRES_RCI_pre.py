@@ -7,6 +7,7 @@ from run_Test import run_test, getHostName, getBuildDirectory
 from create_matrices import *
 from read_pele_matrices import *
 
+import argparse
 
 def create_intput_files(input_folder, n_files, N, scaled, indices, sort, name_A, name_B):
     r, c, V, n = read_matrices(input_folder, n_files, N, scaled, indices=indices, sort=sort)
@@ -49,22 +50,31 @@ def getSortedIndices(specie, order):
 
 
 def main():
-    specie = 'gri30'
+
+    parser = argparse.ArgumentParser(description='Postprocess the results.')
+    parser.add_argument('--specie', metavar='specie', default='gri30',
+                        help='used specie')
+    parser.add_argument('-s', action="store_true", default=False)
+    args = parser.parse_args()
+
+    specie = args.specie
+
     N = 100
-    sort = True
+    sort = args.s
     scaled = True
     n1 = 2
     n2 = 2
     impl = 3
     other_level = 0
-    n_iterations = 7
     tol = 1e-8
     ortho_strategy = 0
 
     if specie == 'gri30':
         n_files = 90
+        n_iterations = 7
     if specie == 'isooctane':
         n_files = 72
+        n_iterations = 17
     N *= n_files
 
     directory = getBuildDirectory()
