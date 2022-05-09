@@ -62,13 +62,14 @@ declare -a tuning_para=($( jq -r --argjson v1 $idx '.func_eval[$v1].tuning_param
 
 
 # get the task input parameters, the parameters should follow the sequence of definition in the python file
-test_name=${input_para[0]}
-IFS='_' read -r -a array <<< "$test_name"
+matrix=${input_para[0]}
+layout=${input_para[1]}
+order=${input_para[2]}
 
-if [ "${array[2]}" = "s" ]; then
-   python ./batchedGMRES_RCI_pre.py --specie "${array[0]}" -s
+if [ "$order" = "s" ]; then
+   python ./batchedGMRES_RCI_pre.py --specie "$matrix" -s
 else
-   python ./batchedGMRES_RCI_pre.py --specie "${array[0]}"
+   python ./batchedGMRES_RCI_pre.py --specie "$matrix"
 fi
 
 # get the tuning parameters, the parameters should follow the sequence of definition in the python file
@@ -89,7 +90,7 @@ n_iterations=$(sed -n '10p' config_batchedGMRES.txt)
 tol=$(sed -n '11p' config_batchedGMRES.txt)
 ortho_strategy=$(sed -n '12p' config_batchedGMRES.txt)
 
-if [ "${array[1]}" = "left" ]; then
+if [ "$layout" = "left" ]; then
    ${exec_name} -A ${A_file_name} -B ${B_file_name} -X ${X_file_name} -timers ${timer_filename}\
    -n1 ${n1} -n2 ${n2} -vector_length ${vector_length} -N_team ${N_team} -team_size ${team_size} -implementation ${impl}\
    -other_level ${other_level} -n_iterations ${n_iterations} -tol ${tol} -ortho_strategy ${ortho_strategy} -l
