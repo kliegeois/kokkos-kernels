@@ -108,6 +108,8 @@ def main():
 		for tid in range(NI):
 			print("tid: %d"%(tid))
 			print("    matrix:%s"%(data.I[tid][0]))
+			print("    layout:%s"%(data.I[tid][1]))
+			print("    sorting order:%s"%(data.I[tid][2]))
 			print("    Ps ", data.P[tid])
 			print("    Os ", data.O[tid].tolist())
 			print('    Popt ', data.P[tid][np.argmin(data.O[tid])], 'Oopt ', min(data.O[tid])[0], 'nth ', np.argmin(data.O[tid]))
