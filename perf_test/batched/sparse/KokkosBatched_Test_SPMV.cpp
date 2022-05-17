@@ -117,12 +117,16 @@ struct Functor_TestBatchedTeamVectorSpmv {
 
     member.team_barrier();
 
-    KokkosBatched::Spmv<MemberType, KokkosBatched::Trans::NoTranspose,
-                        KokkosBatched::Mode::TeamVector>::
-        template invoke<DViewType, ScratchPadIntView, xViewType, yViewType,
-                        alphaViewType, betaViewType, dobeta>(
-            member, alpha_team, D_team, row_map, cols, X_team, beta_team,
-            Y_team);
+    if (last_matrix != N && _matrices_per_team == 8)
+      KokkosBatched::TeamVectorSpmv<MemberType, KokkosBatched::Trans::NoTranspose, 8>::
+          template invoke<DViewType, ScratchPadIntView, xViewType, yViewType,
+                          alphaViewType, betaViewType, dobeta>(
+              member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team);
+    else
+      KokkosBatched::TeamVectorSpmv<MemberType, KokkosBatched::Trans::NoTranspose, 0>::
+          template invoke<DViewType, ScratchPadIntView, xViewType, yViewType,
+                          alphaViewType, betaViewType, dobeta>(
+              member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team);
   }
 
   inline void run() {
@@ -148,7 +152,7 @@ int main(int argc, char *argv[]) {
     int n_rep_2          = 1000;  // # of repetitions
     int team_size        = 8;
     int vector_length    = 8;
-    int N_team_potential = 1;
+    int N_team_potential = 8;
     int n_impl           = 1;
     bool layout_left     = true;
     bool layout_right    = false;
@@ -171,8 +175,6 @@ int main(int argc, char *argv[]) {
 
       if (token == std::string("-n1")) n_rep_1 = std::atoi(argv[++i]);
       if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
-      if (token == std::string("-N_team"))
-        N_team_potential = std::atoi(argv[++i]);
       if (token == std::string("-vector_length"))
         vector_length = std::atoi(argv[++i]);
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
