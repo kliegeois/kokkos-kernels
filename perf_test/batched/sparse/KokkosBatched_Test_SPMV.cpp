@@ -118,15 +118,17 @@ struct Functor_TestBatchedTeamVectorSpmv {
     member.team_barrier();
 
     if (last_matrix != N && _matrices_per_team == 8)
-      KokkosBatched::TeamVectorSpmv<MemberType, KokkosBatched::Trans::NoTranspose, 8>::
-          template invoke<DViewType, ScratchPadIntView, xViewType, yViewType,
-                          alphaViewType, betaViewType, dobeta>(
-              member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team);
+      KokkosBatched::TeamVectorSpmv<
+          MemberType, KokkosBatched::Trans::NoTranspose,
+          8>::template invoke<DViewType, ScratchPadIntView, xViewType,
+                              yViewType, alphaViewType, betaViewType, dobeta>(
+          member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team);
     else
-      KokkosBatched::TeamVectorSpmv<MemberType, KokkosBatched::Trans::NoTranspose, 0>::
-          template invoke<DViewType, ScratchPadIntView, xViewType, yViewType,
-                          alphaViewType, betaViewType, dobeta>(
-              member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team);
+      KokkosBatched::TeamVectorSpmv<
+          MemberType, KokkosBatched::Trans::NoTranspose,
+          0>::template invoke<DViewType, ScratchPadIntView, xViewType,
+                              yViewType, alphaViewType, betaViewType, dobeta>(
+          member, alpha_team, D_team, row_map, cols, X_team, beta_team, Y_team);
   }
 
   inline void run() {

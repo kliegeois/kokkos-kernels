@@ -97,7 +97,8 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
-    Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(numMatrices);
+    Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
+        numMatrices);
 
     Kokkos::parallel_for(
         Kokkos::ThreadVectorRange(member, unsigned(n_team.value)),
@@ -112,10 +113,10 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
             for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
               sum += values[iMatrix * valuess0 +
                             (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                    X[iMatrix * xs0 +
-                      colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                     X[iMatrix * xs0 +
+                       colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
                                   colIndicess0] *
-                          xs1];
+                           xs1];
             }
 
             sum *= alpha[iMatrix * alphas0];
@@ -128,8 +129,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
             }
           }
         });
-  }
-  else {
+  } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
         [&](const OrdinalType& iTemp) {
@@ -146,10 +146,10 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
           for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
             sum += values[iMatrix * valuess0 +
                           (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                  X[iMatrix * xs0 +
-                    colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                   X[iMatrix * xs0 +
+                     colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
                                 colIndicess0] *
-                        xs1];
+                         xs1];
           }
 
           sum *= alpha[iMatrix * alphas0];
@@ -178,7 +178,8 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
-    Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(numMatrices);
+    Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
+        numMatrices);
 
     Kokkos::parallel_for(
         Kokkos::ThreadVectorRange(member, unsigned(n_team.value)),
@@ -194,10 +195,10 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
             for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
               sum += values[iMatrix * valuess0 +
                             (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                    X[iMatrix * xs0 +
-                      colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                     X[iMatrix * xs0 +
+                       colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
                                   colIndicess0] *
-                          xs1];
+                           xs1];
             }
 
             sum *= alpha;
@@ -209,9 +210,8 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
                   beta * Y[iMatrix * ys0 + iRow * ys1] + sum;
             }
           }
-      });
-  }
-  else {
+        });
+  } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
         [&](const OrdinalType& iTemp) {
@@ -228,10 +228,10 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
           for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
             sum += values[iMatrix * valuess0 +
                           (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                  X[iMatrix * xs0 +
-                    colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                   X[iMatrix * xs0 +
+                     colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
                                 colIndicess0] *
-                        xs1];
+                         xs1];
           }
 
           sum *= alpha;
