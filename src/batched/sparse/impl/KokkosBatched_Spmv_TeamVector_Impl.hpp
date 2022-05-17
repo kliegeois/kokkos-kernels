@@ -100,12 +100,12 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
         numMatrices);
 
+    for (OrdinalType iRow = 0; iRow < numRows; iRow++) {
+      const OrdinalType rowLength =
+          row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
     Kokkos::parallel_for(
         Kokkos::ThreadVectorRange(member, unsigned(n_team.value)),
         [&](const OrdinalType& iMatrix) {
-          for (OrdinalType iRow = 0; iRow < numRows; iRow++) {
-            const OrdinalType rowLength =
-                row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
             ValueType sum = 0;
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
 #pragma unroll
@@ -127,8 +127,8 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
               Y[iMatrix * ys0 + iRow * ys1] =
                   beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] + sum;
             }
-          }
         });
+    }
   } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
@@ -181,12 +181,13 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
         numMatrices);
 
+    for (OrdinalType iRow = 0; iRow < numRows; iRow++) {
+      const OrdinalType rowLength =
+          row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+
     Kokkos::parallel_for(
         Kokkos::ThreadVectorRange(member, unsigned(n_team.value)),
         [&](const OrdinalType& iMatrix) {
-          for (OrdinalType iRow = 0; iRow < numRows; iRow++) {
-            const OrdinalType rowLength =
-                row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
             ValueType sum = 0;
 
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
@@ -209,8 +210,8 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
               Y[iMatrix * ys0 + iRow * ys1] =
                   beta * Y[iMatrix * ys0 + iRow * ys1] + sum;
             }
-          }
         });
+    }
   } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
