@@ -97,14 +97,44 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
-    Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
-        numMatrices);
+    if (N_team != 0 && valuess0 == 1) {
+      typedef Vector<SIMD<ValueType>, N_team> VectorType;
 
-    for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
-      const OrdinalType rowLength =
-          row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+      VectorType alpha_v, beta_v, values_v, y_v, x_v;
 
-      ValueType sum[8] = {0};
+      alpha_v.loadAligned(alpha);
+      beta_v.loadAligned(beta);
+
+      for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
+        const OrdinalType rowLength =
+            row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+
+        VectorType sum_v(0);
+
+#if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
+#pragma unroll
+#endif
+        for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
+          values_v.loadAligned(&values[(row_ptr[iRow * row_ptrs0] + iEntry) * valuess1]);
+          x_v.loadAligned(&X[colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) * colIndicess0] * xs1]);
+          sum_v += values_v * x_v;
+        }
+        sum_v *= alpha_v;
+        if (dobeta != 0) {
+          y_v.loadAligned(&Y[iRow * ys1]);
+          sum_v += y_v * beta_v;
+        }
+        sum_v.storeAligned(&Y[iRow * ys1]);
+      }
+    }
+    else {
+      Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
+          numMatrices);
+      for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
+        const OrdinalType rowLength =
+            row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+
+        ValueType sum[unsigned(n_team.value)] = {0};
 
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
 #pragma unroll
@@ -114,41 +144,42 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
 #ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
 #pragma unroll
 #endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-          sum[iMatrix] += values[iMatrix * valuess0 +
-                        (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                  X[iMatrix * xs0 +
-                    colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
-                              colIndicess0] *
-                        xs1];
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+            sum[iMatrix] += values[iMatrix * valuess0 +
+                          (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
+                    X[iMatrix * xs0 +
+                      colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                                colIndicess0] *
+                          xs1];
+          }
         }
-      }
 #pragma GCC ivdep
 #ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
 #pragma unroll
 #endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-            sum[iMatrix] *= alpha[iMatrix * alphas0];
-      }
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+              sum[iMatrix] *= alpha[iMatrix * alphas0];
+        }
 
-            if (dobeta == 0) {
+              if (dobeta == 0) {
 #pragma GCC ivdep
 #ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
 #pragma unroll
 #endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-            Y[iMatrix * ys0 + iRow * ys1] = sum[iMatrix];
-        }
-            } else {
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+              Y[iMatrix * ys0 + iRow * ys1] = sum[iMatrix];
+          }
+              } else {
 #pragma GCC ivdep
 #ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
 #pragma unroll
 #endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-            Y[iMatrix * ys0 + iRow * ys1] = beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] + sum[iMatrix];
-        }
-            }
-        }
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+              Y[iMatrix * ys0 + iRow * ys1] = beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] + sum[iMatrix];
+          }
+              }
+          }
+    }
   } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
@@ -198,58 +229,87 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
-    Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
-        numMatrices);
+    if (N_team != 0 && valuess0 == 1) {
+      typedef Vector<SIMD<ValueType>, N_team> VectorType;
 
-    for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
-      const OrdinalType rowLength =
-          row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+      VectorType alpha_v(alpha), beta_v(beta), values_v, y_v, x_v;
 
-      ValueType sum[8] = {0};
+      for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
+        const OrdinalType rowLength =
+            row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+
+        VectorType sum_v(0);
 
 #if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
 #pragma unroll
 #endif
-      for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
-#pragma GCC ivdep
-#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
-#pragma unroll
-#endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-          sum[iMatrix] += values[iMatrix * valuess0 +
-                        (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                  X[iMatrix * xs0 +
-                    colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
-                              colIndicess0] *
-                        xs1];
+        for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
+          values_v.loadAligned(&values[(row_ptr[iRow * row_ptrs0] + iEntry) * valuess1]);
+          x_v.loadAligned(&X[colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) * colIndicess0] * xs1]);
+          sum_v += values_v * x_v;
         }
+        sum_v *= alpha_v;
+        if (dobeta != 0) {
+          y_v.loadAligned(&Y[iRow * ys1]);
+          sum_v += y_v * beta_v;
+        }
+        sum_v.storeAligned(&Y[iRow * ys1]);
       }
-#pragma GCC ivdep
-#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
-#pragma unroll
-#endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-            sum[iMatrix] *= alpha;
-      }
+    }
+    else {
+      Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
+          numMatrices);
 
-            if (dobeta == 0) {
+      for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
+        const OrdinalType rowLength =
+            row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+
+        ValueType sum[8] = {0};
+
+#if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
+#pragma unroll
+#endif
+        for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
 #pragma GCC ivdep
 #ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
 #pragma unroll
 #endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-            Y[iMatrix * ys0 + iRow * ys1] = sum[iMatrix];
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+            sum[iMatrix] += values[iMatrix * valuess0 +
+                          (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
+                    X[iMatrix * xs0 +
+                      colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                                colIndicess0] *
+                          xs1];
+          }
         }
-            } else {
 #pragma GCC ivdep
 #ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
 #pragma unroll
 #endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
-            Y[iMatrix * ys0 + iRow * ys1] = beta * Y[iMatrix * ys0 + iRow * ys1] + sum[iMatrix];
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+              sum[iMatrix] *= alpha;
         }
-            }
-        }
+
+              if (dobeta == 0) {
+#pragma GCC ivdep
+#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
+#pragma unroll
+#endif
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+              Y[iMatrix * ys0 + iRow * ys1] = sum[iMatrix];
+          }
+              } else {
+#pragma GCC ivdep
+#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
+#pragma unroll
+#endif
+          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+              Y[iMatrix * ys0 + iRow * ys1] = beta * Y[iMatrix * ys0 + iRow * ys1] + sum[iMatrix];
+          }
+              }
+          }
+    }
   } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),

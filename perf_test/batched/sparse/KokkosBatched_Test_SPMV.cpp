@@ -281,7 +281,8 @@ int main(int argc, char *argv[]) {
           cudaProfilerStart();
 #endif
           exec_space().fence();
-          flush.run();
+          if ( n_rep_2 != 1)
+            flush.run();
           exec_space().fence();
 
           timer.reset();
