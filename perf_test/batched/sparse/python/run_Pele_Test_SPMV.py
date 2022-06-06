@@ -39,7 +39,7 @@ def main():
 
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/Pele_SPMV_' + specie + '_data'
+    data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec'
 
     rows_per_thread=1
     implementations_left = [0, 1, 2, 3]
