@@ -97,6 +97,7 @@ def getParameters(specie, layout, hostname):
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
+            '''
             if layout == 'right':
                 N_team = 1
                 team_size = 1
@@ -105,6 +106,10 @@ def getParameters(specie, layout, hostname):
                 N_team = 32
                 team_size = 1
                 vector_length = 20
+            '''
+            N_team = 8
+            team_size = -1
+            vector_length = 8
         if specie == 'isooctane':
             n_iterations = 20
             ortho_strategy = 0
