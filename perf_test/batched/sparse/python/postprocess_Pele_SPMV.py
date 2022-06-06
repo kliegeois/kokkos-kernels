@@ -5,6 +5,15 @@ import matplotlib.pyplot as plt
 import tikzplotlib
 from test_io import mmread
 
+def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8, unit='B/sec'):
+    # 1 "+" and 1 "*" per entry of A and 1 "+" and 1 "*" per row
+    nops = 2*(nnz+nrows)*number_of_matrices
+    if unit=='B/sec':
+        return nops*bytes_per_entry
+    if unit=='GFLOPS':
+        return nops/1e9
+
+
 def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n_GPUs=1, throughput=True, unit='B/sec'):
 
     # V100 GPU up to 900 GB/sec = 9e11
@@ -21,6 +30,12 @@ def plot_limits(Bs, ax, nnz_per_row, N, memory_limits=True, peak_limits=False, n
         reused_optimistic *= 8
         peak_boost *= 8
         peak_base *= 8
+    if unit == 'GFLOPS':
+        optimistic /= 1e9
+        pessimistic /= 1e9
+        reused_optimistic /= 1e9
+        peak_boost /= 1e9
+        peak_base /= 1e9
     if memory_limits:
         if throughput:
             ax.plot([Bs[0], Bs[-1]], [reused_optimistic, reused_optimistic], '--', label='Reused optimistic memory bandwidth bound')
@@ -72,85 +87,112 @@ def ginkgo_data(specie):
         time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
     return n, time
 
-specie = 'gri30'
+hosts = ['weaver', 'blake', 'caraway', 'inouye']
+species = ['gri30', 'isooctane']
+unit = 'GFLOPS'
 
-base = 'Pele_SPMV_'+specie+'_data_3/'
-implementations = [0,1,2,3]
-n_implementations = len(implementations)
-n_quantiles = 7
+for host in hosts:
+    for specie in species:
 
-team_params = np.loadtxt(base+'team_params.txt')
-n_ginkgo, time_gingko = ginkgo_data(specie)
+        base = host+'/Pele_SPMV_'+specie+'_data/'
+        if host == 'caraway':
+            implementations = [3]
+        else:
+            implementations = [0,3]
+        n_implementations = len(implementations)
+        n_quantiles = 7
 
-Ns = np.loadtxt(base+'Ns.txt')
-CPU_time_l = np.zeros((n_implementations, len(Ns), n_quantiles))
-CPU_time_r = np.zeros((n_implementations, len(Ns), n_quantiles))
-throughput_l = np.zeros((n_implementations, len(Ns), n_quantiles))
-throughput_r = np.zeros((n_implementations, len(Ns), n_quantiles))
+        team_params = np.loadtxt(base+'team_params.txt')
+        n_ginkgo, time_gingko = ginkgo_data(specie)
 
-for i in range(0, n_implementations):
-    CPU_time_l[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_l.txt')
-    CPU_time_r[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_r.txt')
-    throughput_l[i,:,:] = np.loadtxt(base+'throughput_'+str(implementations[i])+'_l.txt')
-    throughput_r[i,:,:] = np.loadtxt(base+'throughput_'+str(implementations[i])+'_r.txt')
+        Ns = np.loadtxt(base+'Ns.txt')
 
-nnz_per_row = 10
-N = 12800
+        n_ops = np.zeros((len(Ns),))
 
-fig = plt.figure()
-ax = plt.gca()
-for i in range(0, n_implementations):
-    if i < 5:
-        plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' left')
-        plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' right')
-    else:
-        plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
-        plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
+        if specie == 'gri30':
+            nrows = 54
+            nnz = 2560
+        if specie == 'isooctane':
+            nrows = 144
+            nnz = 6136
 
-plt.grid()
-#ax.set_ylim(0., 0.006)
-#plot_limits(Ns, ax, nnz_per_row, N, throughput=False)
+        for i in range(len(n_ops)):
+            n_ops[i] = compute_n_ops(nrows, nnz, Ns[i], bytes_per_entry=8, unit=unit)
 
-ax.set_xlabel('Number of matrices')
-ax.set_ylabel('Wall-clock time [sec]')
-plt.title('team_size = '+str(team_params[0])+', vector_length = '+str(team_params[1])+ ', N_team = '+str(team_params[2]))
-#ax.set_ylim(0, 0.008)
-#ax.set_xlim(1000, 1500)
+        CPU_time_l = np.zeros((n_implementations, len(Ns), n_quantiles))
+        CPU_time_r = np.zeros((n_implementations, len(Ns), n_quantiles))
+        throughput_l = np.zeros((n_implementations, len(Ns), n_quantiles))
+        throughput_r = np.zeros((n_implementations, len(Ns), n_quantiles))
 
-legend = ax.legend(loc='best', shadow=True)
+        for i in range(0, n_implementations):
+            CPU_time_l[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_l.txt')
+            CPU_time_r[i,:,:] = np.loadtxt(base+'CPU_time_'+str(implementations[i])+'_r.txt')
+            throughput_l[i,:,:] = np.loadtxt(base+'throughput_'+str(implementations[i])+'_l.txt')
+            throughput_r[i,:,:] = np.loadtxt(base+'throughput_'+str(implementations[i])+'_r.txt')
+            for j in range(len(n_ops)):
+                throughput_l[i,j,:] = n_ops[j]/CPU_time_l[i,j,:]
+                throughput_r[i,j,:] = n_ops[j]/CPU_time_r[i,j,:]
+            np.savetxt(base+'throughput_'+str(implementations[i])+'_l_updated.txt', throughput_l[i,:,:])
+            np.savetxt(base+'throughput_'+str(implementations[i])+'_r_updated.txt', throughput_r[i,:,:])
 
-plt.savefig(base+'wall-clock time.png')
-tikzplotlib.save(base+'wall-clock time.tex')
+        nnz_per_row = 10
+        N = 12800
 
-fig = plt.figure()
-ax = plt.gca()
-for i in range(0, n_implementations):
-    if i < 5:
-        plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' left')
-        plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' right')
-    elif i < 10:
-        plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
-        plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
-    else:
-        plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with global cache', dashed=True)
-        plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with global cache', dashed=True)
-    max_l_throughput = np.amax(throughput_l[i,:,:])/1e12
-    max_r_throughput = np.amax(throughput_r[i,:,:])/1e12
-    if max_l_throughput > 0.8:
-        print('Impl '+str(i) + ' left max throughput = '+str(max_l_throughput))
-    if max_r_throughput > 0.8:
-        print('Impl '+str(i) + ' right max throughput = '+str(max_r_throughput))
+        fig = plt.figure()
+        ax = plt.gca()
+        for i in range(0, n_implementations):
+            if i < 5:
+                plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' left')
+                plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' right')
+            else:
+                plot_quantiles(Ns, CPU_time_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
+                plot_quantiles(Ns, CPU_time_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
 
-#plot_limits(Ns, ax, nnz_per_row, N)
-ax.set_xlabel('Number of matrices')
-ax.set_ylabel('Throughput [B/s]')
-plt.title('team_size = '+str(team_params[0])+', vector_length = '+str(team_params[1])+ ', N_team = '+str(team_params[2]))
-#ax.set_xlim(1000, 1500)
+        plt.grid()
+        #ax.set_ylim(0., 0.006)
+        #plot_limits(Ns, ax, nnz_per_row, N, throughput=False)
 
-legend = ax.legend(loc='best', shadow=True)
+        ax.set_xlabel('Number of matrices')
+        ax.set_ylabel('Wall-clock time [sec]')
+        plt.title('team_size = '+str(team_params[0])+', vector_length = '+str(team_params[1])+ ', N_team = '+str(team_params[2]))
+        #ax.set_ylim(0, 0.008)
+        #ax.set_xlim(1000, 1500)
 
-'''
-for i in range(56, 256, 8):
-    ax.plot([i,i], [0,3e11], 'k--')
-'''
-plt.savefig(base+'throughput.png')
+        legend = ax.legend(loc='best', shadow=True)
+
+        plt.savefig(base+'wall-clock time.png')
+        tikzplotlib.save(base+'wall-clock time.tex')
+
+        fig = plt.figure()
+        ax = plt.gca()
+        for i in range(0, n_implementations):
+            if i < 5:
+                plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' left')
+                plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i) + ' right')
+            elif i < 10:
+                plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with cache', dashed=True)
+                plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with cache', dashed=True)
+            else:
+                plot_quantiles(Ns, throughput_l[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' left with global cache', dashed=True)
+                plot_quantiles(Ns, throughput_r[i,:,:], ax, i_skip=0, label='Impl '+str(i-5) + ' right with global cache', dashed=True)
+            max_l_throughput = np.amax(throughput_l[i,:,:])/1e12
+            max_r_throughput = np.amax(throughput_r[i,:,:])/1e12
+            if max_l_throughput > 0.8:
+                print('Impl '+str(i) + ' left max throughput = '+str(max_l_throughput))
+            if max_r_throughput > 0.8:
+                print('Impl '+str(i) + ' right max throughput = '+str(max_r_throughput))
+
+        if host == 'weaver':
+            plot_limits(Ns, ax, nnz_per_row, N, unit=unit)
+        ax.set_xlabel('Number of matrices')
+        ax.set_ylabel('Throughput ['+unit+']')
+        plt.title('team_size = '+str(team_params[0])+', vector_length = '+str(team_params[1])+ ', N_team = '+str(team_params[2]))
+        #ax.set_xlim(1000, 1500)
+
+        legend = ax.legend(loc='best', shadow=True)
+
+        '''
+        for i in range(56, 256, 8):
+            ax.plot([i,i], [0,3e11], 'k--')
+        '''
+        plt.savefig(base+'throughput.png')

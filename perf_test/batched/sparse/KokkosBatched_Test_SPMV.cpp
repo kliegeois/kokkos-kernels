@@ -289,7 +289,15 @@ int main(int argc, char *argv[]) {
 
           if (layout_left) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
-            policy_type policy(number_of_teams, team_size, vector_length);
+            policy_type auto_policy(number_of_teams, Kokkos::AUTO(), Kokkos::AUTO());
+            policy_type tuned_policy(number_of_teams, team_size, vector_length);
+            policy_type policy;
+
+            if (team_size < 1)
+              policy = auto_policy;
+            else
+              policy = tuned_policy;
+
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
             if (i_impl > 1)
@@ -313,7 +321,15 @@ int main(int argc, char *argv[]) {
           }
           if (layout_right) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
-            policy_type policy(number_of_teams, team_size, vector_length);
+            policy_type auto_policy(number_of_teams, Kokkos::AUTO(), Kokkos::AUTO());
+            policy_type tuned_policy(number_of_teams, team_size, vector_length);
+            policy_type policy;
+
+            if (team_size < 1)
+              policy = auto_policy;
+            else
+              policy = tuned_policy;
+
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
             if (i_impl > 1)
