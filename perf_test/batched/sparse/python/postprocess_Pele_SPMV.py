@@ -87,14 +87,14 @@ def ginkgo_data(specie):
         time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
     return n, time
 
-hosts = ['weaver', 'blake', 'caraway', 'inouye']
+hosts = ['blake', 'inouye']
 species = ['gri30', 'isooctane']
 unit = 'GFLOPS'
 
 for host in hosts:
     for specie in species:
 
-        base = host+'/Pele_SPMV_'+specie+'_data/'
+        base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec/'
         if host == 'caraway':
             implementations = [3]
         else:
@@ -114,7 +114,7 @@ for host in hosts:
             nnz = 2560
         if specie == 'isooctane':
             nrows = 144
-            nnz = 6136
+            nnz = 6135
 
         for i in range(len(n_ops)):
             n_ops[i] = compute_n_ops(nrows, nnz, Ns[i], bytes_per_entry=8, unit=unit)
