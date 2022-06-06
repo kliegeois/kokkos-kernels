@@ -12,3 +12,8 @@ data*
 gptune.db/*
 roofline
 config
+batchedGMRES_blake
+batchedGMRES_blake_vector
+*.advixeproj
+*.advixeexp
+*.html

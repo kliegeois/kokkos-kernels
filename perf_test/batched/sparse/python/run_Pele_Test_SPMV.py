@@ -2,10 +2,11 @@ import numpy as np
 
 import time
 from test_io import mmwrite, mmread
-from run_Test import run_test, getBuildDirectory
+from run_Test import *
 from create_matrices import *
 from read_pele_matrices import *
 import os
+import argparse
 
 
 def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
@@ -14,22 +15,33 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 
 def main():
-    tic = time.perf_counter()
-    Ns = 90*np.array([1, 100, 1000])#np.arange(100, 15000, 50)
+    Ns = np.array([1, 16, 32, 64, 96, 128, 160, 192, 224, 256])
 
-    specie = 'gri30'
+    parser = argparse.ArgumentParser(description='Postprocess the results.')
+    parser.add_argument('--specie', metavar='specie', default='gri30',
+                        help='used specie')
+    args = parser.parse_args()
+
+    specie = args.specie
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
-    n_files = 72
+    if specie == 'gri30':
+        n_files = 90
+    if specie == 'isooctane':
+        n_files = 72
+
+    Ns *= n_files
 
     directory = getBuildDirectory()
+    hostname = getHostName()
 
-    data_d = 'Pele_SPMV_' + specie + '_data_3'
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
+
+    if not os.path.isdir(hostname):
+        os.mkdir(hostname)
+    data_d = hostname + '/Pele_SPMV_' + specie + '_data'
 
     rows_per_thread=1
-    team_size = 32
-    vector_length = 8
-    N_team = 8
     implementations_left = [0, 1, 2, 3]
     implementations_right = [0, 1, 2, 3]
     n_implementations_left = len(implementations_left)
@@ -58,8 +70,8 @@ def main():
 
     for i in range(0, len(Ns)):
         r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
-        nnzs[i] = len(r)
-        n_ops = compute_n_ops(n, nnzs[i], Ns[i])
+        nnzs[i] = len(c)
+        n_ops = compute_n_ops(len(r)-1, nnzs[i], Ns[i])
 
         B = create_Vector(n, Ns[i])
     
@@ -85,9 +97,6 @@ def main():
             np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
         np.savetxt(data_d+'/Ns.txt', Ns)
         np.savetxt(data_d+'/nnzs.txt', nnzs)
-
-    toc = time.perf_counter()
-    print(f"Elapsed time {toc - tic:0.4f} seconds")
 
 
 if __name__ == "__main__":
