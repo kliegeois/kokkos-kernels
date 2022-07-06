@@ -98,6 +98,11 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
     if (N_team != 0 && valuess0 == 1) {
+      /*
+        Left layout as valuess0 = 1 and non-zero vector length given at compilation time
+        Here we use the SIMD data type which is using Intel Intrinsics under the hood on Intel
+        architectures.
+      */
       typedef Vector<SIMD<ValueType>, N_team> VectorType;
 
       VectorType alpha_v, beta_v, values_v, y_v, x_v;
@@ -133,29 +138,22 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
       Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
           numMatrices);
       
-#pragma GCC ivdep
-#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
-#pragma unroll
-#endif
       for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
         for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
           const OrdinalType rowLength =
               row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
 
           ValueType sum = 0;
-
-#if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
-#pragma unroll
-#endif
-          for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
-            sum +=
-                values[iMatrix * valuess0 +
+          Kokkos::parallel_reduce(
+            Kokkos::ThreadVectorRange(member, rowLength),
+            [&](const OrdinalType& iEntry, ValueType& lsum) {
+              lsum += values[iMatrix * valuess0 +
                        (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
                 X[iMatrix * xs0 +
                   colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
                              colIndicess0] *
                       xs1];
-          }
+            }, sum);
 
           sum *= alpha[iMatrix * alphas0];
 
@@ -220,6 +218,11 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
     if (N_team != 0 && valuess0 == 1) {
+      /*
+        Left layout as valuess0 = 1 and non-zero vector length given at compilation time
+        Here we use the SIMD data type which is using Intel Intrinsics under the hood on Intel
+        architectures.
+      */
       typedef Vector<SIMD<ValueType>, N_team> VectorType;
 
       VectorType alpha_v(alpha), beta_v(beta), values_v, y_v, x_v;
@@ -252,58 +255,32 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
       Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
           numMatrices);
 
-      for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
-        const OrdinalType rowLength =
-            row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
+      for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
+        for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
+          const OrdinalType rowLength =
+              row_ptr[(iRow + 1) * row_ptrs0] - row_ptr[iRow * row_ptrs0];
 
-        ValueType sum[8] = {0};
-
-#if defined(KOKKOS_ENABLE_PRAGMA_UNROLL)
-#pragma unroll
-#endif
-        for (OrdinalType iEntry = 0; iEntry < rowLength; ++iEntry) {
-#pragma GCC ivdep
-#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
-#pragma unroll
-#endif
-          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value);
-               ++iMatrix) {
-            sum[iMatrix] +=
-                values[iMatrix * valuess0 +
+          ValueType sum = 0;
+          Kokkos::parallel_reduce(
+            Kokkos::ThreadVectorRange(member, rowLength),
+            [&](const OrdinalType& iEntry, ValueType& lsum) {
+              lsum += values[iMatrix * valuess0 +
                        (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
                 X[iMatrix * xs0 +
                   colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
                              colIndicess0] *
                       xs1];
-          }
-        }
-#pragma GCC ivdep
-#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
-#pragma unroll
-#endif
-        for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value);
-             ++iMatrix) {
-          sum[iMatrix] *= alpha;
-        }
+            }, sum);
 
-        if (dobeta == 0) {
-#pragma GCC ivdep
-#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
-#pragma unroll
-#endif
-          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value);
-               ++iMatrix) {
-            Y[iMatrix * ys0 + iRow * ys1] = sum[iMatrix];
+          sum *= alpha;
+
+          if (dobeta == 0) {
+            Y[iMatrix * ys0 + iRow * ys1] = sum;
           }
-        } else {
-#pragma GCC ivdep
-#ifdef KOKKOS_ENABLE_PRAGMA_UNROLL
-#pragma unroll
-#endif
-          for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value);
-               ++iMatrix) {
+          else {
             Y[iMatrix * ys0 + iRow * ys1] =
-                beta * Y[iMatrix * ys0 + iRow * ys1] + sum[iMatrix];
+                beta * Y[iMatrix * ys0 + iRow * ys1] +
+                sum;
           }
         }
       }
