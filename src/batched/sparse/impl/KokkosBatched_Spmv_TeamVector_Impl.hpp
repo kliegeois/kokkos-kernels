@@ -97,6 +97,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
     if (N_team != 0 && valuess0 == 1) {
       /*
         Left layout as valuess0 = 1 and non-zero vector length given at compilation time
@@ -168,6 +169,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
         }
       }
     }
+#endif    
   } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
@@ -217,6 +219,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
   if (member.team_size() == 1) {
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
     if (N_team != 0 && valuess0 == 1) {
       /*
         Left layout as valuess0 = 1 and non-zero vector length given at compilation time
@@ -285,6 +288,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
         }
       }
     }
+#endif    
   } else {
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
