@@ -179,6 +179,8 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
       if (token == std::string("-vector_length"))
         vector_length = std::atoi(argv[++i]);
+      if (token == std::string("-N_team"))
+        N_team_potential = std::atoi(argv[++i]);
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
       if (token == std::string("-n_implementations"))
         n_impl = std::atoi(argv[++i]);
@@ -209,8 +211,8 @@ int main(int argc, char *argv[]) {
 
     printf(
         " :::: Testing (N = %d, Blk = %d, nnz = %d, vl = %d, vi = %d, n = "
-        "%d)\n",
-        N, Blk, nnz, vector_length, internal_vector_length, n_rep_1);
+        "%d, N_team_potential = %d)\n",
+        N, Blk, nnz, vector_length, internal_vector_length, n_rep_1, N_team_potential);
 
     typedef Kokkos::LayoutRight LR;
     typedef Kokkos::LayoutLeft LL;
@@ -287,9 +289,10 @@ int main(int argc, char *argv[]) {
           timer.reset();
           exec_space().fence();
 
-          int number_of_teams =
-              i_impl == 0 ? N : ceil(1. * N / N_team_potential);
           int N_team = i_impl == 0 ? 1 : N_team_potential;
+          N_team = N_team_potential;
+          int number_of_teams =
+              i_impl == 0 ? N : ceil(1. * N / N_team);
 
           if (layout_left) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
