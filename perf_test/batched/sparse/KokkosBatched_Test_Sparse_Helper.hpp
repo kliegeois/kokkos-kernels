@@ -80,6 +80,39 @@ void readArrayFromMM(std::string name, const XType &x) {
     */
 }
 
+template <class AType>
+void readDenseFromMM(std::string name, const AType &A) {
+  std::ifstream input(name);
+
+  while (input.peek() == '%')
+    input.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+  input.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+  typename AType::HostMirror A_h   = Kokkos::create_mirror_view(A);
+
+  Kokkos::deep_copy(A_h, 0.);
+
+  int read_row;
+  int read_col;
+
+  int N, Blk, nnz, nrows;
+  readSizesFromMM(name, Blk, nrows, nnz, N);
+
+
+  for (int i = 0; i < nnz; ++i) {
+    input >> read_row >> read_col;
+    --read_row;
+    --read_col;
+
+    for (int j = 0; j < N; ++j)
+      input >> A_h(read_row, read_col, j);
+  }
+
+  input.close();
+
+  Kokkos::deep_copy(A, A_h);
+}
+
 template <class VType, class IntType>
 void readCRSFromMM(std::string name, const VType &V, const IntType &r,
                    const IntType &c) {
