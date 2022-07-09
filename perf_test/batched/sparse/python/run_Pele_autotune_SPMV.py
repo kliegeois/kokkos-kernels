@@ -19,6 +19,9 @@ n2 = 1
 n_ops = 1
 
 def run_analysis_left(m, team_size, vector_length):
+    if np.int(team_size)*np.int(vector_length) > 1024:
+        return 0
+
     directory = getBuildDirectory()
     hostname = getHostName()
 
