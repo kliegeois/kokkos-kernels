@@ -80,6 +80,9 @@ struct Functor_TestBatchedTeamVectorSpmv {
 
   template <typename MemberType>
   KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
+    //int team_size = member.team_size();
+    //printf("team_size %d\n", team_size);
+    //std::cout << "member.team_size() = " << member.team_size() << std::endl;
     const int first_matrix =
         static_cast<int>(member.league_rank()) * _matrices_per_team;
     const int N = _D.extent(0);
@@ -297,13 +300,18 @@ int main(int argc, char *argv[]) {
           if (layout_left) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
             policy_type auto_policy(number_of_teams, Kokkos::AUTO(), Kokkos::AUTO());
-            policy_type tuned_policy(number_of_teams, team_size, vector_length);
+            policy_type tuned_policy(number_of_teams, team_size, Kokkos::AUTO());
+            policy_type tuned_policy_2(number_of_teams, team_size, vector_length);
             policy_type policy;
 
             if (team_size < 1)
               policy = auto_policy;
-            else
+            else if (vector_length < 1)
               policy = tuned_policy;
+            else
+               policy = tuned_policy_2;
+
+            //std::cout << "auto_policy.team_size() = " << auto_policy.team_size() << std::endl;
 
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);
@@ -329,13 +337,16 @@ int main(int argc, char *argv[]) {
           if (layout_right) {
             using policy_type = Kokkos::TeamPolicy<exec_space>;
             policy_type auto_policy(number_of_teams, Kokkos::AUTO(), Kokkos::AUTO());
-            policy_type tuned_policy(number_of_teams, team_size, vector_length);
+            policy_type tuned_policy(number_of_teams, team_size, Kokkos::AUTO());
+            policy_type tuned_policy_2(number_of_teams, team_size, vector_length);
             policy_type policy;
 
             if (team_size < 1)
               policy = auto_policy;
-            else
+            else if (vector_length < 1)
               policy = tuned_policy;
+            else
+               policy = tuned_policy_2;
 
             size_t bytes_0 = ScratchPadIntView::shmem_size(Blk + 1);
             size_t bytes_1 = ScratchPadIntView::shmem_size(nnz);

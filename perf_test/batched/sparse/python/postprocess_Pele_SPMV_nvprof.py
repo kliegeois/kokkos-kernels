@@ -4,27 +4,28 @@ import numpy as np
 from io import StringIO
 from create_matrices import *
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 def remove_all_non_num(line):
     return re.sub('[^0-9. ]', ' ', line)
 
+def get_row_data(df, metric_name, column_names):
+    data = np.zeros((len(column_names), ))
+    metric_found = False
+    for index, row in df.iterrows():
+        if row["Metric Name"] == metric_name:
+            n_inv = row["Invocations"]
+            for i in range(0, len(data)):
+                if column_names[i] in df.columns:
+                    data[i] = float(remove_all_non_num(row[column_names[i]]))
+            metric_found = True
+    return data, metric_found, n_inv
 
 def add_new_ratio(df, num_name, denom_name, new_name, new_description, column_names):
-    num_found = False
-    denom_found = False
-    num_data = np.zeros((len(column_names), ))
-    denom_data = np.ones((len(column_names), ))
-    for index, row in df.iterrows():
-        if row["Metric Name"] == num_name:
-            n_inv = row["Invocations"]
-            for i in range(0, len(num_data)):
-                if column_names[i] in df.columns:
-                    num_data[i] = float(remove_all_non_num(row[column_names[i]]))
-            num_found = True
-        if row["Metric Name"] == denom_name:
-            for i in range(0, len(denom_data)):
-                if column_names[i] in df.columns:
-                    denom_data[i] = float(remove_all_non_num(row[column_names[i]]))
-            denom_found = True
+    num_data, num_found, n_inv = get_row_data(df, num_name, column_names)
+    denom_data, denom_found, n_inv = get_row_data(df, denom_name, column_names)
     if num_found and denom_found:
         data = [n_inv, new_name, new_description]
         columns = ["Invocations", "Metric Name", "Metric Description"]
@@ -107,19 +108,64 @@ def combine_data_frame_from_files(filenames, avg_names, string_first_line):
 
 def main():
 
-    impl = 0
+    impls = [0, 3]
+    layouts = ['left', 'right']
+
     m_max = 17
-    filenames = []
+    ms = np.arange(1, m_max)
+
     avg_names = []
-    for m in range(1, m_max):
-        filenames.append('Pele_SPMV_NVPROF_gri30_data_1/nvprof.'+str(impl)+'.54.2560.20160.'+str(m)+'.left.txt')
+    for m in ms:
         avg_names.append(str(m))
 
-    if impl == 0:
-        df0 = combine_data_frame_from_files(filenames, avg_names, 'BSPMV_Functor_View')
-    else:
-        df0 = combine_data_frame_from_files(filenames, avg_names, 'Functor_TestBatchedTeamVectorSpmv')
-    df0.to_csv('test_m_'+str(impl)+'.csv')
+    df = []
+    throughput = []
+    names = []
+    for impl in impls:
+        for layout in layouts:
+            if layout == 'left':
+                throughput.append(np.loadtxt('weaver/Pele_SPMV_gri30_data_SPMV_vec_m/throughput_'+str(impl)+'_l.txt')[:,3])
+            else:
+                throughput.append(np.loadtxt('weaver/Pele_SPMV_gri30_data_SPMV_vec_m/throughput_'+str(impl)+'_r.txt')[:,3])
+
+            filenames = []
+            for m in ms:
+                filenames.append('Pele_SPMV_NVPROF_gri30_data_2/nvprof.'+str(impl)+'.54.2560.20160.'+str(m)+'.'+layout+'.txt')
+
+            if impl == 0:
+                df.append(combine_data_frame_from_files(filenames, avg_names, 'BSPMV_Functor_View'))
+            else:
+                df.append(combine_data_frame_from_files(filenames, avg_names, 'Functor_TestBatchedTeamVectorSpmv'))
+
+            names.append(str(impl)+'_'+layout)
+
+    plt.figure()
+    ax = plt.gca()
+    for i in range(0, len(df)):
+        plt.plot(ms, throughput[i], label=names[i])
+    plt.grid()
+    ax.set_xlabel('m')
+    ax.set_ylabel('Throughput')
+    legend = ax.legend(loc='best', shadow=False)
+    plt.savefig('Pele_SPMV_NVPROF_gri30_data_2/plot_throughput.png')
+    plt.close()
+
+
+    metrics = ['gld_efficiency', 'sm_efficiency', 'warp_execution_efficiency', 'gld_requested_throughput', 'tex_cache_hit_rate', 'stall_memory_dependency', 'stall_memory_throttle', 'gst_efficiency']
+
+    for metric in metrics:
+        plt.figure()
+        ax = plt.gca()
+        for i in range(0, len(df)):
+            row_data, found, n_inv = get_row_data(df[i], metric, avg_names)
+            plt.plot(ms, row_data, label=names[i])
+        plt.grid()
+        ax.set_xlabel('m')
+        ax.set_ylabel(metric)
+        legend = ax.legend(loc='best', shadow=False)
+        plt.savefig('Pele_SPMV_NVPROF_gri30_data_2/plot_'+metric+'.png')
+        plt.close()
+
 
 
 if __name__ == "__main__":

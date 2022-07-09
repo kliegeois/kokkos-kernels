@@ -46,6 +46,9 @@ def main():
     n1 = 2
     n2 = 3
 
+    team_size = 256
+    vector_length = -1
+
     n_quantiles = 7
     nnzs = np.zeros((len(Ns), ))
 
