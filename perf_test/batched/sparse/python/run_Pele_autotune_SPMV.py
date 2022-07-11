@@ -18,8 +18,16 @@ n1 = 1
 n2 = 1
 n_ops = 1
 
+def run_analysis_left_float(m, team_size, vector_length):
+    return run_analysis_left(int(m), int(team_size), int(vector_length))
+ 
+
 def run_analysis_left(m, team_size, vector_length):
-    if np.int(team_size)*np.int(vector_length) > 1024:
+    assert type(m) == int
+    assert type(team_size) == int
+    assert type(vector_length) == int
+
+    if team_size*vector_length > 1024:
         return 0
 
     directory = getBuildDirectory()
@@ -109,14 +117,16 @@ def main():
     pbounds = {'m': (1, 32), 'team_size': (1, 256), 'vector_length': (1, 256)}
 
     optimizer = BayesianOptimization(
-        f=run_analysis_left,
+        f=run_analysis_left_float,
         pbounds=pbounds,
+        verbose=2,
         random_state=1,
     )
 
     optimizer.maximize(
-        init_points=3,
-        n_iter=5,
+        init_points=10,
+        n_iter=250,
+        alpha=1e-3,
     )    
 
     print(optimizer.max)
