@@ -105,7 +105,7 @@ void readDenseFromMM(std::string name, const AType &A) {
     --read_col;
 
     for (int j = 0; j < N; ++j)
-      input >> A_h(read_row, read_col, j);
+      input >> A_h(j, read_row, read_col);
   }
 
   input.close();

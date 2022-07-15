@@ -96,8 +96,8 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const ScalarType* KOKKOS_RESTRICT beta, const OrdinalType betas0,
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)      
   if (member.team_size() == 1) {
-#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
     if (N_team != 0 && valuess0 == 1) {
       /*
         Left layout as valuess0 = 1 and non-zero vector length given at compilation time
@@ -168,9 +168,9 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
           }
         }
       }
-    }
-#endif    
+    } 
   } else {
+#endif
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
         [&](const OrdinalType& iTemp) {
@@ -202,7 +202,9 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
                 beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] + sum;
           }
         });
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)         
   }
+#endif
   return 0;
 }
 
@@ -218,8 +220,8 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const OrdinalType xs0, const OrdinalType xs1, const ScalarType beta,
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)      
   if (member.team_size() == 1) {
-#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
     if (N_team != 0 && valuess0 == 1) {
       /*
         Left layout as valuess0 = 1 and non-zero vector length given at compilation time
@@ -287,9 +289,9 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
           }
         }
       }
-    }
-#endif    
+    }    
   } else {
+#endif    
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
         [&](const OrdinalType& iTemp) {
@@ -321,7 +323,9 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
                 beta * Y[iMatrix * ys0 + iRow * ys1] + sum;
           }
         });
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)        
   }
+#endif
   return 0;
 }
 
