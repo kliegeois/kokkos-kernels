@@ -106,10 +106,18 @@ struct Functor_TestBatchedTeamCG {
   inline void run() {
     std::string name("KokkosBatched::Test::TeamCG");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size,
-                                          _vector_length);
+    Kokkos::TeamPolicy<DeviceType> auto_policy(
+        ceil(1. * _D.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());
+    Kokkos::TeamPolicy<DeviceType> tuned_policy(
+        ceil(1. * _D.extent(0) / _N_team), _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy;
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);
+    if (_team_size < 1)
+      policy = auto_policy;
+    else
+      policy = tuned_policy;
+
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _X.extent(1));
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 5 * bytes_1));
 
@@ -173,10 +181,18 @@ struct Functor_TestBatchedTeamVectorCG {
   inline void run() {
     std::string name("KokkosBatched::Test::TeamCG");
     Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> policy(_D.extent(0) / _N_team, _team_size,
-                                          _vector_length);
+    Kokkos::TeamPolicy<DeviceType> auto_policy(
+        ceil(1. * _D.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());
+    Kokkos::TeamPolicy<DeviceType> tuned_policy(
+        ceil(1. * _D.extent(0) / _N_team), _team_size, _vector_length);
+    Kokkos::TeamPolicy<DeviceType> policy;
 
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, 150);
+    if (_team_size < 1)
+      policy = auto_policy;
+    else
+      policy = tuned_policy;
+
+    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _X.extent(1));
     size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
     policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 5 * bytes_1));
 
@@ -203,6 +219,7 @@ int main(int argc, char *argv[]) {
     int n_rep_2              = 1000;  // # of repetitions
     int rows_per_thread      = 1;
     int team_size            = 8;
+    int N_team_potential     = 8;
     int n_impl               = 1;
     bool layout_left         = true;
     bool layout_right        = false;
@@ -245,6 +262,8 @@ int main(int argc, char *argv[]) {
         layout_right = true;
       }
       if (token == std::string("-C")) monitor_convergence = true;
+      if (token == std::string("-N_team"))
+        N_team_potential = std::atoi(argv[++i]);
     }
 
     int N, Blk, nnz, ncols;
@@ -256,11 +275,15 @@ int main(int argc, char *argv[]) {
     if (impls.size() == 0)
       for (int i = 0; i < n_impl; ++i) impls.push_back(i);
 
+    std::cout << "N_team_potential = " << N_team_potential << ", n = " << Blk
+              << ", N = " << N << ", team_size = " << team_size
+              << ", vector_length = " << vector_length << std::endl;
+
     // V100 L2 cache 6MB per core
     constexpr size_t LLC_CAPACITY = 80 * 6 * 1024 * 1024;
     KokkosBatched::Flush<LLC_CAPACITY, exec_space> flush;
 
-    printf(" :::: Testing (N = %d, Blk = %d, nnz = %d, vl = %d, n = %d)\n", N,
+    printf(" :::: CG Testing (N = %d, Blk = %d, nnz = %d, vl = %d, n = %d)\n", N,
            Blk, nnz, vector_length, n_rep_1);
 
     typedef Kokkos::LayoutRight LR;
@@ -287,8 +310,8 @@ int main(int argc, char *argv[]) {
     XYTypeLL xLL("values", N, Blk);
     XYTypeLL yLL("values", N, Blk);
 
-    launch_parameters<exec_space>(Blk, nnz, rows_per_thread, team_size,
-                                  vector_length);
+    //launch_parameters<exec_space>(Blk, nnz, rows_per_thread, team_size,
+    //                              vector_length);
 
     if (layout_left)
       printf(" :::: Testing left layout (team_size = %d, vector_length = %d)\n",
@@ -312,7 +335,7 @@ int main(int argc, char *argv[]) {
 
       int n_skip = 2;
 
-      int N_team = i_impl > 1 ? vector_length : 1;
+      int N_team = i_impl > 1 ? N_team_potential : 1;
 
       using ScalarType = typename AMatrixValueViewLL::non_const_value_type;
       using Layout     = typename AMatrixValueViewLL::array_layout;

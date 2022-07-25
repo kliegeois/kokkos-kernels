@@ -489,7 +489,7 @@ int main(int argc, char *argv[]) {
     constexpr size_t LLC_CAPACITY = 80 * 6 * 1024 * 1024;
     KokkosBatched::Flush<LLC_CAPACITY, exec_space> flush;
 
-    printf(" :::: Testing (N = %d, Blk = %d, nnz = %d, vl = %d, n = %d)\n", N,
+    printf(" :::: GMRES Testing (N = %d, Blk = %d, nnz = %d, vl = %d, n = %d)\n", N,
            Blk, nnz, vector_length, n_rep_1);
 
     typedef Kokkos::LayoutRight LR;

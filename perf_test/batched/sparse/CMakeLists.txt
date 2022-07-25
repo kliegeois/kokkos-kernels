@@ -17,6 +17,14 @@ KOKKOSKERNELS_ADD_EXECUTABLE(KokkosBatched_Test_GESV
   SOURCES KokkosBatched_Test_GESV.cpp
 )
 
+KOKKOSKERNELS_ADD_EXECUTABLE(KokkosBatched_Test_cusolverDn
+  SOURCES KokkosBatched_Test_cusolverDn.cpp
+)
+
+KOKKOSKERNELS_ADD_EXECUTABLE(KokkosBatched_Test_cusolverSp
+  SOURCES KokkosBatched_Test_cusolverSp.cpp
+)
+
 cmake_host_system_information(RESULT HOST_NAME QUERY HOSTNAME)
 string(REPLACE "." ";" HOST_NAME ${HOST_NAME})
 list (GET HOST_NAME 0 HOSTNAME)
