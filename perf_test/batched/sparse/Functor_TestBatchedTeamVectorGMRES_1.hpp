@@ -100,6 +100,8 @@ struct Functor_TestBatchedTeamVectorGMRES_1 {
     Kokkos::Timer timer;
     Kokkos::Profiling::pushRegion(name.c_str());
 
+    _handle.set_memory_strategy(1);
+
     Kokkos::TeamPolicy<DeviceType> auto_policy(
         ceil(1. * _D.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());
     Kokkos::TeamPolicy<DeviceType> tuned_policy(

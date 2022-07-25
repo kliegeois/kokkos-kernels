@@ -142,6 +142,8 @@ struct Functor_TestBatchedTeamVectorGMRES_2 {
 
     int maximum_iteration = _handle.get_max_iteration();
 
+    _handle.set_memory_strategy(1);
+
     using ScalarType = typename ValuesViewType::non_const_value_type;
     using Layout     = typename ValuesViewType::array_layout;
     using EXSP       = typename ValuesViewType::execution_space;
