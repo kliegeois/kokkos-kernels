@@ -114,36 +114,32 @@ KOKKOS_INLINE_FUNCTION int TeamVectorGMRES<MemberType>::invoke(
 
   int n_G    = maximum_iteration + 1;
   int n_W    = numRows;
-  int n_X    = numRows;
   int n_mask = 1;
-  int n_tmp  = 1;
 
   int offset_G    = 0;
   int offset_W    = offset_G + n_G;
-  int offset_X    = offset_W + n_W;
-  int offset_mask = offset_X + n_X;
+  int offset_mask = offset_W + n_W;
   int offset_tmp  = offset_mask + n_mask;
 
-  ScratchPadVectorViewType tmp_2D(
-      member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
-      n_G + n_W + n_X + n_mask + n_tmp);
-
-  auto G    = Kokkos::subview(tmp_2D, Kokkos::ALL,
+  auto G    = Kokkos::subview(handle.tmp_view,
+                           Kokkos::make_pair(first_matrix, last_matrix),
                            Kokkos::make_pair(offset_G, offset_G + n_G));
-  auto W    = Kokkos::subview(tmp_2D, Kokkos::ALL,
+  auto W    = Kokkos::subview(handle.tmp_view,
+                           Kokkos::make_pair(first_matrix, last_matrix),
                            Kokkos::make_pair(offset_W, offset_W + n_W));
-  auto X    = Kokkos::subview(tmp_2D, Kokkos::ALL,
-                           Kokkos::make_pair(offset_X, offset_X + n_X));
-  auto mask = Kokkos::subview(tmp_2D, Kokkos::ALL, offset_mask);
-  auto tmp  = Kokkos::subview(tmp_2D, Kokkos::ALL, offset_tmp);
+  auto mask = Kokkos::subview(handle.tmp_view,
+                              Kokkos::make_pair(first_matrix, last_matrix),
+                              offset_mask);
+  auto tmp =
+      Kokkos::subview(handle.tmp_view,
+                      Kokkos::make_pair(first_matrix, last_matrix), offset_tmp);
 
-  TeamVectorCopy<MemberType>::invoke(member, _X, X);
   // Deep copy of b into r_0:
   TeamVectorCopy<MemberType>::invoke(member, _B, W);
 
   // r_0 := b - A x_0
   member.team_barrier();
-  A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, X, W, -1, 1);
+  A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, _X, W, -1, 1);
   member.team_barrier();
 
   P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
@@ -333,26 +329,22 @@ KOKKOS_INLINE_FUNCTION int TeamVectorGMRES<MemberType>::invoke(
     TeamVectorGemv<MemberType, Trans::Transpose, Algo::Gemv::Unblocked>::invoke(
         member, 1,
         Kokkos::subview(V_view, Kokkos::ALL, first_indices, Kokkos::ALL),
-        Kokkos::subview(G, Kokkos::ALL, first_indices), 1, X);
-    member.team_barrier();  // Finish writing to X
+        Kokkos::subview(G, Kokkos::ALL, first_indices), 1, _X);
+    member.team_barrier();  // Finish writing to _X
   }
   if (handle.get_ortho_strategy() == 1) {
     for (size_t j = 0; j < maximum_iteration; ++j) {
       TeamVectorAxpy<MemberType>::invoke(
           member, Kokkos::subview(G, Kokkos::ALL, j),
-          Kokkos::subview(V_view, Kokkos::ALL, j, Kokkos::ALL), X);
-      member.team_barrier();  // Finish writing to X
+          Kokkos::subview(V_view, Kokkos::ALL, j, Kokkos::ALL), _X);
+      member.team_barrier();  // Finish writing to _X
     }
   }
-
-  TeamVectorCopy<MemberType>::invoke(member, X, _X);
-
-  member.team_barrier();
 
   if (handle.get_compute_last_residual()) {
     TeamVectorCopy<MemberType>::invoke(member, _B, W);
     member.team_barrier();
-    A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, X, W, -1, 1);
+    A.template apply<Trans::NoTranspose, Mode::TeamVector>(member, _X, W, -1, 1);
     member.team_barrier();
     P.template apply<Trans::NoTranspose, Mode::TeamVector, 1>(member, W, W);
     member.team_barrier();
