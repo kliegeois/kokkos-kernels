@@ -61,6 +61,7 @@ typedef typename Kokkos::Device<exec_space, memory_space> device;
 
 #include "Functor_TestBatchedTeamVectorGMRES_1.hpp"
 #include "Functor_TestBatchedTeamVectorGMRES_2.hpp"
+#include "Functor_TestBatchedTeamVectorGMRES_3.hpp"
 
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
@@ -206,7 +207,7 @@ int main(int argc, char *argv[]) {
 
       int n_skip = 2;
 
-      int N_team = i_impl > 1 ? N_team_potential : 1;
+      int N_team = N_team_potential;
 
       using ScalarType = typename AMatrixValueViewLL::non_const_value_type;
       using Layout     = typename AMatrixValueViewLL::array_layout;
@@ -248,7 +249,7 @@ int main(int argc, char *argv[]) {
 
           exec_space().fence();
 
-          if (i_impl % 2 == 0 && layout_left) {
+          if (i_impl == 0 && layout_left) {
             if (use_preconditioner)
               t_spmv += Functor_TestBatchedTeamVectorGMRES_1<
                             exec_space, AMatrixValueViewLL, IntView, XYTypeLL,
@@ -266,7 +267,7 @@ int main(int argc, char *argv[]) {
                             ortho_strategy, arnoldi_level, other_level, handle)
                             .run();
           }
-          if (i_impl % 2 == 1 && layout_left) {
+          if (i_impl == 1 && layout_left) {
             if (use_preconditioner)
               t_spmv += Functor_TestBatchedTeamVectorGMRES_2<
                             exec_space, AMatrixValueViewLL, IntView, XYTypeLL,
@@ -284,7 +285,25 @@ int main(int argc, char *argv[]) {
                             ortho_strategy, arnoldi_level, other_level, handle)
                             .run();
           }
-          if (i_impl % 2 == 0 && layout_right) {
+          if (i_impl == 2 && layout_left) {
+            if (use_preconditioner)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES_3<
+                            exec_space, AMatrixValueViewLL, IntView, XYTypeLL,
+                            KrylovHandleType, true>(
+                            valuesLL, diagLL, rowOffsets, colIndices, xLL, yLL,
+                            N_team, team_size, vector_length, n_iterations, tol,
+                            ortho_strategy, arnoldi_level, other_level, handle)
+                            .run();
+            else
+              t_spmv += Functor_TestBatchedTeamVectorGMRES_3<
+                            exec_space, AMatrixValueViewLL, IntView, XYTypeLL,
+                            KrylovHandleType, false>(
+                            valuesLL, rowOffsets, colIndices, xLL, yLL, N_team,
+                            team_size, vector_length, n_iterations, tol,
+                            ortho_strategy, arnoldi_level, other_level, handle)
+                            .run();
+          }
+          if (i_impl == 0 && layout_right) {
             if (use_preconditioner)
               t_spmv += Functor_TestBatchedTeamVectorGMRES_1<
                             exec_space, AMatrixValueViewLR, IntView, XYTypeLR,
@@ -302,7 +321,7 @@ int main(int argc, char *argv[]) {
                             ortho_strategy, arnoldi_level, other_level, handle)
                             .run();
           }
-          if (i_impl % 2 == 1 && layout_right) {
+          if (i_impl == 1 && layout_right) {
             if (use_preconditioner)
               t_spmv += Functor_TestBatchedTeamVectorGMRES_2<
                             exec_space, AMatrixValueViewLR, IntView, XYTypeLR,
@@ -313,6 +332,24 @@ int main(int argc, char *argv[]) {
                             .run();
             else
               t_spmv += Functor_TestBatchedTeamVectorGMRES_2<
+                            exec_space, AMatrixValueViewLR, IntView, XYTypeLR,
+                            KrylovHandleType, false>(
+                            valuesLR, rowOffsets, colIndices, xLR, yLR, N_team,
+                            team_size, vector_length, n_iterations, tol,
+                            ortho_strategy, arnoldi_level, other_level, handle)
+                            .run();
+          }
+          if (i_impl == 2 && layout_right) {
+            if (use_preconditioner)
+              t_spmv += Functor_TestBatchedTeamVectorGMRES_3<
+                            exec_space, AMatrixValueViewLR, IntView, XYTypeLR,
+                            KrylovHandleType, true>(
+                            valuesLR, diagLR, rowOffsets, colIndices, xLR, yLR,
+                            N_team, team_size, vector_length, n_iterations, tol,
+                            ortho_strategy, arnoldi_level, other_level, handle)
+                            .run();
+            else
+              t_spmv += Functor_TestBatchedTeamVectorGMRES_3<
                             exec_space, AMatrixValueViewLR, IntView, XYTypeLR,
                             KrylovHandleType, false>(
                             valuesLR, rowOffsets, colIndices, xLR, yLR, N_team,

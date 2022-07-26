@@ -409,6 +409,38 @@ KOKKOS_INLINE_FUNCTION int TeamVectorGMRES<MemberType>::invoke(
 
     return invoke<OperatorType, VectorViewType, PrecOperatorType, KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView, _TMPView);
   }
+  if( strategy==2 ) {
+    using ScratchPadArnoldiViewType = Kokkos::View<
+        typename VectorViewType::non_const_value_type***,
+        typename VectorViewType::array_layout,
+        typename VectorViewType::execution_space::scratch_memory_space>;
+
+    using ScratchPadVectorViewType = Kokkos::View<
+        typename VectorViewType::non_const_value_type**,
+        typename VectorViewType::array_layout,
+        typename VectorViewType::execution_space::scratch_memory_space>;
+
+    const int numMatrices = _X.extent(0);
+    const int numRows     = _X.extent(1);
+
+    size_t maximum_iteration = handle.get_max_iteration() < numRows
+                                  ? handle.get_max_iteration()
+                                  : numRows;
+
+    int n_G    = maximum_iteration + 1;
+    int n_W    = numRows;
+    int n_mask = 1;
+    int n_tmp  = 1;
+
+    ScratchPadArnoldiViewType _ArnoldiView(member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
+        maximum_iteration, numRows + maximum_iteration + 3);
+
+    ScratchPadVectorViewType _TMPView(
+        member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
+        n_G + n_W + n_mask + n_tmp);
+
+    return invoke<OperatorType, VectorViewType, PrecOperatorType, KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView, _TMPView);
+  }
   return 0;
 }
 
