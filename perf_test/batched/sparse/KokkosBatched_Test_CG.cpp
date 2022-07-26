@@ -51,155 +51,9 @@ typedef typename exec_space::memory_space memory_space;
 typedef Kokkos::DefaultHostExecutionSpace host_space;
 typedef typename Kokkos::Device<exec_space, memory_space> device;
 
-template <typename DeviceType, typename ValuesViewType, typename IntView,
-          typename VectorViewType, typename KrylovHandleType>
-struct Functor_TestBatchedTeamCG {
-  const ValuesViewType _D;
-  const IntView _r;
-  const IntView _c;
-  const VectorViewType _X;
-  const VectorViewType _B;
-  const int _N_team, _team_size, _vector_length;
-  KrylovHandleType _handle;
-
-  KOKKOS_INLINE_FUNCTION
-  Functor_TestBatchedTeamCG(const ValuesViewType &D, const IntView &r,
-                            const IntView &c, const VectorViewType &X,
-                            const VectorViewType &B, const int N_team,
-                            const int team_size, const int vector_length,
-                            KrylovHandleType &handle)
-      : _D(D),
-        _r(r),
-        _c(c),
-        _X(X),
-        _B(B),
-        _N_team(N_team),
-        _team_size(team_size),
-        _vector_length(vector_length),
-        _handle(handle) {}
-
-  template <typename MemberType>
-  KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
-    const int first_matrix = static_cast<int>(member.league_rank()) * _N_team;
-    const int N            = _D.extent(0);
-    const int last_matrix =
-        (static_cast<int>(member.league_rank() + 1) * _N_team < N
-             ? static_cast<int>(member.league_rank() + 1) * _N_team
-             : N);
-
-    auto d = Kokkos::subview(_D, Kokkos::make_pair(first_matrix, last_matrix),
-                             Kokkos::ALL);
-    auto x = Kokkos::subview(_X, Kokkos::make_pair(first_matrix, last_matrix),
-                             Kokkos::ALL);
-    auto b = Kokkos::subview(_B, Kokkos::make_pair(first_matrix, last_matrix),
-                             Kokkos::ALL);
-
-    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, IntView>;
-
-    Operator A(d, _r, _c);
-
-    KokkosBatched::TeamCG<MemberType>::template invoke<Operator,
-                                                       VectorViewType>(
-        member, A, b, x, _handle);
-  }
-
-  inline void run() {
-    std::string name("KokkosBatched::Test::TeamCG");
-    Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> auto_policy(
-        ceil(1. * _D.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());
-    Kokkos::TeamPolicy<DeviceType> tuned_policy(
-        ceil(1. * _D.extent(0) / _N_team), _team_size, _vector_length);
-    Kokkos::TeamPolicy<DeviceType> policy;
-
-    if (_team_size < 1)
-      policy = auto_policy;
-    else
-      policy = tuned_policy;
-
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _X.extent(1));
-    size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
-    policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 5 * bytes_1));
-
-    Kokkos::parallel_for(name.c_str(), policy, *this);
-    Kokkos::Profiling::popRegion();
-  }
-};
-
-template <typename DeviceType, typename ValuesViewType, typename IntView,
-          typename VectorViewType, typename KrylovHandleType>
-struct Functor_TestBatchedTeamVectorCG {
-  const ValuesViewType _D;
-  const IntView _r;
-  const IntView _c;
-  const VectorViewType _X;
-  const VectorViewType _B;
-  const int _N_team, _team_size, _vector_length;
-  KrylovHandleType _handle;
-
-  KOKKOS_INLINE_FUNCTION
-  Functor_TestBatchedTeamVectorCG(const ValuesViewType &D, const IntView &r,
-                                  const IntView &c, const VectorViewType &X,
-                                  const VectorViewType &B, const int N_team,
-                                  const int team_size, const int vector_length,
-                                  KrylovHandleType &handle)
-      : _D(D),
-        _r(r),
-        _c(c),
-        _X(X),
-        _B(B),
-        _N_team(N_team),
-        _team_size(team_size),
-        _vector_length(vector_length),
-        _handle(handle) {}
-
-  template <typename MemberType>
-  KOKKOS_INLINE_FUNCTION void operator()(const MemberType &member) const {
-    const int first_matrix = static_cast<int>(member.league_rank()) * _N_team;
-    const int N            = _D.extent(0);
-    const int last_matrix =
-        (static_cast<int>(member.league_rank() + 1) * _N_team < N
-             ? static_cast<int>(member.league_rank() + 1) * _N_team
-             : N);
-
-    auto d = Kokkos::subview(_D, Kokkos::make_pair(first_matrix, last_matrix),
-                             Kokkos::ALL);
-    auto x = Kokkos::subview(_X, Kokkos::make_pair(first_matrix, last_matrix),
-                             Kokkos::ALL);
-    auto b = Kokkos::subview(_B, Kokkos::make_pair(first_matrix, last_matrix),
-                             Kokkos::ALL);
-
-    using Operator = KokkosBatched::CrsMatrix<ValuesViewType, IntView>;
-
-    Operator A(d, _r, _c);
-
-    KokkosBatched::TeamVectorCG<MemberType>::template invoke<Operator,
-                                                             VectorViewType>(
-        member, A, b, x, _handle);
-  }
-
-  inline void run() {
-    std::string name("KokkosBatched::Test::TeamCG");
-    Kokkos::Profiling::pushRegion(name.c_str());
-    Kokkos::TeamPolicy<DeviceType> auto_policy(
-        ceil(1. * _D.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());
-    Kokkos::TeamPolicy<DeviceType> tuned_policy(
-        ceil(1. * _D.extent(0) / _N_team), _team_size, _vector_length);
-    Kokkos::TeamPolicy<DeviceType> policy;
-
-    if (_team_size < 1)
-      policy = auto_policy;
-    else
-      policy = tuned_policy;
-
-    size_t bytes_0 = ValuesViewType::shmem_size(_N_team, _X.extent(1));
-    size_t bytes_1 = ValuesViewType::shmem_size(_N_team, 1);
-    policy.set_scratch_size(0, Kokkos::PerTeam(4 * bytes_0 + 5 * bytes_1));
-
-    Kokkos::parallel_for(name.c_str(), policy, *this);
-    Kokkos::Profiling::popRegion();
-  }
-};
+#include "Functor_TestBatchedTeamVectorCG_1.hpp"
+#include "Functor_TestBatchedTeamVectorCG_2.hpp"
+#include "Functor_TestBatchedTeamVectorCG_3.hpp"
 
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
@@ -217,7 +71,6 @@ int main(int argc, char *argv[]) {
     ///
     int n_rep_1              = 10;    // # of repetitions
     int n_rep_2              = 1000;  // # of repetitions
-    int rows_per_thread      = 1;
     int team_size            = 8;
     int N_team_potential     = 8;
     int n_impl               = 1;
@@ -246,8 +99,6 @@ int main(int argc, char *argv[]) {
 
       if (token == std::string("-n1")) n_rep_1 = std::atoi(argv[++i]);
       if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
-      if (token == std::string("-rows_per_thread"))
-        rows_per_thread = std::atoi(argv[++i]);
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
       if (token == std::string("-n_implementations"))
         n_impl = std::atoi(argv[++i]);
@@ -310,9 +161,6 @@ int main(int argc, char *argv[]) {
     XYTypeLL xLL("values", N, Blk);
     XYTypeLL yLL("values", N, Blk);
 
-    //launch_parameters<exec_space>(Blk, nnz, rows_per_thread, team_size,
-    //                              vector_length);
-
     if (layout_left)
       printf(" :::: Testing left layout (team_size = %d, vector_length = %d)\n",
              team_size, vector_length);
@@ -335,7 +183,7 @@ int main(int argc, char *argv[]) {
 
       int n_skip = 2;
 
-      int N_team = i_impl > 1 ? N_team_potential : 1;
+      int N_team = N_team_potential;
 
       using ScalarType = typename AMatrixValueViewLL::non_const_value_type;
       using Layout     = typename AMatrixValueViewLL::array_layout;
@@ -352,6 +200,7 @@ int main(int argc, char *argv[]) {
           KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType,
                                       Scalar3DViewType>;
       KrylovHandleType handle(N, N_team);
+      handle.set_scratch_pad_level(0);
 
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
         double t_spmv = 0;
@@ -365,41 +214,54 @@ int main(int argc, char *argv[]) {
           flush.run();
           exec_space().fence();
 
-          timer.reset();
           exec_space().fence();
 
-          if (i_impl % 2 == 0 && layout_left) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLL, IntView,
+          if (i_impl == 0 && layout_left) {
+            t_spmv += Functor_TestBatchedTeamVectorCG_1<exec_space, AMatrixValueViewLL, IntView,
                                       XYTypeLL, KrylovHandleType>(
                 valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size,
                 vector_length, handle)
                 .run();
           }
-          if (i_impl % 2 == 1 && layout_left) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLL,
+          if (i_impl == 1 && layout_left) {
+            t_spmv += Functor_TestBatchedTeamVectorCG_2<exec_space, AMatrixValueViewLL,
                                             IntView, XYTypeLL,
                                             KrylovHandleType>(
                 valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size,
                 vector_length, handle)
                 .run();
           }
-          if (i_impl % 2 == 0 && layout_right) {
-            Functor_TestBatchedTeamCG<exec_space, AMatrixValueViewLR, IntView,
+          if (i_impl == 2 && layout_left) {
+            t_spmv += Functor_TestBatchedTeamVectorCG_3<exec_space, AMatrixValueViewLL,
+                                            IntView, XYTypeLL,
+                                            KrylovHandleType>(
+                valuesLL, rowOffsets, colIndices, xLL, yLL, N_team, team_size,
+                vector_length, handle)
+                .run();
+          }
+          if (i_impl == 0 && layout_right) {
+            t_spmv += Functor_TestBatchedTeamVectorCG_1<exec_space, AMatrixValueViewLR, IntView,
                                       XYTypeLR, KrylovHandleType>(
                 valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size,
                 vector_length, handle)
                 .run();
           }
-          if (i_impl % 2 == 1 && layout_right) {
-            Functor_TestBatchedTeamVectorCG<exec_space, AMatrixValueViewLR,
-                                            IntView, XYTypeLR,
-                                            KrylovHandleType>(
+          if (i_impl == 1 && layout_right) {
+            t_spmv += Functor_TestBatchedTeamVectorCG_2<exec_space, AMatrixValueViewLR, IntView,
+                                      XYTypeLR, KrylovHandleType>(
+                valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size,
+                vector_length, handle)
+                .run();
+          }
+          if (i_impl == 2 && layout_right) {
+            t_spmv += Functor_TestBatchedTeamVectorCG_3<exec_space, AMatrixValueViewLR, IntView,
+                                      XYTypeLR, KrylovHandleType>(
                 valuesLR, rowOffsets, colIndices, xLR, yLR, N_team, team_size,
                 vector_length, handle)
                 .run();
           }
           exec_space().fence();
-          t_spmv += timer.seconds();
+
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
           cudaProfilerStop();
 #endif

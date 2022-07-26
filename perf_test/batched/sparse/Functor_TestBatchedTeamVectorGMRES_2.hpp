@@ -144,6 +144,9 @@ struct Functor_TestBatchedTeamVectorGMRES_2 {
 
     _handle.set_memory_strategy(1);
 
+    _handle.tmp_view = typename KrylovHandleType::TemporaryViewType(
+        "", _X.extent(0), _X.extent(1) + maximum_iteration + 3);
+
     using ScalarType = typename ValuesViewType::non_const_value_type;
     using Layout     = typename ValuesViewType::array_layout;
     using EXSP       = typename ValuesViewType::execution_space;

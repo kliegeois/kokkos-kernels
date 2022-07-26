@@ -100,7 +100,12 @@ struct Functor_TestBatchedTeamVectorGMRES_1 {
     Kokkos::Timer timer;
     Kokkos::Profiling::pushRegion(name.c_str());
 
+    int maximum_iteration = _handle.get_max_iteration();
+
     _handle.set_memory_strategy(1);
+
+    _handle.tmp_view = typename KrylovHandleType::TemporaryViewType(
+        "", _X.extent(0), _X.extent(1) + maximum_iteration + 3);
 
     Kokkos::TeamPolicy<DeviceType> auto_policy(
         ceil(1. * _D.extent(0) / _N_team), Kokkos::AUTO(), Kokkos::AUTO());

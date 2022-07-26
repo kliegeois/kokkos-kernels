@@ -226,8 +226,8 @@ int main(int argc, char *argv[]) {
       KrylovHandleType handle(N, N_team, n_iterations, true);
       handle.Arnoldi_view =
           Scalar3DViewType("", N, n_iterations, Blk + n_iterations + 3);
-      handle.tmp_view = typename KrylovHandleType::TemporaryViewType(
-        "", N, Blk + n_iterations + 3);
+      //handle.tmp_view = typename KrylovHandleType::TemporaryViewType(
+      //  "", N, Blk + n_iterations + 3);
 
       handle.set_max_iteration(n_iterations);
       handle.set_tolerance(tol);
