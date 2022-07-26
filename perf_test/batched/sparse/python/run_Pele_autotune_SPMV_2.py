@@ -24,19 +24,34 @@ def run_analysis(params, fixed_params):
 
     directory = getBuildDirectory()
 
-    data = run_test(directory+'/KokkosBatched_Test_SPMV', fixed_params.name_A, fixed_params.name_B, 
-        fixed_params.name_X, fixed_params.name_timers, fixed_params.rows_per_thread, params.team_size, n1=fixed_params.n1, n2=fixed_params.n2, implementations=[3], layout=fixed_params.layout,
-        extra_args=' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
-    return -fixed_params.n_ops/data[0,3]
+    key = str(params.vector_length)+'_'+str(params.m)+'_'+str(params.team_size)
+
+    if key in fixed_params.previous_points:
+        print('point '+key+ ' was already evaluated.')
+    else:
+        data = run_test(directory+'/KokkosBatched_Test_SPMV', fixed_params.name_A, fixed_params.name_B, 
+            fixed_params.name_X, fixed_params.name_timers, fixed_params.rows_per_thread, params.team_size,
+            n1=fixed_params.n1, n2=fixed_params.n2, implementations=[3], layout=fixed_params.layout,
+            extra_args=' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
+        fixed_params.previous_points[key] = -fixed_params.n_ops/data[0,3]
+
+    return fixed_params.previous_points[key]
 
 
 def main():
+    tic = time.perf_counter()
     N = 224
 
     parser = argparse.ArgumentParser(description='Postprocess the results.')
     parser.add_argument('--specie', metavar='specie', default='gri30',
                         help='used specie')
+    parser.add_argument('-r', action="store_true", default=False)
     args = parser.parse_args()
+
+    if args.r:
+        layout = 'Right'
+    else:
+        layout = 'Left'
 
     specie = args.specie
 
@@ -50,16 +65,54 @@ def main():
 
     hostname = getHostName()
 
+    m_min = 1
+    m_max = 32
+    team_size_min = 1
+    team_size_max = 1
+    vector_length_min = 1
+    vector_length_max = 1
+
+    if hostname == 'weaver':
+        team_size_min = 1
+        team_size_max = 256
+        vector_length_min = 1
+        vector_length_max = 8
+        max_size = 1024
+        n_calls = 100
+        n_random_starts = 10
+    elif hostname == 'caraway':
+        team_size_min = 1
+        team_size_max = 256
+        vector_length_min = 1
+        vector_length_max = 8
+        max_size = 1024
+        n_calls = 100
+        n_random_starts = 10
+    elif hostname == 'inouye':
+        team_size_min = 1
+        team_size_max = 1.1
+        vector_length_min = 8
+        vector_length_max = 8.1
+        max_size = 1024
+        n_calls = 32
+        n_random_starts = 1
+    elif hostname == 'blake':
+        team_size_min = 1
+        team_size_max = 1.1
+        vector_length_min = 8
+        vector_length_max = 8.1
+        max_size = 1024
+        n_calls = 32
+        n_random_starts = 1
+
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec_autotune_skopt'
+    data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec_autotune_skopt_' + layout
 
     rows_per_thread=1
 
-    n1 = 5
-    n2 = 10
-
-    layout = 'Left'
+    n1 = 2
+    n2 = 5
 
     if not os.path.isdir(data_d):
         os.mkdir(data_d)
@@ -79,29 +132,53 @@ def main():
     mmwrite(name_B, B)
 
 
-    dim1 = Integer(1, 32, name='m')
-    dim2 = Integer(1, 256, name='team_size')
-    dim3 = Integer(1, 256, name='vector_length')
+    dim1 = Integer(m_min, m_max, name='m')
+    dim2 = Integer(team_size_min, team_size_max, name='team_size')
+    dim3 = Integer(vector_length_min, vector_length_max, name='vector_length')
 
     dimensions = [dim1, dim2, dim3]
 
     VariableParams = namedtuple('VariableParams', 'm team_size vector_length')
-    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size')
+    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size previous_points')
 
     # define fixed params
-    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, 1024)
+    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, max_size, {})
 
     @use_named_args(dimensions)
     def objective(m, team_size, vector_length):
         variable_args = VariableParams(m, team_size, vector_length)
         return run_analysis(variable_args, fixed_args)
 
+    if hostname != 'blake':
+        res_gp = gp_minimize(objective, dimensions,
+            n_calls=n_calls, n_random_starts=n_random_starts, random_state=0)
 
-    res_gp = gp_minimize(objective, dimensions,
-        n_calls=50, n_random_starts=10, random_state=0)
+        print(res_gp)
+        toc = time.perf_counter()
+        print("Elapsed time = " + str(toc-tic) + " seconds")
 
-    print(res_gp)
+        with open(data_d+'/results.txt', 'w') as f:
+            print(res_gp, file=f)
+            print("Elapsed time = " + str(toc-tic) + " seconds", file=f)
+            print(res_gp.x, file=f)
+            print(res_gp.fun, file=f)
+    else:
+        ms = np.arange(m_min, m_max+1)
+        output = np.zeros((len(ms),))
 
+        for i in range(0, len(ms)):
+            variable_args = VariableParams(ms[i], team_size_min, vector_length_min)         
+            output[i] = run_analysis(variable_args, fixed_args)
+        
+        index = np.argmin(output)
+        toc = time.perf_counter()
 
+        with open(data_d+'/results.txt', 'w') as f:
+            print(ms, file=f)
+            print(output, file=f)
+            print("Elapsed time = " + str(toc-tic) + " seconds", file=f)
+            print(ms[index], file=f)
+            print(output[index], file=f)
+        
 if __name__ == "__main__":
     main()
