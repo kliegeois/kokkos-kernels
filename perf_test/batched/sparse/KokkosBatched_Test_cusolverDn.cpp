@@ -9,9 +9,7 @@
 #include "Kokkos_UnorderedMap.hpp"
 #include "Kokkos_Sort.hpp"
 
-#define KOKKOSBATCHED_TEST_SPMV
-
-#if defined(KOKKOSBATCHED_TEST_SPMV)
+#ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 
 #include <cusparse.h>
 #include "cusolverSp.h"
