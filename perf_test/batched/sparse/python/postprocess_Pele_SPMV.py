@@ -87,18 +87,18 @@ def ginkgo_data(specie):
         time = np.array([0.00075267, 0.00531965, 0.01029381, 0.03522193, 0.05265616])
     return n, time
 
-hosts = ['blake', 'inouye']
+hosts = ['blake', 'caraway', 'weaver']
 species = ['gri30', 'isooctane']
 unit = 'GFLOPS'
 
 for host in hosts:
     for specie in species:
 
-        base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec/'
+        base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec_tuned/'
         if host == 'caraway':
             implementations = [3]
         else:
-            implementations = [0,3]
+            implementations = [3]
         n_implementations = len(implementations)
         n_quantiles = 7
 

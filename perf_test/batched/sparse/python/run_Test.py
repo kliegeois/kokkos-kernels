@@ -37,6 +37,67 @@ def getSortedIndices(specie, order):
                 50, 49, 60, 71])
     return indices
 
+def getParametersSPMV(specie, layout, hostname):
+    tol = 1e-8
+    if hostname == 'weaver':
+        if specie == 'gri30':
+            if layout == 'Left' or layout == 'left':
+                N_team = 26
+                team_size = 143
+                vector_length = 5
+            else:
+                N_team = 5
+                team_size = 224
+                vector_length = 4
+        if specie == 'isooctane':
+            if layout == 'Left' or layout == 'left':
+                N_team = 22
+                team_size = 144
+                vector_length = 5
+            else:
+                N_team = 27
+                team_size = 160
+                vector_length = 5
+    if hostname == 'blake':
+        if specie == 'gri30':
+            if layout == 'Left' or layout == 'left':
+                N_team = 8
+                team_size = -1
+                vector_length = 8
+            else:
+                N_team = 29
+                team_size = -1
+                vector_length = 8
+        if specie == 'isooctane':
+            if layout == 'Left' or layout == 'left':
+                N_team = 8
+                team_size = -1
+                vector_length = 8
+            else:
+                N_team = 12
+                team_size = -1
+                vector_length = 8
+    if hostname == 'caraway':
+        if specie == 'gri30':
+            if layout == 'Left' or layout == 'left':
+                N_team = 14
+                team_size = 256
+                vector_length = 1
+            else:
+                N_team = 5
+                team_size = 214
+                vector_length = 3
+        if specie == 'isooctane':
+            if layout == 'Left' or layout == 'left':
+                N_team = 16
+                team_size = 208
+                vector_length = 4
+            else:
+                N_team = 26
+                team_size = 85
+                vector_length = 8
+    return N_team, team_size, vector_length
+
 
 def getParameters(specie, layout, hostname):
     tol = 1e-8

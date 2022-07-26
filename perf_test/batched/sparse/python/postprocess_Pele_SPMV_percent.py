@@ -63,7 +63,10 @@ def get_pessimistic_throughput(host, specie):
 
 
 
-hosts = ['weaver', 'blake', 'caraway', 'inouye']
+hosts = ['weaver', 'blake', 'caraway']
+species = ['gri30', 'isooctane']
+
+hosts = ['blake', 'caraway', 'weaver']
 species = ['gri30', 'isooctane']
 unit = 'GFLOPS'
 
@@ -76,10 +79,10 @@ j = 0
 for host in hosts:
     for specie in species:
 
-        if host == 'blake' or host == 'inouye':
-            base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec/'
+        if host == 'blake' or host == 'caraway':
+            base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec_tuned/'
         else:
-            base = host+'/Pele_SPMV_'+specie+'_data/'
+            base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec_tuned/'
         implementation = 3
         i_quantile = 3
 

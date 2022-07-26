@@ -16,6 +16,8 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 def main():
     #tic = time.perf_counter()
 
+    Ns = np.array([1, 16, 32, 64, 96, 128, 160, 192, 224, 256])
+
     parser = argparse.ArgumentParser(description='Postprocess the results.')
     parser.add_argument('--specie', metavar='specie', default='gri30',
                         help='used specie')
@@ -48,25 +50,25 @@ def main():
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
     if sort:
-        data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_sorted'
+        data_d = hostname + '/Pele_cusolve_' + specie + '_data_Scaled_Jacobi_cusolver_sorted'
     else:
-        data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
+        data_d = hostname + '/Pele_cusolve_' + specie + '_data_Scaled_Jacobi_cusolver_unsorted'
 
     rows_per_thread = 1
-    implementations_left = [3]
-    implementations_right = [3]
-    n_implementations_left = len(implementations_left)
-    n_implementations_right = len(implementations_right)
+    implementations_sp = [0]
+    implementations_dn = [0]
+    n_implementations_sp = len(implementations_sp)
+    n_implementations_dn = len(implementations_dn)
 
     n1 = 20
     n2 = 20
 
     n_quantiles = 7
 
-    CPU_time_left = np.zeros((n_implementations_left, len(Ns), n_quantiles))
-    throughput_left = np.zeros((n_implementations_left, len(Ns), n_quantiles))
-    CPU_time_right = np.zeros((n_implementations_right, len(Ns), n_quantiles))
-    throughput_right = np.zeros((n_implementations_right, len(Ns), n_quantiles))
+    CPU_time_sp = np.zeros((n_implementations_sp, len(Ns), n_quantiles))
+    throughput_sp = np.zeros((n_implementations_sp, len(Ns), n_quantiles))
+    CPU_time_dn = np.zeros((n_implementations_dn, len(Ns), n_quantiles))
+    throughput_dn = np.zeros((n_implementations_dn, len(Ns), n_quantiles))
     nnzs = np.zeros((len(Ns), ))
 
     if not os.path.isdir(data_d):
@@ -89,24 +91,24 @@ def main():
         n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
         extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
-        for j in range(0, n_implementations_left):
-            CPU_time_left[j,i,:] = data[j,:]
-        throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
+        data = run_test(directory+'/KokkosBatched_Test_cusolverSp', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_sp, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
+        for j in range(0, n_implementations_sp):
+            CPU_time_sp[j,i,:] = data[j,:]
+        throughput_sp[:,i,:] = n_ops/CPU_time_sp[:,i,:]
         n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'right', hostname)
         extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
-        data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r '+extra_arg)
-        for j in range(0, n_implementations_right):
-            CPU_time_right[j,i,:] = data[j,:]
-        throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
+        data = run_test(directory+'/KokkosBatched_Test_cusolverDn', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_dn, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r '+extra_arg)
+        for j in range(0, n_implementations_dn):
+            CPU_time_dn[j,i,:] = data[j,:]
+        throughput_dn[:,i,:] = n_ops/CPU_time_dn[:,i,:]
 
-        for j in range(0, n_implementations_left):
-            np.savetxt(data_d+'/CPU_time_'+str(implementations_left[j])+'_l.txt', CPU_time_left[j,:,:])
-            np.savetxt(data_d+'/throughput_'+str(implementations_left[j])+'_l.txt', throughput_left[j,:,:])
-        for j in range(0, n_implementations_right):
-            np.savetxt(data_d+'/CPU_time_'+str(implementations_right[j])+'_r.txt', CPU_time_right[j,:,:])
-            np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
+        for j in range(0, n_implementations_sp):
+            np.savetxt(data_d+'/CPU_time_'+str(implementations_sp[j])+'_sp.txt', CPU_time_sp[j,:,:])
+            np.savetxt(data_d+'/throughput_'+str(implementations_sp[j])+'_sp.txt', throughput_sp[j,:,:])
+        for j in range(0, n_implementations_dn):
+            np.savetxt(data_d+'/CPU_time_'+str(implementations_dn[j])+'_dn.txt', CPU_time_dn[j,:,:])
+            np.savetxt(data_d+'/throughput_'+str(implementations_dn[j])+'_dn.txt', throughput_dn[j,:,:])
         np.savetxt(data_d+'/Ns.txt', Ns)
         np.savetxt(data_d+'/nnzs.txt', nnzs)
 

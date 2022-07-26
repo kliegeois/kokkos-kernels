@@ -13,16 +13,23 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
     # 1 "+" and 1 "*" per entry of A and 1 "+" and 1 "*" per row
     return 2*(nnz+nrows)*number_of_matrices*bytes_per_entry
 
-
 def main():
+    #tic = time.perf_counter()
+
     Ns = np.array([1, 16, 32, 64, 96, 128, 160, 192, 224, 256])
 
     parser = argparse.ArgumentParser(description='Postprocess the results.')
     parser.add_argument('--specie', metavar='specie', default='gri30',
                         help='used specie')
+    parser.add_argument('-s', action="store_true", default=False)
     args = parser.parse_args()
 
     specie = args.specie
+    scaled = True
+    order = 'descending'
+    indices = getSortedIndices(specie,order)
+    sort = args.s
+
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     if specie == 'gri30':
@@ -37,26 +44,24 @@ def main():
 
     n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
 
-    N_team_left, team_size_left, vector_length_left = getParametersSPMV(specie, 'Left', hostname)
-    N_team_right, team_size_right, vector_length_right = getParametersSPMV(specie, 'Right', hostname)
-
-    tuned = True
-
+    #n_iterations = 10
+    #tol = 0
+    
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    if tuned:
-        data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec_tuned'
+    if sort:
+        data_d = hostname + '/Pele_GESV_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_sorted'
     else:
-        data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec'
+        data_d = hostname + '/Pele_GESV_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
 
-    rows_per_thread=1
-    implementations_left = [3]
-    implementations_right = [3]
+    rows_per_thread = 1
+    implementations_left = [1]
+    implementations_right = [1]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
-    n1 = 5
-    n2 = 10
+    n1 = 20
+    n2 = 20
 
     n_quantiles = 7
 
@@ -74,38 +79,26 @@ def main():
     name_X = data_d+'/X'
     name_timers = data_d+'/timers'
 
-    if tuned:
-        np.savetxt(data_d+'/team_params.txt', np.array([team_size_left, vector_length_left, N_team_left, team_size_right, vector_length_right, N_team_right]))
-    else:
-        np.savetxt(data_d+'/team_params.txt', np.array([team_size, vector_length, N_team]))
-
     for i in range(0, len(Ns)):
-        r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
-        nnzs[i] = len(c)
-        n_ops = compute_n_ops(len(r)-1, nnzs[i], Ns[i])
+        r, c, V, n = read_matrices(input_folder, n_files, Ns[i], scaled, indices=indices, sort=sort)
+        nnzs[i] = len(r)
+        n_ops = compute_n_ops(n, nnzs[i], Ns[i])
 
-        B = create_Vector(n, Ns[i])
+        B = read_vectors(input_folder, Ns[i], n, scaled, indices=indices, sort=sort)
     
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
-
-        if tuned:
-            team_size = team_size_left
-            vector_length = vector_length_left
-            N_team = N_team_left
-
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left',
-            extra_args=' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
+        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
+        extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
+        extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
+        data = run_test(directory+'/KokkosBatched_Test_GESV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-
-        if tuned:
-            team_size = team_size_right
-            vector_length = vector_length_right
-            N_team = N_team_right
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right',
-            extra_args=' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team))
+        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'right', hostname)
+        extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
+        extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
+        data = run_test(directory+'/KokkosBatched_Test_GESV', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r '+extra_arg)
         for j in range(0, n_implementations_right):
             CPU_time_right[j,i,:] = data[j,:]
         throughput_right[:,i,:] = n_ops/CPU_time_right[:,i,:]
@@ -118,6 +111,9 @@ def main():
             np.savetxt(data_d+'/throughput_'+str(implementations_right[j])+'_r.txt', throughput_right[j,:,:])
         np.savetxt(data_d+'/Ns.txt', Ns)
         np.savetxt(data_d+'/nnzs.txt', nnzs)
+
+    #toc = time.perf_counter()
+    #print(f"Elapsed time {toc - tic:0.4f} seconds")
 
 
 if __name__ == "__main__":

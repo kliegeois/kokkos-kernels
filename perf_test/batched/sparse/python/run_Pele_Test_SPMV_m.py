@@ -37,12 +37,9 @@ def main():
 
     n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
 
-    team_size = 128
-    vector_length = -1
-
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec_m_128_0'
+    data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec_m_default'
 
     rows_per_thread=1
     implementations_left = [0, 3]
@@ -50,13 +47,16 @@ def main():
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
-    n1 = 5
-    n2 = 10
+    n1 = 2
+    n2 = 3
+
+    team_size = -1
+    vector_length = -1
+    N_team_min = 1
+    N_team_max = 32
+    N_teams = np.arange(N_team_min, N_team_max+1)
 
     n_quantiles = 7
-
-    N_team_max = 16
-    N_teams = np.arange(1, N_team_max+1)
 
     CPU_time_left = np.zeros((n_implementations_left, len(N_teams), n_quantiles))
     throughput_left = np.zeros((n_implementations_left, len(N_teams), n_quantiles))
@@ -74,8 +74,13 @@ def main():
     np.savetxt(data_d+'/team_params.txt', np.array([team_size, vector_length, N_team_max]))
 
     r, c, V, n = read_matrices(input_folder, n_files, N)
-    nnz = len(c)
-    n_ops = compute_n_ops(len(r)-1, nnz, N)
+    if specie == 'gri30':
+        nrows = 54
+        nnz = 2560
+    if specie == 'isooctane':
+        nrows = 144
+        nnz = 6135    
+    n_ops = compute_n_ops(nrows, nnz, N)
 
     B = create_Vector(n, N)
 

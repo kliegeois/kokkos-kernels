@@ -4,12 +4,22 @@ import numpy as np
 from io import StringIO
 from create_matrices import *
 
+import tikzplotlib
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8, unit='B/sec'):
+    # 1 "+" and 1 "*" per entry of A and 1 "+" and 1 "*" per row
+    nops = 2*(nnz+nrows)*number_of_matrices
+    if unit=='B/sec':
+        return nops*bytes_per_entry
+    if unit=='GFLOPS':
+        return nops/1e9
+
 def remove_all_non_num(line):
-    return re.sub('[^0-9. ]', ' ', line)
+    return re.sub('[^0-9. ]', ' ', str(line))
 
 def get_row_data(df, metric_name, column_names):
     data = np.zeros((len(column_names), ))
@@ -111,26 +121,43 @@ def main():
     impls = [0, 3]
     layouts = ['left', 'right']
 
-    m_max = 17
+    m_max = 33
     ms = np.arange(1, m_max)
 
     avg_names = []
     for m in ms:
         avg_names.append(str(m))
 
+    base = 'Pele_SPMV_NVPROF_gri30_data_4'
+
+    plot_throughput = True
     df = []
     throughput = []
     names = []
     for impl in impls:
         for layout in layouts:
-            if layout == 'left':
-                throughput.append(np.loadtxt('weaver/Pele_SPMV_gri30_data_SPMV_vec_m/throughput_'+str(impl)+'_l.txt')[:,3])
-            else:
-                throughput.append(np.loadtxt('weaver/Pele_SPMV_gri30_data_SPMV_vec_m/throughput_'+str(impl)+'_r.txt')[:,3])
+            if plot_throughput:
+
+                N = 224*90
+                nrows = 54
+                nnz = 2560
+                unit = 'GFLOPS'
+                n_ops = compute_n_ops(nrows, nnz, N, bytes_per_entry=8, unit=unit)
+
+                if layout == 'left':
+                    cpu_time = np.loadtxt('weaver/Pele_SPMV_gri30_data_SPMV_vec_m_default/CPU_time_'+str(impl)+'_l.txt')[:,3]
+                else:
+                    cpu_time = np.loadtxt('weaver/Pele_SPMV_gri30_data_SPMV_vec_m_default/CPU_time_'+str(impl)+'_r.txt')[:,3]
+                
+                throughput_tmp = np.copy(cpu_time)
+                for i in range(0, len(throughput_tmp)):
+                    if throughput_tmp[i] > 0.:
+                        throughput_tmp[i] = n_ops / throughput_tmp[i]
+                throughput.append(throughput_tmp)
 
             filenames = []
             for m in ms:
-                filenames.append('Pele_SPMV_NVPROF_gri30_data_2/nvprof.'+str(impl)+'.54.2560.20160.'+str(m)+'.'+layout+'.txt')
+                filenames.append(base+'/nvprof.'+str(impl)+'.54.2560.20160.'+str(m)+'.'+layout+'.txt')
 
             if impl == 0:
                 df.append(combine_data_frame_from_files(filenames, avg_names, 'BSPMV_Functor_View'))
@@ -139,19 +166,21 @@ def main():
 
             names.append(str(impl)+'_'+layout)
 
-    plt.figure()
-    ax = plt.gca()
-    for i in range(0, len(df)):
-        plt.plot(ms, throughput[i], label=names[i])
-    plt.grid()
-    ax.set_xlabel('m')
-    ax.set_ylabel('Throughput')
-    legend = ax.legend(loc='best', shadow=False)
-    plt.savefig('Pele_SPMV_NVPROF_gri30_data_2/plot_throughput.png')
-    plt.close()
+    if plot_throughput:
+        plt.figure()
+        ax = plt.gca()
+        for i in range(0, len(df)):
+            plt.plot(ms, throughput[i], label=names[i])
+        plt.grid()
+        ax.set_xlabel('m')
+        ax.set_ylabel('Throughput')
+        legend = ax.legend(loc='best', shadow=False)
+        plt.savefig(base+'/plot_throughput.png')
+        tikzplotlib.save(base+'/plot_throughput.tex')
+        plt.close()
 
 
-    metrics = ['gld_efficiency', 'sm_efficiency', 'warp_execution_efficiency', 'gld_requested_throughput', 'tex_cache_hit_rate', 'stall_memory_dependency', 'stall_memory_throttle', 'gst_efficiency']
+    metrics = ['stall_exec_dependency', 'gld_efficiency', 'achieved_occupancy', 'sm_efficiency', 'warp_execution_efficiency', 'gld_requested_throughput', 'tex_cache_hit_rate', 'stall_memory_dependency', 'stall_memory_throttle', 'gst_efficiency', 'flop_dp_efficiency', 'dram_read_throughput']
 
     for metric in metrics:
         plt.figure()
@@ -163,8 +192,24 @@ def main():
         ax.set_xlabel('m')
         ax.set_ylabel(metric)
         legend = ax.legend(loc='best', shadow=False)
-        plt.savefig('Pele_SPMV_NVPROF_gri30_data_2/plot_'+metric+'.png')
+        plt.savefig(base+'/plot_'+metric+'.png')
+        tikzplotlib.save(base+'/plot_'+metric+'.tex')
         plt.close()
+
+        if metric == 'flop_dp_efficiency':
+            peak = 7.8e3
+            plt.figure()
+            ax = plt.gca()
+            for i in range(0, len(df)):
+                row_data, found, n_inv = get_row_data(df[i], metric, avg_names)
+                plt.plot(ms, peak*row_data/100., label=names[i])
+            plt.grid()
+            ax.set_xlabel('m')
+            ax.set_ylabel(metric)
+            legend = ax.legend(loc='best', shadow=False)
+            plt.savefig(base+'/plot_flop_dp.png')
+            tikzplotlib.save(base+'/plot_flop_dp.tex')
+            plt.close()            
 
 
 

@@ -16,7 +16,7 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     tic = time.perf_counter()
-    Ns = np.array([224, 256])
+    Ns = np.array([224])
 
     parser = argparse.ArgumentParser(description='Postprocess the results.')
     parser.add_argument('--specie', metavar='specie', default='gri30',
@@ -38,7 +38,7 @@ def main():
     directory = getBuildDirectory()
     hostname = getHostName()
 
-    data_d = 'Pele_SPMV_NVPROF_' + specie + '_data_2'
+    data_d = 'Pele_SPMV_NVPROF_' + specie + '_data_4'
 
     rows_per_thread=1
     n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team_max, team_size, vector_length = getParameters(specie, 'left', hostname)
@@ -46,8 +46,10 @@ def main():
     n1 = 2
     n2 = 3
 
-    team_size = 256
+    team_size = -1
     vector_length = -1
+    N_team_min = 21
+    N_team_max = 32
 
     n_quantiles = 7
     nnzs = np.zeros((len(Ns), ))
@@ -65,7 +67,7 @@ def main():
     implementations = [0, 3]
 
     for implementation in implementations:
-        for N_team in range(1, N_team_max+1):
+        for N_team in range(N_team_min, N_team_max+1):
             for i in range(0, len(Ns)):
                 r, c, V, n = read_matrices(input_folder, n_files, Ns[i])
                 nnz = len(r)
