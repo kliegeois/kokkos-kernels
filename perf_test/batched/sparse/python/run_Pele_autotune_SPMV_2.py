@@ -11,6 +11,10 @@ from skopt.space import Integer
 from skopt import gp_minimize
 from skopt.utils import use_named_args
 from collections import namedtuple
+from skopt.learning import GaussianProcessRegressor
+from skopt.learning.gaussian_process.kernels import (RBF, Matern, RationalQuadratic,
+                                              ExpSineSquared, DotProduct,
+                                              ConstantKernel)
 
 
 def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
@@ -34,6 +38,10 @@ def run_analysis(params, fixed_params):
             n1=fixed_params.n1, n2=fixed_params.n2, implementations=[3], layout=fixed_params.layout,
             extra_args=' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
         fixed_params.previous_points[key] = -fixed_params.n_ops/data[0,3]
+
+    with open(fixed_params.log_file_name, 'w') as f:
+        for key, value in fixed_params.previous_points.items():
+            print(key, ' : ', value, file=f)
 
     return fixed_params.previous_points[key]
 
@@ -150,7 +158,13 @@ def main():
         return run_analysis(variable_args, fixed_args)
 
     if hostname != 'blake':
-        res_gp = gp_minimize(objective, dimensions,
+        kernel = 1.0 * RationalQuadratic(length_scale=1.0, alpha=0.1)
+        gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-10,
+                                    normalize_y=True, noise=None,
+                                    n_restarts_optimizer=2
+                                    )
+
+        res_gp = gp_minimize(objective, dimensions, base_estimator=gpr,
             n_calls=n_calls, n_random_starts=n_random_starts, random_state=0)
 
         print(res_gp)

@@ -11,7 +11,11 @@ from skopt.space import Integer
 from skopt import gp_minimize
 from skopt.utils import use_named_args
 from collections import namedtuple
-import json
+from skopt.learning import GaussianProcessRegressor
+from skopt.learning.gaussian_process.kernels import (RBF, Matern, RationalQuadratic,
+                                              ExpSineSquared, DotProduct,
+                                              ConstantKernel)
+
 
 def clean(name_timers, implementations):
     for implementation in implementations:
@@ -48,8 +52,9 @@ def run_analysis(params, fixed_params):
             fixed_params.previous_points[key] = 0.
 
 
-    with open(fixed_params.log_file_name, 'w') as file:
-        file.write(json.dumps(fixed_params.previous_points))
+    with open(fixed_params.log_file_name, 'w') as f:
+        for key, value in fixed_params.previous_points.items():
+            print(key, ' : ', value, file=f)    
 
     return fixed_params.previous_points[key]
 
@@ -168,7 +173,13 @@ def main():
         return run_analysis(variable_args, fixed_args)
 
     if hostname != 'blake':
-        res_gp = gp_minimize(objective, dimensions,
+        kernel = 1.0 * RationalQuadratic(length_scale=1.0, alpha=0.1)
+        gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-10,
+                                    normalize_y=True, noise=None,
+                                    n_restarts_optimizer=2
+                                    )
+
+        res_gp = gp_minimize(objective, dimensions, base_estimator=gpr,
             n_calls=n_calls, n_random_starts=n_random_starts, random_state=0)
 
         print(res_gp)
