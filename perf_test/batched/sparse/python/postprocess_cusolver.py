@@ -31,7 +31,7 @@ def plot_results(base, function_of_N, implementations_CG, implementations_GMRES)
 
     print_left = True
     print_right = True
-    print_cusolver_sparse = False
+    print_cusolver_sparse = True
     print_cusolver_dense = True
     print_CG = True
     print_GMRES = True
@@ -95,5 +95,5 @@ def plot_results(base, function_of_N, implementations_CG, implementations_GMRES)
 
 #plot_results('weaver/cusolve_2/', False)
 #plot_results('weaver/cusolve_3/', False)
-plot_results('weaver/cusolve_4/', False, [0], [0, 1, 2])
+plot_results('weaver/cusolve_4/', False, [0], [0])
 #plot_results('weaver/cusolve_N/', True)

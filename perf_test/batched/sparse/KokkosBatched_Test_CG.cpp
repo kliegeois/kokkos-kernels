@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
     bool layout_left         = true;
     bool layout_right        = false;
     bool monitor_convergence = false;
+    int vector_length = 8;
 
     std::string name_A = "A.mm";
     std::string name_B = "B.mm";
@@ -115,11 +116,11 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-C")) monitor_convergence = true;
       if (token == std::string("-N_team"))
         N_team_potential = std::atoi(argv[++i]);
+      if (token == std::string("-vector_length"))
+        vector_length = std::atoi(argv[++i]);
     }
 
     int N, Blk, nnz, ncols;
-
-    int vector_length = 8;
 
     readSizesFromMM(name_A, Blk, ncols, nnz, N);
 

@@ -17,6 +17,13 @@ from skopt.learning.gaussian_process.kernels import (RBF, Matern, RationalQuadra
                                               ConstantKernel)
 
 
+def clean(name_timers, implementations):
+    for implementation in implementations:
+        if os.path.exists(name_timers+"_"+str(implementation)+"_right.txt"):
+            os.remove(name_timers+"_"+str(implementation)+"_right.txt")
+        if os.path.exists(name_timers+"_"+str(implementation)+"_left.txt"):
+            os.remove(name_timers+"_"+str(implementation)+"_left.txt")
+
 def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
     # 1 "+" and 1 "*" per entry of A and 1 "+" and 1 "*" per row
     return 2*(nnz+nrows)*number_of_matrices*bytes_per_entry
@@ -26,6 +33,8 @@ def run_analysis(params, fixed_params):
     if params.team_size*params.vector_length > fixed_params.max_size:
         return 0
 
+    clean(fixed_params.name_timers, [0, 1, 2, 3])
+
     directory = getBuildDirectory()
 
     key = str(params.vector_length)+'_'+str(params.m)+'_'+str(params.team_size)
@@ -33,26 +42,28 @@ def run_analysis(params, fixed_params):
     if key in fixed_params.previous_points:
         print('point '+key+ ' was already evaluated.')
     else:
-        data = run_test(directory+'/KokkosBatched_Test_SPMV', fixed_params.name_A, fixed_params.name_B, 
-            fixed_params.name_X, fixed_params.name_timers, fixed_params.rows_per_thread, params.team_size,
-            n1=fixed_params.n1, n2=fixed_params.n2, implementations=[3], layout=fixed_params.layout,
-            extra_args=' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
-        fixed_params.previous_points[key] = -fixed_params.n_ops/data[0,3]
+        try:
+            data = run_test(directory+'/KokkosBatched_Test_CG', fixed_params.name_A, fixed_params.name_B, 
+                fixed_params.name_X, fixed_params.name_timers, fixed_params.rows_per_thread, params.team_size,
+                n1=fixed_params.n1, n2=fixed_params.n2, implementations=[fixed_params.implementation], layout=fixed_params.layout,
+                extra_args=' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
+            fixed_params.previous_points[key] = -1/data[0,3]
+        except:
+            fixed_params.previous_points[key] = 0.
+
 
     with open(fixed_params.log_file_name, 'w') as f:
         for key, value in fixed_params.previous_points.items():
-            print(key, ' : ', value, file=f)
+            print(key, ' : ', value, file=f)    
 
     return fixed_params.previous_points[key]
 
 
 def main():
     tic = time.perf_counter()
-    N = 224
+    N = 20000
 
     parser = argparse.ArgumentParser(description='Postprocess the results.')
-    parser.add_argument('--specie', metavar='specie', default='gri30',
-                        help='used specie')
     parser.add_argument('-r', action="store_true", default=False)
     args = parser.parse_args()
 
@@ -60,16 +71,6 @@ def main():
         layout = 'Right'
     else:
         layout = 'Left'
-
-    specie = args.specie
-
-    input_folder = 'pele_data/jac-'+specie+'-typvals/'
-    if specie == 'gri30':
-        n_files = 90
-    if specie == 'isooctane':
-        n_files = 72
-
-    N *= n_files
 
     hostname = getHostName()
 
@@ -82,7 +83,7 @@ def main():
 
     if hostname == 'weaver':
         team_size_min = 1
-        team_size_max = 256
+        team_size_max = 134
         vector_length_min = 1
         vector_length_max = 8
         max_size = 1024
@@ -115,7 +116,7 @@ def main():
 
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/Pele_SPMV_' + specie + '_data_SPMV_vec_autotune_skopt_' + layout
+    data_d = hostname + '/CG_autotune_skopt_' + layout
 
     rows_per_thread=1
 
@@ -130,15 +131,23 @@ def main():
     name_X = data_d+'/X'
     name_timers = data_d+'/timers'
 
-    r, c, V, n = read_matrices(input_folder, n_files, N)
+    max_offset = 3
+    offset = 4
+
+    n = 200
+
+    r, c = create_strided_graph(n, max_offset, offset)
+
+    V = create_SPD(n, r, c, N)
+    B = create_Vector(n, N)
+
     nnz = len(c)
     n_ops = compute_n_ops(len(r)-1, nnz, N)
 
-    B = create_Vector(n, N)
+    implementation = 0
 
     mmwrite(name_A, V, r, c, n, n)
     mmwrite(name_B, B)
-
 
     dim1 = Integer(m_min, m_max, name='m')
     dim2 = Integer(team_size_min, team_size_max, name='team_size')
@@ -147,10 +156,10 @@ def main():
     dimensions = [dim1, dim2, dim3]
 
     VariableParams = namedtuple('VariableParams', 'm team_size vector_length')
-    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size previous_points log_file_name')
+    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size implementation previous_points log_file_name')
 
     # define fixed params
-    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, max_size, {}, data_d+'/log.txt')
+    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, max_size, implementation, {}, data_d+'/log.txt')
 
     @use_named_args(dimensions)
     def objective(m, team_size, vector_length):
