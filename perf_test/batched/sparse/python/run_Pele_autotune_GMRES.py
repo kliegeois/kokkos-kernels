@@ -33,7 +33,7 @@ def run_analysis(params, fixed_params):
     if params.team_size*params.vector_length > fixed_params.max_size:
         return 0
 
-    clean(fixed_params.name_timers, [0, 1, 2, 3])
+    clean(fixed_params.name_timers, [fixed_params.implementation])
 
     directory = getBuildDirectory()
 
@@ -46,7 +46,7 @@ def run_analysis(params, fixed_params):
             data = run_test(directory+'/KokkosBatched_Test_GMRES', fixed_params.name_A, fixed_params.name_B, 
                 fixed_params.name_X, fixed_params.name_timers, fixed_params.rows_per_thread, params.team_size,
                 n1=fixed_params.n1, n2=fixed_params.n2, implementations=[fixed_params.implementation], layout=fixed_params.layout,
-                extra_args=' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
+                extra_args= fixed_params.extra_arg + ' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
             fixed_params.previous_points[key] = -1/data[0,3]
         except:
             fixed_params.previous_points[key] = 0.
@@ -66,6 +66,8 @@ def main():
     parser = argparse.ArgumentParser(description='Postprocess the results.')
     parser.add_argument('--specie', metavar='specie', default='gri30',
                         help='used specie')
+    parser.add_argument('--implementation', metavar='implementation', default=0,
+                        help='used implementation')
     parser.add_argument('-r', action="store_true", default=False)
     args = parser.parse_args()
 
@@ -92,6 +94,8 @@ def main():
     team_size_max = 1
     vector_length_min = 1
     vector_length_max = 1
+
+    implementation = int(args.implementation)
 
     if hostname == 'weaver':
         team_size_min = 1
@@ -128,7 +132,12 @@ def main():
 
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/Pele_' + specie + '_data_GMRES_autotune_skopt_' + layout
+    data_d = hostname + '/Pele_' + specie + '_data_GMRES_autotune_skopt_' + layout + '_' + str(implementation)
+
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname, implementation)
+
+    extra_arg = ' -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -ortho_strategy '+str(ortho_strategy)
+    extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level) + ' -P'
 
     rows_per_thread=1
 
@@ -149,8 +158,6 @@ def main():
 
     B = create_Vector(n, N)
 
-    implementation = 0
-
     mmwrite(name_A, V, r, c, n, n)
     mmwrite(name_B, B)
 
@@ -162,10 +169,10 @@ def main():
     dimensions = [dim1, dim2, dim3]
 
     VariableParams = namedtuple('VariableParams', 'm team_size vector_length')
-    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size implementation previous_points log_file_name')
+    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size implementation previous_points log_file_name extra_arg')
 
     # define fixed params
-    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, max_size, implementation, {}, data_d+'/log.txt')
+    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, max_size, implementation, {}, data_d+'/log.txt', extra_arg)
 
     @use_named_args(dimensions)
     def objective(m, team_size, vector_length):

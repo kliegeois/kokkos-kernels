@@ -15,10 +15,13 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 
 def main():
     #tic = time.perf_counter()
+    Ns = np.array([1, 16, 32, 64, 96, 128, 160, 192, 224, 256])
 
     parser = argparse.ArgumentParser(description='Postprocess the results.')
     parser.add_argument('--specie', metavar='specie', default='gri30',
                         help='used specie')
+    parser.add_argument('--implementation', metavar='implementation', default=0,
+                        help='used implementation')
     parser.add_argument('-s', action="store_true", default=False)
     args = parser.parse_args()
 
@@ -28,6 +31,7 @@ def main():
     indices = getSortedIndices(specie,order)
     sort = args.s
 
+    implementation = int(args.implementation)
 
     input_folder = 'pele_data/jac-'+specie+'-typvals/'
     if specie == 'gri30':
@@ -35,12 +39,12 @@ def main():
     if specie == 'isooctane':
         n_files = 72
 
-    Ns *= n_files
+    Ns *= 100
 
     directory = getBuildDirectory()
     hostname = getHostName()
 
-    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname, implementation)
 
     #n_iterations = 10
     #tol = 0
@@ -53,8 +57,8 @@ def main():
         data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
 
     rows_per_thread = 1
-    implementations_left = [3]
-    implementations_right = [3]
+    implementations_left = [implementation]
+    implementations_right = [implementation]
     n_implementations_left = len(implementations_left)
     n_implementations_right = len(implementations_right)
 
@@ -86,15 +90,15 @@ def main():
     
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
-        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
-        extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
+        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname, implementation)
+        extra_arg = ' -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
         data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'right', hostname)
-        extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
+        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'right', hostname, implementation)
+        extra_arg = ' -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
         data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r '+extra_arg)
         for j in range(0, n_implementations_right):

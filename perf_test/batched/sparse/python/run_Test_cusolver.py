@@ -23,7 +23,11 @@ def compute_n_ops(nrows, nnz, number_of_matrices, bytes_per_entry=8):
 def main():
     #tic = time.perf_counter()
 
-    Bs = np.arange(10, 310, 10)
+    n_node_1D_Js = np.arange(2, 31, 1)
+    n_node_1D_I = 10
+
+    Bs = np.zeros((len(n_node_1D_Js), ), dtype=int)
+
     max_offset = 3
     offset = 4
     N = 20000
@@ -41,18 +45,24 @@ def main():
 
     n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters('gri30', 'left', hostname)
 
+    N_team = 8
+    team_size = -1
+    vector_length = 16
+
+    n_iterations = 20
+
     #n_iterations = 10
     #tol = 0
     
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/cusolve_4'
+    data_d = hostname + '/cusolve_8'
 
     rows_per_thread = 1
     implementations_sp = [0]
     implementations_dn = [0]
-    implementations_CG = [0, 1, 2]
-    implementations_GMRES = [0, 1, 2]
+    implementations_CG = [0]
+    implementations_GMRES = [0]
     n_implementations_sp = len(implementations_sp)
     n_implementations_dn = len(implementations_dn)
     n_implementations_CG = len(implementations_CG)
@@ -77,18 +87,22 @@ def main():
 
     name_A = data_d+'/A.mm'
     name_B = data_d+'/B.mm'
-    name_X = data_d+'/X'
+    name_X_cusolver_sp = data_d+'/X_cusolver_sp'
+    name_X_cusolver_dn = data_d+'/X_cusolver_dn'
+    name_X_CG = data_d+'/X_CG'
+    name_X_GMRES = data_d+'/X_GMRES'
     name_timers = data_d+'/timers'
 
-    run_cusolvers = False
-    run_CG = True
-    run_GMRES = True
+    run_cusolvers_Sp = True
+    run_cusolvers_Dn = False
+    run_CG = False
+    run_GMRES = False
 
     run_left = True
-    run_right = True
+    run_right = False
 
     for i in range(0, len(Bs)):
-        r, c = create_strided_graph(Bs[i], max_offset, offset)
+        r, c, Bs[i] = create_2D_Laplacian_graph(n_node_1D_I, n_node_1D_Js[i])
         nnzs[i] = len(c)
 
         V = create_SPD(Bs[i], r, c, N_sequential)
@@ -99,13 +113,12 @@ def main():
 
         #n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters('isooctane', 'left', hostname)
 
-        if run_cusolvers:
+        if run_cusolvers_Sp:
             clean(data_d, [0,1,2,3])
 
-            extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
-            extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
+            extra_arg = ' -N_team '+str(N_team)
             try:
-                data = run_test(directory+'/KokkosBatched_Test_cusolverSp', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_sp, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
+                data = run_test(directory+'/KokkosBatched_Test_cusolverSp', name_A, name_B, name_X_cusolver_sp, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_sp, layout='Right', extra_args= extra_arg)
                 for j in range(0, n_implementations_sp):
                     CPU_time_sp[j,i,:] = data[j,:] * ratio_N
             except:
@@ -117,19 +130,20 @@ def main():
         mmwrite(name_A, V, r, c, Bs[i], Bs[i])
         mmwrite(name_B, B)
 
-        if run_cusolvers:
+        if run_cusolvers_Dn:
             clean(data_d, [0,1,2,3])
 
             extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
             extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
             try:
-                data = run_test(directory+'/KokkosBatched_Test_cusolverDn', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_dn, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r '+extra_arg)
+                data = run_test(directory+'/KokkosBatched_Test_cusolverDn', name_A, name_B, name_X_cusolver_dn, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_dn, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r '+extra_arg)
                 for j in range(0, n_implementations_dn):
                     CPU_time_dn[j,i,:] = data[j,:]
             except:
                 CPU_time_dn[:,i,:] = 0.
 
         #n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters('isooctane', 'left', hostname)
+        #N_team, team_size, vector_length = getParametersCG('left', hostname)
         extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
         if run_CG and run_left:
@@ -137,7 +151,7 @@ def main():
                 clean(data_d, [0,1,2,3])
 
                 try:
-                    data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_CG[j]], layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
+                    data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X_CG, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_CG[j]], layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
                     CPU_time_CG_left[j,i,:] = data[0,:]
                 except:
                     CPU_time_CG_left[j,i,:] = 0.
@@ -147,12 +161,13 @@ def main():
                 clean(data_d, [0,1,2,3])
 
                 try:
-                    data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_GMRES[j]], layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
+                    data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X_GMRES, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_GMRES[j]], layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_GMRES_l'+str(i)+'_ '+extra_arg)
                     CPU_time_GMRES_left[j,i,:] = data[0,:]
                 except:
                     CPU_time_GMRES_left[j,i,:] = 0.
 
         #n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters('isooctane', 'right', hostname)
+        #N_team, team_size, vector_length = getParametersCG('right', hostname)
         extra_arg = '-n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
         if run_CG and run_right:
@@ -160,7 +175,7 @@ def main():
                 clean(data_d, [0,1,2,3])
 
                 try:
-                    data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_CG[j]], layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
+                    data = run_test(directory+'/KokkosBatched_Test_CG', name_A, name_B, name_X_CG, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_CG[j]], layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
                     CPU_time_CG_right[j,i,:] = data[0,:]
                 except:
                     CPU_time_CG_right[j,i,:] = 0.
@@ -172,14 +187,15 @@ def main():
                 clean(data_d, [0,1,2,3])
 
                 try:
-                    data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_GMRES[j]], layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
+                    data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X_GMRES, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=[implementations_GMRES[j]], layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_GMRES_r'+str(i)+'_ '+extra_arg)
                     CPU_time_GMRES_right[j,i,:] = data[0,:]
                 except:
                     CPU_time_GMRES_right[j,i,:] = 0.
 
-        if run_cusolvers:
+        if run_cusolvers_Sp:
             for j in range(0, n_implementations_sp):
                 np.savetxt(data_d+'/CPU_time_'+str(implementations_sp[j])+'_sp.txt', CPU_time_sp[j,:,:])
+        if run_cusolvers_Dn:
             for j in range(0, n_implementations_dn):
                 np.savetxt(data_d+'/CPU_time_'+str(implementations_dn[j])+'_dn.txt', CPU_time_dn[j,:,:])
         if run_CG:

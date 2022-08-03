@@ -33,7 +33,7 @@ def run_analysis(params, fixed_params):
     if params.team_size*params.vector_length > fixed_params.max_size:
         return 0
 
-    clean(fixed_params.name_timers, [0, 1, 2, 3])
+    clean(fixed_params.name_timers, [fixed_params.implementation])
 
     directory = getBuildDirectory()
 
@@ -46,7 +46,7 @@ def run_analysis(params, fixed_params):
             data = run_test(directory+'/KokkosBatched_Test_CG', fixed_params.name_A, fixed_params.name_B, 
                 fixed_params.name_X, fixed_params.name_timers, fixed_params.rows_per_thread, params.team_size,
                 n1=fixed_params.n1, n2=fixed_params.n2, implementations=[fixed_params.implementation], layout=fixed_params.layout,
-                extra_args=' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
+                extra_args= fixed_params.extra_arg+ ' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
             fixed_params.previous_points[key] = -1/data[0,3]
         except:
             fixed_params.previous_points[key] = 0.
@@ -65,6 +65,8 @@ def main():
 
     parser = argparse.ArgumentParser(description='Postprocess the results.')
     parser.add_argument('-r', action="store_true", default=False)
+    parser.add_argument('--implementation', metavar='implementation', default=0,
+                        help='used implementation')
     args = parser.parse_args()
 
     if args.r:
@@ -80,6 +82,8 @@ def main():
     team_size_max = 1
     vector_length_min = 1
     vector_length_max = 1
+
+    implementation = int(args.implementation)
 
     if hostname == 'weaver':
         team_size_min = 1
@@ -116,7 +120,7 @@ def main():
 
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/CG_autotune_skopt_' + layout
+    data_d = hostname + '/CG_autotune_skopt_' + layout + '_' + str(implementation)
 
     rows_per_thread=1
 
@@ -144,8 +148,6 @@ def main():
     nnz = len(c)
     n_ops = compute_n_ops(len(r)-1, nnz, N)
 
-    implementation = 0
-
     mmwrite(name_A, V, r, c, n, n)
     mmwrite(name_B, B)
 
@@ -155,11 +157,13 @@ def main():
 
     dimensions = [dim1, dim2, dim3]
 
+    extra_arg = '-n_iterations 20 -tol 1e-8'
+
     VariableParams = namedtuple('VariableParams', 'm team_size vector_length')
-    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size implementation previous_points log_file_name')
+    FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size implementation previous_points log_file_name extra_arg')
 
     # define fixed params
-    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, max_size, implementation, {}, data_d+'/log.txt')
+    fixed_args = FixedParams(name_A, name_B, name_X, name_timers, n1, n2, rows_per_thread, layout, n_ops, max_size, implementation, {}, data_d+'/log.txt', extra_arg)
 
     @use_named_args(dimensions)
     def objective(m, team_size, vector_length):

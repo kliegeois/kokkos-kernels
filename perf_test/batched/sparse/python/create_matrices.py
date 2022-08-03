@@ -12,6 +12,37 @@ def create_strided_graph(n, max_offset, offset):
     return r, c
 
 
+def create_2D_Laplacian_graph(n_node_1D_I, n_node_1D_J):
+    n_rows = int(n_node_1D_I * n_node_1D_J)
+    r = np.array([])
+    c = np.array([])
+    for node_j in range(0, n_node_1D_J):
+        for node_i in range(0, n_node_1D_I):
+            current_row = node_j*n_node_1D_I + node_i
+            current_cols = np.array([current_row])
+            if node_i != 0 and node_j != 0:
+                current_cols = np.append(current_cols, (node_j-1)*n_node_1D_I + (node_i-1))
+            if node_j != 0:
+                current_cols = np.append(current_cols, (node_j-1)*n_node_1D_I + node_i)
+            if node_i != n_node_1D_I-1 and node_j != 0:
+                current_cols = np.append(current_cols, (node_j-1)*n_node_1D_I + (node_i+1))
+            if node_i != 0:
+                current_cols = np.append(current_cols, node_j*n_node_1D_I + (node_i-1))
+            if node_i != n_node_1D_I-1:
+                current_cols = np.append(current_cols, node_j*n_node_1D_I + (node_i+1))
+            if node_i != 0 and node_j != n_node_1D_J-1:
+                current_cols = np.append(current_cols, (node_j+1)*n_node_1D_I + (node_i-1))
+            if node_j != n_node_1D_J-1:
+                current_cols = np.append(current_cols, (node_j+1)*n_node_1D_I + node_i)
+            if node_i != n_node_1D_I-1 and node_j != n_node_1D_J-1:
+                current_cols = np.append(current_cols, (node_j+1)*n_node_1D_I + (node_i+1))
+            current_cols = np.sort(current_cols)
+            for current_col in current_cols:
+                r = np.append(r, current_row)
+                c = np.append(c, current_col)
+    return r, c, n_rows
+
+
 def create_SPD(n, r, c, N, v_min=-1, v_max=1):
     nnz = len(r)
     V = v_min + np.random.rand(N, nnz) * (v_max-v_min)
