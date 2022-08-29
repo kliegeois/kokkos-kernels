@@ -19,7 +19,7 @@ def plot_results(base, function_of_N, implementations_CG, implementations_GMRES)
     j = 0
 
     CPU_time_sp_QR = np.loadtxt(base+'CPU_time_0_sp.txt')[:,3]
-    CPU_time_sp_Chol = np.loadtxt(base+'CPU_time_1_sp.txt')[:,3]
+    CPU_time_sp_BlockQR = np.loadtxt(base+'CPU_time_2_sp.txt')[:,3]
     CPU_time_dn = np.loadtxt(base+'CPU_time_0_dn.txt')[:,3]
 
     CPU_time_CG_left = np.loadtxt(base+'CPU_time_0_CG_left.txt')[:,3]
@@ -31,10 +31,10 @@ def plot_results(base, function_of_N, implementations_CG, implementations_GMRES)
         x = np.loadtxt(base+'Bs.txt')
 
     print_left = True
-    print_right = False
+    print_right = True
     print_cusolver_sparse = True
     print_cusolver_dense = True
-    print_CG = False
+    print_CG = True
     print_GMRES = True
 
     if print_cusolver_sparse:
@@ -43,8 +43,8 @@ def plot_results(base, function_of_N, implementations_CG, implementations_GMRES)
             linestyle = '-',
             dashes=dashesStyles[j%len(dashesStyles)])
         j +=1
-        indices = np.argwhere(CPU_time_sp_Chol > 0.)
-        plt.semilogy(x[indices], CPU_time_sp_Chol[indices], label='cusolver sparse Chol', color=colourWheel[j%len(colourWheel)],
+        indices = np.argwhere(CPU_time_sp_BlockQR > 0.)
+        plt.semilogy(x[indices], CPU_time_sp_BlockQR[indices], label='cusolver sparse block QR', color=colourWheel[j%len(colourWheel)],
             linestyle = '-',
             dashes=dashesStyles[j%len(dashesStyles)])
     j +=1
@@ -74,7 +74,7 @@ def plot_results(base, function_of_N, implementations_CG, implementations_GMRES)
         for impl in implementations_GMRES:
             CPU_time_GMRES_left = np.loadtxt(base+'CPU_time_'+str(impl)+'_GMRES_left.txt')[:,3]
             indices = np.argwhere(CPU_time_GMRES_left > 0.)
-            plt.semilogy(x[indices], CPU_time_GMRES_left[indices], label='Batched GMRES', color=colourWheel[j%len(colourWheel)],
+            plt.semilogy(x[indices], CPU_time_GMRES_left[indices], label='GMRES left '+str(impl), color=colourWheel[j%len(colourWheel)],
                 linestyle = '-',
                 dashes=dashesStyles[j%len(dashesStyles)])
             j +=1
@@ -101,5 +101,5 @@ def plot_results(base, function_of_N, implementations_CG, implementations_GMRES)
 
 #plot_results('weaver/cusolve_2/', False)
 #plot_results('weaver/cusolve_3/', False)
-plot_results('weaver/cusolve_6/', False, [0], [0])
+plot_results('weaver/cusolve_8/', False, [0], [0])
 #plot_results('weaver/cusolve_N/', True)

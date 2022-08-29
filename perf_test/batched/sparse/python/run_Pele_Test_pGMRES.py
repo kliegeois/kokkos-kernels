@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--implementation', metavar='implementation', default=0,
                         help='used implementation')
     parser.add_argument('-s', action="store_true", default=False)
+    parser.add_argument('-d', action="store_true", default=False)
     args = parser.parse_args()
 
     specie = args.specie
@@ -44,17 +45,29 @@ def main():
     directory = getBuildDirectory()
     hostname = getHostName()
 
-    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname, implementation)
+    default_params = args.d
+
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length, implementation = getParametersGMRES(specie, 'left', hostname, implementation)
 
     #n_iterations = 10
     #tol = 0
+
+    if default_params:
+        N_team = 8
+        team_size = -1
+        vector_length = -1
     
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
+    
+    data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)
     if sort:
-        data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_sorted'
+        data_d += '_sorted'
     else:
-        data_d = hostname + '/Pele_pGMRES_' + specie + '_data_Scaled_Jacobi_'+str(n_iterations)+'_'+str(ortho_strategy)+'_'+str(arnoldi_level)+'_'+str(other_level)+'_unsorted'
+        data_d += '_unsorted'
+
+    if default_params:
+        data_d += '_default_params'
 
     rows_per_thread = 1
     implementations_left = [implementation]
@@ -90,14 +103,22 @@ def main():
     
         mmwrite(name_A, V, r, c, n, n)
         mmwrite(name_B, B)
-        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname, implementation)
+        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length, implementation = getParametersGMRES(specie, 'left', hostname, implementation)
+        if default_params:
+            N_team = 8
+            team_size = -1
+            vector_length = -1
         extra_arg = ' -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
         data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_left, layout='Left', extra_args=' -P -C -res '+data_d+'/P_res_l '+extra_arg)
         for j in range(0, n_implementations_left):
             CPU_time_left[j,i,:] = data[j,:]
         throughput_left[:,i,:] = n_ops/CPU_time_left[:,i,:]
-        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'right', hostname, implementation)
+        n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length, implementation = getParametersGMRES(specie, 'right', hostname, implementation)
+        if default_params:
+            N_team = 8
+            team_size = -1
+            vector_length = -1
         extra_arg = ' -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -vector_length '+str(vector_length)+ ' -N_team '+str(N_team)+' -ortho_strategy '+str(ortho_strategy)
         extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level)
         data = run_test(directory+'/KokkosBatched_Test_GMRES', name_A, name_B, name_X, name_timers, rows_per_thread, team_size, n1=n1, n2=n2, implementations=implementations_right, layout='Right', extra_args=' -P -C -res '+data_d+'/P_res_r '+extra_arg)

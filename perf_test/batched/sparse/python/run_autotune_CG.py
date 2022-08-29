@@ -46,7 +46,7 @@ def run_analysis(params, fixed_params):
             data = run_test(directory+'/KokkosBatched_Test_CG', fixed_params.name_A, fixed_params.name_B, 
                 fixed_params.name_X, fixed_params.name_timers, fixed_params.rows_per_thread, params.team_size,
                 n1=fixed_params.n1, n2=fixed_params.n2, implementations=[fixed_params.implementation], layout=fixed_params.layout,
-                extra_args= fixed_params.extra_arg+ ' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
+                extra_args= ' '+fixed_params.extra_arg+ ' -vector_length '+str(params.vector_length)+ ' -N_team '+str(params.m))
             fixed_params.previous_points[key] = -1/data[0,3]
         except:
             fixed_params.previous_points[key] = 0.
@@ -120,7 +120,7 @@ def main():
 
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
-    data_d = hostname + '/CG_autotune_skopt_' + layout + '_' + str(implementation)
+    data_d = hostname + '/CG_autotune_skopt_Laplacian_' + layout + '_' + str(implementation)
 
     rows_per_thread=1
 
@@ -140,7 +140,8 @@ def main():
 
     n = 200
 
-    r, c = create_strided_graph(n, max_offset, offset)
+    #r, c = create_strided_graph(n, max_offset, offset)
+    r, c, n = create_2D_Laplacian_graph(20, 10)
 
     V = create_SPD(n, r, c, N)
     B = create_Vector(n, N)
@@ -157,7 +158,7 @@ def main():
 
     dimensions = [dim1, dim2, dim3]
 
-    extra_arg = '-n_iterations 20 -tol 1e-8'
+    extra_arg = ' -n_iterations 20 -tol 1e-8'
 
     VariableParams = namedtuple('VariableParams', 'm team_size vector_length')
     FixedParams = namedtuple('FixedParams', 'name_A name_B name_X name_timers n1 n2 rows_per_thread layout n_ops max_size implementation previous_points log_file_name extra_arg')

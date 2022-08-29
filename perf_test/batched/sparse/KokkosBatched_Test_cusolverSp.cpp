@@ -9,6 +9,8 @@
 #include "Kokkos_UnorderedMap.hpp"
 #include "Kokkos_Sort.hpp"
 
+//#define KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
+
 #ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 
 #include <cusparse.h>
@@ -65,7 +67,7 @@ typedef Kokkos::DefaultHostExecutionSpace host_space;
 typedef typename Kokkos::Device<exec_space, memory_space> device;
 
 template <typename DeviceType, typename MatrixViewType, typename IntView, typename VectorViewType>
-struct Functor_Test_SparseCuSolve {
+struct Functor_Test_SparseCuSolveQR {
   const MatrixViewType _A;
   const IntView _r;
   const IntView _c;  
@@ -73,7 +75,7 @@ struct Functor_Test_SparseCuSolve {
   const VectorViewType _B;
 
   KOKKOS_INLINE_FUNCTION
-  Functor_Test_SparseCuSolve(const MatrixViewType &A, const IntView &r, const IntView &c, const VectorViewType &X,
+  Functor_Test_SparseCuSolveQR(const MatrixViewType &A, const IntView &r, const IntView &c, const VectorViewType &X,
                                const VectorViewType &B)
       : _A(A),
         _r(r),
@@ -123,6 +125,248 @@ struct Functor_Test_SparseCuSolve {
   }
 };
 
+template <typename DeviceType, typename MatrixViewType, typename IntView, typename VectorViewType>
+struct Functor_Test_Block_SparseCuSolveQR {
+  const MatrixViewType _A;
+  const IntView _r;
+  const IntView _c;  
+  const VectorViewType _X;
+  const VectorViewType _B;
+
+  KOKKOS_INLINE_FUNCTION
+  Functor_Test_Block_SparseCuSolveQR(const MatrixViewType &A, const IntView &r, const IntView &c, const VectorViewType &X,
+                               const VectorViewType &B)
+      : _A(A),
+        _r(r),
+        _c(c),
+        _X(X),
+        _B(B) {}
+
+  inline double run() {
+    std::string name("KokkosBatched::Test::TeamGESV");
+    Kokkos::Timer timer;
+    Kokkos::Profiling::pushRegion(name.c_str());
+    cusolverSpHandle_t handle = NULL;
+    cusolverSpCreate(&handle);
+
+    const size_t N = _A.extent(0);
+    const size_t nnz = _c.extent(0);
+    const size_t m = _r.extent(0)-1;
+
+    const size_t block_nnz = N * nnz;
+    const size_t block_m = N * m;
+
+    cusparseMatDescr_t descrA = 0;
+    KOKKOS_CUSPARSE_SAFE_CALL(cusparseCreateMatDescr(&descrA));
+    KOKKOS_CUSPARSE_SAFE_CALL(
+        cusparseSetMatType(descrA, CUSPARSE_MATRIX_TYPE_GENERAL));
+    KOKKOS_CUSPARSE_SAFE_CALL(
+        cusparseSetMatIndexBase(descrA, CUSPARSE_INDEX_BASE_ZERO));
+
+    double tol = 1e-18;
+    int reorder = 0;
+    int singularity[1];
+
+    IntView rowOffsets("values", block_m + 1);
+    IntView colIndices("values", block_nnz);   
+
+    auto rowOffsets_host = Kokkos::create_mirror_view(rowOffsets);
+    auto colIndices_host = Kokkos::create_mirror_view(colIndices);
+    auto _c_host         = Kokkos::create_mirror_view(_c);
+    auto _r_host         = Kokkos::create_mirror_view(_r);
+
+    Kokkos::deep_copy(_c_host, _c);
+    Kokkos::deep_copy(_r_host, _r);
+
+    exec_space().fence();
+
+    rowOffsets_host(0) = 0;
+    for (size_t i = 0; i < N; ++i){
+      for (size_t row = 0; row < m; ++row){
+        const size_t current_row_index = i * m + row;
+        const size_t row_length = _r_host(row+1) - _r_host(row);
+        rowOffsets_host(current_row_index+1) = rowOffsets_host(current_row_index) + row_length;
+        for (size_t nnz_row = 0; nnz_row < row_length; ++nnz_row){
+          const size_t current_block_nnz_index = rowOffsets_host(current_row_index) + nnz_row;
+          const size_t current_block_col_index = _c_host(_r_host(row) + nnz_row) + i * m;
+          colIndices_host(current_block_nnz_index) = current_block_col_index;
+        }
+      }
+    }
+
+    Kokkos::deep_copy(rowOffsets, rowOffsets_host);
+    Kokkos::deep_copy(colIndices, colIndices_host);
+
+    exec_space().fence();
+    timer.reset();
+  
+    auto csrValA = _A.data();
+    auto b = _B.data();
+    auto x = _X.data();
+
+    cusolverSpDcsrlsvqr( handle, block_m, block_nnz, descrA, csrValA, rowOffsets.data(), colIndices.data(), b, tol, reorder, x, singularity);
+
+    if(singularity[0] != -1)
+      std::cout << " Error ! " << singularity[0] << " " << m << std::endl;
+
+    exec_space().fence();
+    double sec = timer.seconds();
+    Kokkos::Profiling::popRegion();
+
+    return sec;
+  }
+};
+
+template <typename DeviceType, typename MatrixViewType, typename IntView, typename VectorViewType>
+struct Functor_Test_SparseCuSolveChol {
+  const MatrixViewType _A;
+  const IntView _r;
+  const IntView _c;  
+  const VectorViewType _X;
+  const VectorViewType _B;
+
+  KOKKOS_INLINE_FUNCTION
+  Functor_Test_SparseCuSolveChol(const MatrixViewType &A, const IntView &r, const IntView &c, const VectorViewType &X,
+                               const VectorViewType &B)
+      : _A(A),
+        _r(r),
+        _c(c),
+        _X(X),
+        _B(B) {}
+
+  inline double run() {
+    std::string name("KokkosBatched::Test::TeamGESV");
+    Kokkos::Timer timer;
+    Kokkos::Profiling::pushRegion(name.c_str());
+    cusolverSpHandle_t handle = NULL;
+    cusolverSpCreate(&handle);
+
+    const size_t N = _A.extent(0);
+    const size_t nnz = _c.extent(0);
+    const size_t m = _r.extent(0)-1;
+
+    cusparseMatDescr_t descrA = 0;
+    KOKKOS_CUSPARSE_SAFE_CALL(cusparseCreateMatDescr(&descrA));
+    KOKKOS_CUSPARSE_SAFE_CALL(
+        cusparseSetMatType(descrA, CUSPARSE_MATRIX_TYPE_GENERAL));
+    KOKKOS_CUSPARSE_SAFE_CALL(
+        cusparseSetMatIndexBase(descrA, CUSPARSE_INDEX_BASE_ZERO));
+
+    double tol = 1e-18;
+    int reorder = 0;
+    int singularity[1];
+    exec_space().fence();
+    timer.reset();
+  
+    for (size_t i = 0; i < N; ++i){
+      auto csrValA = Kokkos::subview(_A, i, Kokkos::ALL).data();
+      auto b = Kokkos::subview(_B, i, Kokkos::ALL).data();
+      auto x = Kokkos::subview(_X, i, Kokkos::ALL).data();
+
+      cusolverSpDcsrlsvchol( handle, m, nnz, descrA, csrValA, _r.data(), _c.data(), b, tol, reorder, x, singularity);
+      if(singularity[0] != -1)
+        std::cout << " Error ! " << singularity[0] << " " << m << std::endl;
+    }
+
+    exec_space().fence();
+    double sec = timer.seconds();
+    Kokkos::Profiling::popRegion();
+
+    return sec;
+  }
+};
+
+template <typename DeviceType, typename MatrixViewType, typename IntView, typename VectorViewType>
+struct Functor_Test_Block_SparseCuSolveChol {
+  const MatrixViewType _A;
+  const IntView _r;
+  const IntView _c;  
+  const VectorViewType _X;
+  const VectorViewType _B;
+
+  KOKKOS_INLINE_FUNCTION
+  Functor_Test_Block_SparseCuSolveChol(const MatrixViewType &A, const IntView &r, const IntView &c, const VectorViewType &X,
+                               const VectorViewType &B)
+      : _A(A),
+        _r(r),
+        _c(c),
+        _X(X),
+        _B(B) {}
+
+  inline double run() {
+    std::string name("KokkosBatched::Test::TeamGESV");
+    Kokkos::Timer timer;
+    Kokkos::Profiling::pushRegion(name.c_str());
+    cusolverSpHandle_t handle = NULL;
+    cusolverSpCreate(&handle);
+
+    const size_t N = _A.extent(0);
+    const size_t nnz = _c.extent(0);
+    const size_t m = _r.extent(0)-1;
+
+    const size_t block_nnz = N * nnz;
+    const size_t block_m = N * m;
+
+    cusparseMatDescr_t descrA = 0;
+    KOKKOS_CUSPARSE_SAFE_CALL(cusparseCreateMatDescr(&descrA));
+    KOKKOS_CUSPARSE_SAFE_CALL(
+        cusparseSetMatType(descrA, CUSPARSE_MATRIX_TYPE_GENERAL));
+    KOKKOS_CUSPARSE_SAFE_CALL(
+        cusparseSetMatIndexBase(descrA, CUSPARSE_INDEX_BASE_ZERO));
+
+    double tol = 1e-18;
+    int reorder = 0;
+    int singularity[1];
+
+    IntView rowOffsets("values", block_m + 1);
+    IntView colIndices("values", block_nnz);
+
+    auto rowOffsets_host = Kokkos::create_mirror_view(rowOffsets);
+    auto colIndices_host      = Kokkos::create_mirror_view(colIndices);
+    auto _c_host     = Kokkos::create_mirror_view(_r);
+    auto _r_host  = Kokkos::create_mirror_view(_c);
+
+    Kokkos::deep_copy(_c_host, _c);
+    Kokkos::deep_copy(_r_host, _r);
+
+    exec_space().fence();
+
+    rowOffsets_host(0) = 0;
+    for (size_t i = 0; i < N; ++i){
+      for (size_t row = 0; row < m; ++row){
+        const size_t current_row_index = i * m + row;
+        const size_t row_length = _r_host(row+1) - _r_host(row);
+        rowOffsets_host(current_row_index+1) = rowOffsets_host(current_row_index) + row_length;
+        for (size_t nnz_row = 0; nnz_row < row_length; ++nnz_row){
+          const size_t current_block_nnz_index = rowOffsets_host(current_row_index) + nnz_row;
+          const size_t current_block_col_index = _c_host(_r_host(row) + nnz_row) + i * m;
+          colIndices_host(current_block_nnz_index) = current_block_col_index;
+        }
+      }
+    }
+
+    Kokkos::deep_copy(rowOffsets, rowOffsets_host);
+    Kokkos::deep_copy(colIndices, colIndices_host);
+
+    exec_space().fence();
+    timer.reset();
+  
+    auto csrValA = _A.data();
+    auto b = _B.data();
+    auto x = _X.data();
+
+    cusolverSpDcsrlsvchol( handle, block_m, block_nnz, descrA, csrValA, rowOffsets.data(), colIndices.data(), b, tol, reorder, x, singularity);
+    if(singularity[0] != -1)
+      std::cout << " Error ! " << singularity[0] << " " << m << std::endl;
+
+    exec_space().fence();
+    double sec = timer.seconds();
+    Kokkos::Profiling::popRegion();
+
+    return sec;
+  }
+};
+
 int main(int argc, char *argv[]) {
   Kokkos::initialize(argc, argv);
   {
@@ -137,7 +381,6 @@ int main(int argc, char *argv[]) {
     /// input arguments parsing
     ///
     int n_rep_1              = 10;    // # of repetitions
-    int n_rep_2              = 1000;  // # of repetitions
     int team_size            = 8;
     int n_impl               = 1;
     bool layout_left         = true;
@@ -157,8 +400,6 @@ int main(int argc, char *argv[]) {
       if (token == std::string("-B")) name_B = argv[++i];
       if (token == std::string("-X")) name_X = argv[++i];
       if (token == std::string("-timers")) name_timer = argv[++i];
-      if (token == std::string("-n1")) n_rep_1 = std::atoi(argv[++i]);
-      if (token == std::string("-n2")) n_rep_2 = std::atoi(argv[++i]);
       if (token == std::string("-team_size")) team_size = std::atoi(argv[++i]);
       if (token == std::string("-vector_length"))
         vector_length = std::atoi(argv[++i]);
@@ -231,38 +472,55 @@ int main(int argc, char *argv[]) {
     for (auto i_impl : impls) {
       std::vector<double> timers;
 
-      int n_skip = 2;
-
-      for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
-        double t_spmv = 0;
-        for (int j_rep = 0; j_rep < n_rep_2; ++j_rep) {
+      double t_spmv = 0;
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-          cudaProfilerStart();
+      cudaProfilerStart();
 #endif
-          exec_space().fence();
-          Kokkos::deep_copy(xLL, 0.0);
-          Kokkos::deep_copy(xLR, 0.0);
-          flush.run();
-          exec_space().fence();
+      exec_space().fence();
+      Kokkos::deep_copy(xLL, 0.0);
+      Kokkos::deep_copy(xLR, 0.0);
 
-          exec_space().fence();
+      exec_space().fence();
 
-          if (i_impl == 0) {
-            if (layout_right) {
-              t_spmv +=
-                Functor_Test_SparseCuSolve<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(
-                    valuesLR, rowOffsets, colIndices, xLR, yLR)
-                    .run();
-            }
-          }
-          exec_space().fence();
-
-#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
-          cudaProfilerStop();
-#endif
+      if (i_impl == 0) {
+        if (layout_right) {
+          t_spmv =
+            Functor_Test_SparseCuSolveQR<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(
+                valuesLR, rowOffsets, colIndices, xLR, yLR)
+                .run();
         }
-        if (i_rep > n_skip) timers.push_back(t_spmv / n_rep_2);
       }
+      if (i_impl == 1) {
+        if (layout_right) {
+          t_spmv =
+            Functor_Test_SparseCuSolveChol<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(
+                valuesLR, rowOffsets, colIndices, xLR, yLR)
+                .run();
+        }
+      }
+      if (i_impl == 2) {
+        if (layout_right) {
+          t_spmv =
+            Functor_Test_Block_SparseCuSolveQR<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(
+                valuesLR, rowOffsets, colIndices, xLR, yLR)
+                .run();
+        }
+      }
+      if (i_impl == 3) {
+        if (layout_right) {
+          t_spmv =
+            Functor_Test_Block_SparseCuSolveChol<exec_space, AMatrixValueViewLR, IntView, XYTypeLR>(
+                valuesLR, rowOffsets, colIndices, xLR, yLR)
+                .run();
+        }
+      }
+      exec_space().fence();
+
+#if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOSBATCHED_PROFILE)
+      cudaProfilerStop();
+#endif
+
+      timers.push_back(t_spmv);
 
       {
         std::ofstream myfile;

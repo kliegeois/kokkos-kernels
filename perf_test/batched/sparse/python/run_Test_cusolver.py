@@ -31,19 +31,19 @@ def main():
     max_offset = 3
     offset = 4
     N = 20000
-    N_sequential = 20
+    N_sequential = 20000
     ratio_N = N/N_sequential
 
     directory = getBuildDirectory()
     hostname = getHostName()
 
-    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters('isooctane', 'left', hostname)
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length, algo = getParametersGMRES('isooctane', 'left', hostname)
     
     N_team = 6
     team_size = -1
     vector_length = -1
 
-    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters('gri30', 'left', hostname)
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length, algo = getParametersGMRES('gri30', 'left', hostname)
 
     N_team = 8
     team_size = -1
@@ -59,7 +59,7 @@ def main():
     data_d = hostname + '/cusolve_8'
 
     rows_per_thread = 1
-    implementations_sp = [0]
+    implementations_sp = [3]
     implementations_dn = [0]
     implementations_CG = [0]
     implementations_GMRES = [0]
@@ -93,13 +93,13 @@ def main():
     name_X_GMRES = data_d+'/X_GMRES'
     name_timers = data_d+'/timers'
 
-    run_cusolvers_Sp = True
+    run_cusolvers_Sp = False
     run_cusolvers_Dn = False
-    run_CG = False
-    run_GMRES = False
+    run_CG = True
+    run_GMRES = True
 
     run_left = True
-    run_right = False
+    run_right = True
 
     for i in range(0, len(Bs)):
         r, c, Bs[i] = create_2D_Laplacian_graph(n_node_1D_I, n_node_1D_Js[i])

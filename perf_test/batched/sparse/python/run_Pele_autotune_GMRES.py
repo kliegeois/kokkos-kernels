@@ -134,7 +134,7 @@ def main():
         os.mkdir(hostname)
     data_d = hostname + '/Pele_' + specie + '_data_GMRES_autotune_skopt_' + layout + '_' + str(implementation)
 
-    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname, implementation)
+    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length, implementation = getParametersGMRES(specie, layout, hostname, implementation)
 
     extra_arg = ' -n_iterations '+str(n_iterations)+' -tol '+str(tol) + ' -ortho_strategy '+str(ortho_strategy)
     extra_arg += ' -arnoldi_level '+str(arnoldi_level) + ' -other_level '+str(other_level) + ' -P'

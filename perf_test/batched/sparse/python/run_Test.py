@@ -37,27 +37,105 @@ def getSortedIndices(specie, order):
                 50, 49, 60, 71])
     return indices
 
+def getParametersCG(layout, hostname, algo=-1):
+    if hostname == 'weaver':
+        if layout == 'Left' or layout == 'left':
+            if algo == -1:
+                algo = 2
+            if algo == 0:
+                N_team = 32
+                team_size = 44
+                vector_length = 6
+            if algo == 2:
+                N_team = 6
+                team_size = 86
+                vector_length = 2
+        else:
+            if algo == -1:
+                algo = 2
+            if algo == 0:
+                N_team = 16
+                team_size = 92
+                vector_length = 6
+            else:
+                N_team = 6
+                team_size = 106
+                vector_length = 3
+    if hostname == 'blake':
+        if layout == 'Left' or layout == 'left':
+            if algo == -1:
+                algo = 2
+            if algo == 0:
+                N_team = 8
+                team_size = -1
+                vector_length = 8
+            if algo == 2:    
+                N_team = 8
+                team_size = -1
+                vector_length = 8
+        else:
+            if algo == -1:
+                algo = 2
+            if algo == 0:
+                N_team = 10
+                team_size = -1
+                vector_length = 8
+            if algo == 2:    
+                N_team = 1
+                team_size = -1
+                vector_length = 8
+    if hostname == 'caraway':
+        if layout == 'Left' or layout == 'left':
+            if algo == -1:
+                algo = 2
+            if algo == 0:
+                N_team = 28
+                team_size = 121
+                vector_length = 6
+            else:
+                N_team = 7
+                team_size = 91
+                vector_length = 8
+            N_team = 26
+            team_size = 128
+            vector_length = 6
+        else:
+            if algo == -1:
+                algo = 2
+            if algo == 0:
+                N_team = 32
+                team_size = 130
+                vector_length = 4
+            else:
+                N_team = 5
+                team_size = 152
+                vector_length = 4
+            N_team = 18
+            team_size = 191
+            vector_length = 5
+    return N_team, team_size, vector_length, algo
+
 def getParametersSPMV(specie, layout, hostname):
     tol = 1e-8
     if hostname == 'weaver':
         if specie == 'gri30':
             if layout == 'Left' or layout == 'left':
-                N_team = 26
-                team_size = 143
-                vector_length = 5
+                N_team = 22
+                team_size = 203
+                vector_length = 3
             else:
-                N_team = 5
-                team_size = 224
-                vector_length = 4
+                N_team = 2
+                team_size = 119
+                vector_length = 5
         if specie == 'isooctane':
             if layout == 'Left' or layout == 'left':
-                N_team = 22
-                team_size = 144
-                vector_length = 5
+                N_team = 26
+                team_size = 119
+                vector_length = 6
             else:
-                N_team = 27
-                team_size = 160
-                vector_length = 5
+                N_team = 2
+                team_size = 150
+                vector_length = 3
     if hostname == 'blake':
         if specie == 'gri30':
             if layout == 'Left' or layout == 'left':
@@ -80,61 +158,153 @@ def getParametersSPMV(specie, layout, hostname):
     if hostname == 'caraway':
         if specie == 'gri30':
             if layout == 'Left' or layout == 'left':
-                N_team = 14
-                team_size = 256
-                vector_length = 1
+                N_team = 26
+                team_size = 118
+                vector_length = 6
             else:
                 N_team = 5
-                team_size = 214
-                vector_length = 3
+                team_size = 84
+                vector_length = 5
         if specie == 'isooctane':
             if layout == 'Left' or layout == 'left':
-                N_team = 16
-                team_size = 208
-                vector_length = 4
-            else:
                 N_team = 26
-                team_size = 85
-                vector_length = 8
+                team_size = 119
+                vector_length = 6
+            else:
+                N_team = 24
+                team_size = 216
+                vector_length = 3
     return N_team, team_size, vector_length
 
 
-def getParameters(specie, layout, hostname):
+def getParametersGMRES(specie, layout, hostname, algo=0):
     tol = 1e-8
     if hostname == 'weaver':
         if specie == 'gri30':
-            n_iterations = 8
-            ortho_strategy = 0
-            arnoldi_level = 11
-            other_level = 0
-            N_team = 16
-            team_size = -1
-            vector_length = 16
+            if layout == 'left' or layout == 'Left':
+                n_iterations = 8
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 2
+                if algo == 0:
+                    N_team = 24
+                    team_size = 86
+                    vector_length = 5
+                if algo == 2:
+                    N_team = 20
+                    team_size = 94
+                    vector_length = 4
+            if layout == 'right' or layout == 'Right':
+                n_iterations = 8
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 2
+                if algo == 0:
+                    N_team = 2
+                    team_size = 29
+                    vector_length = 7
+                if algo == 2:
+                    N_team = 5
+                    team_size = 35
+                    vector_length = 4
         if specie == 'isooctane':
-            n_iterations = 20
-            ortho_strategy = 0
-            arnoldi_level = 11
-            other_level = 0
-            N_team = 6
-            team_size = -1
-            vector_length = 6
+            if layout == 'left' or layout == 'Left':
+                n_iterations = 20
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 0
+                if algo == 0:
+                    N_team = 16
+                    team_size = 84
+                    vector_length = 3
+                if algo == 2:
+                    N_team = 4
+                    team_size = 45
+                    vector_length = 7
+            if layout == 'right' or layout == 'Right':
+                n_iterations = 20
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 0
+                if algo == 0:
+                    N_team = 8
+                    team_size = 46
+                    vector_length = 4
+                if algo == 2:
+                    N_team = 6
+                    team_size = 85
+                    vector_length = 7
     elif hostname == 'caraway':
-        if specie == 'gri30':
-            n_iterations = 8
-            ortho_strategy = 0
-            arnoldi_level = 11
-            other_level = 0
-            N_team = 16
-            team_size = 16
-            vector_length = 16
+        if specie == 'gri30': 
+            if layout == 'left' or layout == 'Left':
+                n_iterations = 8
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 2
+                if algo == 0:
+                    N_team = 28
+                    team_size = 59
+                    vector_length = 7
+                if algo == 2:
+                    N_team = 15
+                    team_size = 113
+                    vector_length = 6
+            if layout == 'right' or layout == 'Right':
+                n_iterations = 8
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 2
+                if algo == 0:
+                    N_team = 24
+                    team_size = 115
+                    vector_length = 4
+                if algo == 2:
+                    N_team = 13
+                    team_size = 100
+                    vector_length = 5
         if specie == 'isooctane':
-            n_iterations = 20
-            ortho_strategy = 0
-            arnoldi_level = 11
-            other_level = 0
-            N_team = 8
-            team_size = 32
-            vector_length = 8
+            if layout == 'left' or layout == 'Left':
+                n_iterations = 20
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 0
+                if algo == 0:
+                    N_team = 28
+                    team_size = 117
+                    vector_length = 6
+                if algo == 2:
+                    N_team = 10
+                    team_size = 163
+                    vector_length = 2
+            if layout == 'right' or layout == 'Right':
+                n_iterations = 20
+                ortho_strategy = 0
+                arnoldi_level = 11
+                other_level = 0
+                if algo == -1:
+                    algo = 0
+                if algo == 0:
+                    N_team = 21
+                    team_size = 108
+                    vector_length = 6
+                if algo == 2:
+                    N_team = 7
+                    team_size = 121
+                    vector_length = 8
     elif hostname == 'inouye':
         if specie == 'gri30':
             n_iterations = 8
@@ -158,27 +328,27 @@ def getParameters(specie, layout, hostname):
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
-            '''
-            if layout == 'right':
-                N_team = 1
-                team_size = 1
+            if layout == 'left' or layout == 'Left':
+                N_team = 8
+                team_size = -1
                 vector_length = 8
-            if layout == 'left':
-                N_team = 32
-                team_size = 1
-                vector_length = 20
-            '''
-            N_team = 8
-            team_size = -1
-            vector_length = 8
+            if layout == 'right' or layout == 'Right':
+                N_team = 6
+                team_size = -1
+                vector_length = 8
         if specie == 'isooctane':
             n_iterations = 20
             ortho_strategy = 0
             arnoldi_level = 11
             other_level = 0
-            N_team = 8
-            team_size = -1
-            vector_length = 8
+            if layout == 'left' or layout == 'Left':
+                N_team = 8
+                team_size = -1
+                vector_length = 8
+            if layout == 'right' or layout == 'Right':
+                N_team = 8
+                team_size = -1
+                vector_length = 8
     else:
         if specie == 'gri30':
             n_iterations = 8
@@ -196,7 +366,7 @@ def getParameters(specie, layout, hostname):
             N_team = 8
             team_size = -1
             vector_length = 8
-    return n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length
+    return n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length, algo
 
 
 def getHostName():
@@ -230,22 +400,28 @@ def run_test(exec_name, A_file_name, B_file_name, X_file_name, timer_filename, r
             exe += ' -r'
             y_name = '_r.txt'
             time_name = '_right.txt'
+        if os.path.exists(timer_filename+'_'+str(implementation)+time_name):
+            os.remove(timer_filename+'_'+str(implementation)+time_name)
     exe += extra_args
     for i in range(0, n_implementations):
         current_name = 'y_'+str(implementations[i])+y_name
         if os.path.exists(current_name):
             os.remove(current_name)
+    print('exe = ' + exe)
     subprocess.call(exe, shell=True)
 
     n_quantiles = len(quantiles)
 
     data = np.zeros((n_implementations, n_quantiles))
     for i in range(0, n_implementations):
-        tmp = np.loadtxt(timer_filename+'_'+str(implementations[i])+time_name)
-        if tmp.size > 1:
-            data[i, :] = np.quantile(tmp, quantiles)
-        elif tmp.size > 0:
-            data[i, :] = tmp
+        if os.path.exists(timer_filename+'_'+str(implementations[i])+time_name):
+            tmp = np.loadtxt(timer_filename+'_'+str(implementations[i])+time_name)
+            if tmp.size > 1:
+                data[i, :] = np.quantile(tmp, quantiles)
+            elif tmp.size > 0:
+                data[i, :] = tmp
+        else:
+            data[i, :] = -1.
     return data
 
 
