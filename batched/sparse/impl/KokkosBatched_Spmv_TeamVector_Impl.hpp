@@ -96,13 +96,13 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const ScalarType* KOKKOS_RESTRICT beta, const OrdinalType betas0,
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
-#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)      
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
   if (member.team_size() == 1) {
     if (N_team != 0 && valuess0 == 1) {
       /*
-        Left layout as valuess0 = 1 and non-zero vector length given at compilation time
-        Here we use the SIMD data type which is using Intel Intrinsics under the hood on Intel
-        architectures.
+        Left layout as valuess0 = 1 and non-zero vector length given at
+        compilation time Here we use the SIMD data type which is using Intel
+        Intrinsics under the hood on Intel architectures.
       */
       typedef Vector<SIMD<ValueType>, N_team> VectorType;
 
@@ -138,7 +138,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     } else {
       Kokkos::Impl::integral_nonzero_constant<unsigned, N_team> n_team(
           numMatrices);
-      
+
       for (unsigned iMatrix = 0; iMatrix < unsigned(n_team.value); ++iMatrix) {
         for (OrdinalType iRow = 0; iRow < numRows; ++iRow) {
           const OrdinalType rowLength =
@@ -146,29 +146,29 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
 
           ValueType sum = 0;
           Kokkos::parallel_reduce(
-            Kokkos::ThreadVectorRange(member, rowLength),
-            [&](const OrdinalType& iEntry, ValueType& lsum) {
-              lsum += values[iMatrix * valuess0 +
-                       (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                X[iMatrix * xs0 +
-                  colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
-                             colIndicess0] *
-                      xs1];
-            }, sum);
+              Kokkos::ThreadVectorRange(member, rowLength),
+              [&](const OrdinalType& iEntry, ValueType& lsum) {
+                lsum +=
+                    values[iMatrix * valuess0 +
+                           (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
+                    X[iMatrix * xs0 +
+                      colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                                 colIndicess0] *
+                          xs1];
+              },
+              sum);
 
           sum *= alpha[iMatrix * alphas0];
 
           if (dobeta == 0) {
             Y[iMatrix * ys0 + iRow * ys1] = sum;
-          }
-          else {
+          } else {
             Y[iMatrix * ys0 + iRow * ys1] =
-                beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] +
-                sum;
+                beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] + sum;
           }
         }
       }
-    } 
+    }
   } else {
 #endif
     Kokkos::parallel_for(
@@ -202,7 +202,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
                 beta[iMatrix * betas0] * Y[iMatrix * ys0 + iRow * ys1] + sum;
           }
         });
-#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)         
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
   }
 #endif
   return 0;
@@ -220,13 +220,13 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     const OrdinalType xs0, const OrdinalType xs1, const ScalarType beta,
     /**/ ValueType* KOKKOS_RESTRICT Y, const OrdinalType ys0,
     const OrdinalType ys1) {
-#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)      
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
   if (member.team_size() == 1) {
     if (N_team != 0 && valuess0 == 1) {
       /*
-        Left layout as valuess0 = 1 and non-zero vector length given at compilation time
-        Here we use the SIMD data type which is using Intel Intrinsics under the hood on Intel
-        architectures.
+        Left layout as valuess0 = 1 and non-zero vector length given at
+        compilation time Here we use the SIMD data type which is using Intel
+        Intrinsics under the hood on Intel architectures.
       */
       typedef Vector<SIMD<ValueType>, N_team> VectorType;
 
@@ -267,31 +267,31 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
 
           ValueType sum = 0;
           Kokkos::parallel_reduce(
-            Kokkos::ThreadVectorRange(member, rowLength),
-            [&](const OrdinalType& iEntry, ValueType& lsum) {
-              lsum += values[iMatrix * valuess0 +
-                       (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
-                X[iMatrix * xs0 +
-                  colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
-                             colIndicess0] *
-                      xs1];
-            }, sum);
+              Kokkos::ThreadVectorRange(member, rowLength),
+              [&](const OrdinalType& iEntry, ValueType& lsum) {
+                lsum +=
+                    values[iMatrix * valuess0 +
+                           (row_ptr[iRow * row_ptrs0] + iEntry) * valuess1] *
+                    X[iMatrix * xs0 +
+                      colIndices[(row_ptr[iRow * row_ptrs0] + iEntry) *
+                                 colIndicess0] *
+                          xs1];
+              },
+              sum);
 
           sum *= alpha;
 
           if (dobeta == 0) {
             Y[iMatrix * ys0 + iRow * ys1] = sum;
-          }
-          else {
+          } else {
             Y[iMatrix * ys0 + iRow * ys1] =
-                beta * Y[iMatrix * ys0 + iRow * ys1] +
-                sum;
+                beta * Y[iMatrix * ys0 + iRow * ys1] + sum;
           }
         }
       }
-    }    
+    }
   } else {
-#endif    
+#endif
     Kokkos::parallel_for(
         Kokkos::TeamVectorRange(member, 0, numMatrices * numRows),
         [&](const OrdinalType& iTemp) {
@@ -323,7 +323,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
                 beta * Y[iMatrix * ys0 + iRow * ys1] + sum;
           }
         });
-#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)        
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
   }
 #endif
   return 0;

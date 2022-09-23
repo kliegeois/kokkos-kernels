@@ -62,11 +62,12 @@ namespace KokkosBatched {
 
 template <typename MemberType>
 template <typename OperatorType, typename VectorViewType,
-          typename KrylovHandleType, typename TMPViewType, typename TMPNormViewType>
+          typename KrylovHandleType, typename TMPViewType,
+          typename TMPNormViewType>
 KOKKOS_INLINE_FUNCTION int TeamVectorCG<MemberType>::invoke(
     const MemberType& member, const OperatorType& A, const VectorViewType& _B,
-    const VectorViewType& _X, const KrylovHandleType& handle, const TMPViewType& _TMPView,
-    const TMPNormViewType& _TMPNormView) {
+    const VectorViewType& _X, const KrylovHandleType& handle,
+    const TMPViewType& _TMPView, const TMPNormViewType& _TMPNormView) {
   typedef int OrdinalType;
   typedef typename Kokkos::Details::ArithTraits<
       typename VectorViewType::non_const_value_type>::mag_type MagnitudeType;
@@ -204,34 +205,37 @@ template <typename OperatorType, typename VectorViewType,
 KOKKOS_INLINE_FUNCTION int TeamVectorCG<MemberType>::invoke(
     const MemberType& member, const OperatorType& A, const VectorViewType& _B,
     const VectorViewType& _X, const KrylovHandleType& handle) {
-
   const int strategy = handle.get_memory_strategy();
-  if( strategy==0 ) {
+  if (strategy == 0) {
     using ScratchPadVectorViewType = Kokkos::View<
         typename VectorViewType::non_const_value_type**,
         typename VectorViewType::array_layout,
         typename VectorViewType::execution_space::scratch_memory_space>;
     using ScratchPadNormViewType = Kokkos::View<
-        typename Kokkos::Details::ArithTraits<typename VectorViewType::non_const_value_type>::mag_type**,
+        typename Kokkos::Details::ArithTraits<
+            typename VectorViewType::non_const_value_type>::mag_type**,
         typename VectorViewType::execution_space::scratch_memory_space>;
 
     const int numMatrices = _X.extent(0);
     const int numRows     = _X.extent(1);
 
     ScratchPadVectorViewType _TMPView(
-        member.team_scratch(handle.get_scratch_pad_level()), numMatrices, 4*numRows);
+        member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
+        4 * numRows);
 
     ScratchPadNormViewType _TMPNormView(
         member.team_scratch(handle.get_scratch_pad_level()), numMatrices, 5);
-    
-    return invoke<OperatorType, VectorViewType, KrylovHandleType>(member, A, _B, _X, handle, _TMPView, _TMPNormView);
+
+    return invoke<OperatorType, VectorViewType, KrylovHandleType>(
+        member, A, _B, _X, handle, _TMPView, _TMPNormView);
   }
-  if( strategy==1 ) {
+  if (strategy == 1) {
     const int first_matrix = handle.first_index(member.league_rank());
     const int last_matrix  = handle.last_index(member.league_rank());
 
     using ScratchPadNormViewType = Kokkos::View<
-        typename Kokkos::Details::ArithTraits<typename VectorViewType::non_const_value_type>::mag_type**,
+        typename Kokkos::Details::ArithTraits<
+            typename VectorViewType::non_const_value_type>::mag_type**,
         typename VectorViewType::execution_space::scratch_memory_space>;
 
     const int numMatrices = _X.extent(0);
@@ -242,8 +246,9 @@ KOKKOS_INLINE_FUNCTION int TeamVectorCG<MemberType>::invoke(
 
     ScratchPadNormViewType _TMPNormView(
         member.team_scratch(handle.get_scratch_pad_level()), numMatrices, 5);
-    
-    return invoke<OperatorType, VectorViewType, KrylovHandleType>(member, A, _B, _X, handle, _TMPView, _TMPNormView);
+
+    return invoke<OperatorType, VectorViewType, KrylovHandleType>(
+        member, A, _B, _X, handle, _TMPView, _TMPNormView);
   }
   return 0;
 }

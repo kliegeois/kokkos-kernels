@@ -70,7 +70,8 @@ template <typename OperatorType, typename VectorViewType,
 KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
     const MemberType& member, const OperatorType& A, const VectorViewType& _B,
     const VectorViewType& _X, const PrecOperatorType& P,
-    const KrylovHandleType& handle, const ArnoldiViewType& _ArnoldiView, const TMPViewType& _TMPView) {
+    const KrylovHandleType& handle, const ArnoldiViewType& _ArnoldiView,
+    const TMPViewType& _TMPView) {
   typedef int OrdinalType;
   typedef typename Kokkos::Details::ArithTraits<
       typename VectorViewType::non_const_value_type>::mag_type MagnitudeType;
@@ -99,15 +100,13 @@ KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
   int offset_H      = offset_V + n_V;
   int offset_Givens = offset_H + n_H;
 
-  auto V_view = Kokkos::subview(
-      _ArnoldiView, Kokkos::ALL,
-      Kokkos::ALL, Kokkos::make_pair(offset_V, offset_V + n_V));
-  auto H_view = Kokkos::subview(
-      _ArnoldiView, Kokkos::ALL,
-      Kokkos::ALL, Kokkos::make_pair(offset_H, offset_H + n_H));
+  auto V_view      = Kokkos::subview(_ArnoldiView, Kokkos::ALL, Kokkos::ALL,
+                                Kokkos::make_pair(offset_V, offset_V + n_V));
+  auto H_view      = Kokkos::subview(_ArnoldiView, Kokkos::ALL, Kokkos::ALL,
+                                Kokkos::make_pair(offset_H, offset_H + n_H));
   auto Givens_view = Kokkos::subview(
-      _ArnoldiView, Kokkos::ALL,
-      Kokkos::ALL, Kokkos::make_pair(offset_Givens, offset_Givens + n_Givens));
+      _ArnoldiView, Kokkos::ALL, Kokkos::ALL,
+      Kokkos::make_pair(offset_Givens, offset_Givens + n_Givens));
 
   int n_G    = maximum_iteration + 1;
   int n_W    = numRows;
@@ -122,10 +121,8 @@ KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
                            Kokkos::make_pair(offset_G, offset_G + n_G));
   auto W    = Kokkos::subview(_TMPView, Kokkos::ALL,
                            Kokkos::make_pair(offset_W, offset_W + n_W));
-  auto mask = Kokkos::subview(_TMPView, Kokkos::ALL,
-                              offset_mask);
-  auto tmp =
-      Kokkos::subview(_TMPView, Kokkos::ALL, offset_tmp);
+  auto mask = Kokkos::subview(_TMPView, Kokkos::ALL, offset_mask);
+  auto tmp  = Kokkos::subview(_TMPView, Kokkos::ALL, offset_tmp);
 
   // Deep copy of b into r_0:
   TeamCopy<MemberType>::invoke(member, _B, W);
@@ -359,9 +356,8 @@ KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
     const MemberType& member, const OperatorType& A, const VectorViewType& _B,
     const VectorViewType& _X, const PrecOperatorType& P,
     const KrylovHandleType& handle) {
-
   const int strategy = handle.get_memory_strategy();
-  if( strategy==0 ) {
+  if (strategy == 0) {
     const int first_matrix = handle.first_index(member.league_rank());
     const int last_matrix  = handle.last_index(member.league_rank());
 
@@ -373,8 +369,8 @@ KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
     const int numRows     = _X.extent(1);
 
     size_t maximum_iteration = handle.get_max_iteration() < numRows
-                                  ? handle.get_max_iteration()
-                                  : numRows;
+                                   ? handle.get_max_iteration()
+                                   : numRows;
 
     int n_G    = maximum_iteration + 1;
     int n_W    = numRows;
@@ -390,9 +386,11 @@ KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
         member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
         n_G + n_W + n_mask + n_tmp);
 
-    return invoke<OperatorType, VectorViewType, PrecOperatorType, KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView, _TMPView);
+    return invoke<OperatorType, VectorViewType, PrecOperatorType,
+                  KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView,
+                                    _TMPView);
   }
-  if( strategy==1 ) {
+  if (strategy == 1) {
     const int first_matrix = handle.first_index(member.league_rank());
     const int last_matrix  = handle.last_index(member.league_rank());
 
@@ -404,9 +402,11 @@ KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
         handle.tmp_view, Kokkos::make_pair(first_matrix, last_matrix),
         Kokkos::ALL);
 
-    return invoke<OperatorType, VectorViewType, PrecOperatorType, KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView, _TMPView);
+    return invoke<OperatorType, VectorViewType, PrecOperatorType,
+                  KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView,
+                                    _TMPView);
   }
-  if( strategy==2 ) {
+  if (strategy == 2) {
     using ScratchPadArnoldiViewType = Kokkos::View<
         typename VectorViewType::non_const_value_type***,
         typename VectorViewType::array_layout,
@@ -421,22 +421,25 @@ KOKKOS_INLINE_FUNCTION int TeamGMRES<MemberType>::invoke(
     const int numRows     = _X.extent(1);
 
     size_t maximum_iteration = handle.get_max_iteration() < numRows
-                                  ? handle.get_max_iteration()
-                                  : numRows;
+                                   ? handle.get_max_iteration()
+                                   : numRows;
 
     int n_G    = maximum_iteration + 1;
     int n_W    = numRows;
     int n_mask = 1;
     int n_tmp  = 1;
 
-    ScratchPadArnoldiViewType _ArnoldiView(member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
+    ScratchPadArnoldiViewType _ArnoldiView(
+        member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
         maximum_iteration, numRows + maximum_iteration + 3);
 
     ScratchPadVectorViewType _TMPView(
         member.team_scratch(handle.get_scratch_pad_level()), numMatrices,
         n_G + n_W + n_mask + n_tmp);
 
-    return invoke<OperatorType, VectorViewType, PrecOperatorType, KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView, _TMPView);
+    return invoke<OperatorType, VectorViewType, PrecOperatorType,
+                  KrylovHandleType>(member, A, _B, _X, P, handle, _ArnoldiView,
+                                    _TMPView);
   }
   return 0;
 }

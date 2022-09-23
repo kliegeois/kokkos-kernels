@@ -120,8 +120,7 @@ class CrsMatrix {
         KokkosBatched::TeamVectorSpmv<MemberType, ArgTrans>::template invoke<
             ValuesViewType, IntViewType, XViewType, YViewType, 0>(
             member, alpha, values, row_ptr, colIndices, X, beta, Y);
-    }
-    else {
+    } else {
       if (member.team_size() == 1 && n_operators == 8)
         KokkosBatched::TeamVectorSpmv<MemberType, ArgTrans, 8>::template invoke<
             ValuesViewType, IntViewType, XViewType, YViewType, 1>(

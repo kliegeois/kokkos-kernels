@@ -147,7 +147,7 @@ class KrylovHandle {
     scratch_pad_level     = 0;
     compute_last_residual = true;
     host_synchronised     = false;
-    memory_strategy = 0;
+    memory_strategy       = 0;
   }
 
   /// \brief get_number_of_systems_per_team
@@ -414,7 +414,9 @@ class KrylovHandle {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void set_memory_strategy(int _memory_strategy) {memory_strategy = _memory_strategy;}
+  void set_memory_strategy(int _memory_strategy) {
+    memory_strategy = _memory_strategy;
+  }
 
   KOKKOS_INLINE_FUNCTION
   int get_memory_strategy() const { return memory_strategy; }
