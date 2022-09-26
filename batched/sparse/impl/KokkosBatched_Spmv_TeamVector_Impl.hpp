@@ -101,7 +101,7 @@ KOKKOS_INLINE_FUNCTION int TeamVectorSpmvInternal::invoke(
     if (N_team != 0 && valuess0 == 1) {
       /*
         Left layout as valuess0 = 1 and non-zero vector length given at
-        compilation time Here we use the SIMD data type which is using Intel
+        compilation time. Here we use the SIMD data type which is using Intel
         Intrinsics under the hood on Intel architectures.
       */
       typedef Vector<SIMD<ValueType>, N_team> VectorType;
