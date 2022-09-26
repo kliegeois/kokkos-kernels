@@ -35,8 +35,6 @@ def main():
     directory = getBuildDirectory()
     hostname = getHostName()
 
-    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
-
     N_team_left, team_size_left, vector_length_left = getParametersSPMV(specie, 'Left', hostname)
     N_team_right, team_size_right, vector_length_right = getParametersSPMV(specie, 'Right', hostname)
 

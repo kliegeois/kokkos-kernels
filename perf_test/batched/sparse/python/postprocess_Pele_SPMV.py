@@ -94,7 +94,10 @@ unit = 'GFLOPS'
 for host in hosts:
     for specie in species:
 
-        base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec_tuned/'
+        if host == 'blake':
+            base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec/'
+        else:
+            base = host+'/Pele_SPMV_'+specie+'_data_SPMV_vec_tuned/'
         if host == 'caraway':
             implementations = [3]
         else:

@@ -35,7 +35,7 @@ def main():
     directory = getBuildDirectory()
     hostname = getHostName()
 
-    n_iterations, tol, ortho_strategy, arnoldi_level, other_level, N_team, team_size, vector_length = getParameters(specie, 'left', hostname)
+    N_team, team_size, vector_length= getParametersSPMV(specie, 'left', hostname)
 
     if not os.path.isdir(hostname):
         os.mkdir(hostname)
