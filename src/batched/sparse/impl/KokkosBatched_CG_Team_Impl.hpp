@@ -121,6 +121,7 @@ KOKKOS_INLINE_FUNCTION int TeamCG<MemberType>::invoke(
 
   Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, numMatrices),
                        [&](const OrdinalType& i) {
+                         handle.set_norm(member.league_rank(), i, 0, sqr_norm_0(i));
                          mask(i) =
                              sqr_norm_0(i) > tolerance * tolerance ? 1. : 0;
                        });
@@ -173,10 +174,14 @@ KOKKOS_INLINE_FUNCTION int TeamCG<MemberType>::invoke(
     Kokkos::parallel_reduce(
         Kokkos::TeamThreadRange(member, 0, numMatrices),
         [&](const OrdinalType& i, int& lnumber_not_converged) {
+          handle.set_norm(member.league_rank(), i, j + 1, sqr_norm_j(i));
           if (sqr_norm_j(i) / sqr_norm_0(i) > tolerance * tolerance)
             ++lnumber_not_converged;
-          else
+          else {
+            if (mask(i) != 0.)
+              handle.set_iteration(member.league_rank(), i, j);
             mask(i) = 0.;
+          }
         },
         number_not_converged);
 

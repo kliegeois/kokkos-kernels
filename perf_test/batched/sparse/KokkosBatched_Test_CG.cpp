@@ -71,6 +71,8 @@ int main(int argc, char *argv[]) {
     ///
     int n_rep_1              = 10;    // # of repetitions
     int n_rep_2              = 1000;  // # of repetitions
+    int n_iterations         = 200;
+    double tol               = Kokkos::Details::ArithTraits<double>::epsilon();
     int team_size            = 8;
     int N_team_potential     = 8;
     int n_impl               = 1;
@@ -84,6 +86,7 @@ int main(int argc, char *argv[]) {
 
     std::string name_timer = "timers";
     std::string name_X     = "X";
+    std::string name_nIterations = "nIterations";
     std::string name_conv  = "res";
 
     std::vector<int> impls;
@@ -94,7 +97,12 @@ int main(int argc, char *argv[]) {
 
       if (token == std::string("-X")) name_X = argv[++i];
 
+      if (token == std::string("-n_iterations"))
+        n_iterations = std::atoi(argv[++i]);
+      if (token == std::string("-tol")) tol = std::stod(argv[++i]);
+
       if (token == std::string("-res")) name_conv = argv[++i];
+      if (token == std::string("-its")) name_nIterations = argv[++i];
 
       if (token == std::string("-timers")) name_timer = argv[++i];
 
@@ -156,6 +164,8 @@ int main(int argc, char *argv[]) {
     AMatrixValueViewLR valuesLR("values", N, nnz);
     AMatrixValueViewLL valuesLL("values", N, nnz);
 
+    IntView nIterations("values", N);
+
     XYTypeLR xLR("values", N, Blk);
     XYTypeLR yLR("values", N, Blk);
 
@@ -200,8 +210,10 @@ int main(int argc, char *argv[]) {
       using KrylovHandleType =
           KokkosBatched::KrylovHandle<Norm2DViewType, IntViewType,
                                       Scalar3DViewType>;
-      KrylovHandleType handle(N, N_team);
+      KrylovHandleType handle(N, N_team, n_iterations, monitor_convergence);
       handle.set_scratch_pad_level(0);
+      handle.set_max_iteration(n_iterations);
+      handle.set_tolerance(tol);
 
       for (int i_rep = 0; i_rep < n_rep_1 + n_skip; ++i_rep) {
         double t_spmv = 0;
@@ -299,6 +311,9 @@ int main(int argc, char *argv[]) {
         printf("Right layout: Implementation %d: solve time = %f\n", i_impl,
                average_time);
 
+      if (monitor_convergence) {
+        writeVectorToMM(name_nIterations + std::to_string(i_impl) + ".mm", handle.iteration_numbers);
+      }
       if (layout_left) {
         writeArrayToMM(name_X + std::to_string(i_impl) + "_l.mm", xLL);
       }

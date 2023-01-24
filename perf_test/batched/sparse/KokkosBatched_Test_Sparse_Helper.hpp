@@ -1,4 +1,24 @@
 template <class XType>
+void writeVectorToMM(std::string name, const XType x) {
+  std::ofstream myfile;
+  myfile.open(name);
+
+  typename XType::HostMirror x_h = Kokkos::create_mirror_view(x);
+
+  Kokkos::deep_copy(x_h, x);
+
+  myfile << "%% MatrixMarket 2D Array\n%" << std::endl;
+  myfile << x_h.extent(0) << " " << 1 << std::endl;
+
+  for (size_t i = 0; i < x_h.extent(0); ++i) {
+    myfile << std::setprecision(15) << x_h(i);
+    myfile << std::endl;
+  }
+
+  myfile.close();
+}
+
+template <class XType>
 void writeArrayToMM(std::string name, const XType x) {
   std::ofstream myfile;
   myfile.open(name);
