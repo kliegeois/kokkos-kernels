@@ -163,7 +163,7 @@ struct TeamVectorDotInternal {
 /// Serial Impl
 /// ===========
 template <>
-struct SerialDot<Trans::Transpose> {
+struct SerialDot<Trans::Transpose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const XViewType &X,
                                            const YViewType &Y,
@@ -209,7 +209,7 @@ struct SerialDot<Trans::Transpose> {
 };
 
 template <>
-struct SerialDot<Trans::NoTranspose> {
+struct SerialDot<Trans::NoTranspose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const XViewType &X,
                                            const YViewType &Y,
@@ -257,7 +257,7 @@ struct SerialDot<Trans::NoTranspose> {
 /// Team Impl
 /// ===============
 template <typename MemberType>
-struct TeamDot<MemberType, Trans::Transpose> {
+struct TeamDot<MemberType, Trans::Transpose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
                                            const XViewType &X,
@@ -304,7 +304,7 @@ struct TeamDot<MemberType, Trans::Transpose> {
 };
 
 template <typename MemberType>
-struct TeamDot<MemberType, Trans::NoTranspose> {
+struct TeamDot<MemberType, Trans::NoTranspose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
                                            const XViewType &X,
@@ -353,7 +353,7 @@ struct TeamDot<MemberType, Trans::NoTranspose> {
 /// TeamVector Impl
 /// ===============
 template <typename MemberType>
-struct TeamVectorDot<MemberType, Trans::Transpose> {
+struct TeamVectorDot<MemberType, Trans::Transpose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
                                            const XViewType &X,
@@ -400,7 +400,7 @@ struct TeamVectorDot<MemberType, Trans::Transpose> {
 };
 
 template <typename MemberType>
-struct TeamVectorDot<MemberType, Trans::NoTranspose> {
+struct TeamVectorDot<MemberType, Trans::NoTranspose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
                                            const XViewType &X,

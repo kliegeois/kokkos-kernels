@@ -49,7 +49,7 @@ namespace KokkosBatched {
 /// No nested parallel_for is used inside of the function.
 ///
 
-template <typename ArgTrans = Trans::NoTranspose>
+template <typename ArgTrans = Trans::NoTranspose, int rank = 2>
 struct SerialDot {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const XViewType &X,
@@ -83,7 +83,7 @@ struct SerialDot {
 /// A nested parallel_for with TeamThreadRange is used.
 ///
 
-template <typename MemberType, typename ArgTrans = Trans::NoTranspose>
+template <typename MemberType, typename ArgTrans = Trans::NoTranspose, int rank = 2>
 struct TeamDot {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
@@ -119,7 +119,7 @@ struct TeamDot {
 /// (or one with TeamVectorRange) are used inside.
 ///
 
-template <typename MemberType, typename ArgTrans = Trans::NoTranspose>
+template <typename MemberType, typename ArgTrans = Trans::NoTranspose, int rank = 2>
 struct TeamVectorDot {
   template <typename XViewType, typename YViewType, typename NormViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
