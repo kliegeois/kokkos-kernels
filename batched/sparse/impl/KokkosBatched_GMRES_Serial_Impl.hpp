@@ -171,7 +171,7 @@ KOKKOS_INLINE_FUNCTION int SerialGMRES::invoke(const OperatorType& A,
         SerialCopy1D::invoke(tmp, Kokkos::subview(H_view, Kokkos::ALL, j, i));
         for (OrdinalType ii = 0; ii < numMatrices; ++ii) tmp(ii) = -tmp(ii);
 
-        SerialAxpy::invoke(tmp, V_i, W);
+        SerialAxpy<>::invoke(tmp, V_i, W);
       }
     }
 
@@ -269,7 +269,7 @@ KOKKOS_INLINE_FUNCTION int SerialGMRES::invoke(const OperatorType& A,
   }
   if (handle.get_ortho_strategy() == 1) {
     for (size_t j = 0; j < maximum_iteration; ++j) {
-      SerialAxpy::invoke(Kokkos::subview(G, Kokkos::ALL, j),
+      SerialAxpy<>::invoke(Kokkos::subview(G, Kokkos::ALL, j),
                          Kokkos::subview(V_view, Kokkos::ALL, j, Kokkos::ALL),
                          _X);
     }

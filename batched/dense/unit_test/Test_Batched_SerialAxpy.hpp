@@ -45,7 +45,7 @@ struct Functor_TestBatchedSerialAxpy {
     auto x     = Kokkos::subview(_X, Kokkos::make_pair(k, k + 1), Kokkos::ALL);
     auto y     = Kokkos::subview(_Y, Kokkos::make_pair(k, k + 1), Kokkos::ALL);
 
-    KokkosBatched::SerialAxpy::invoke(alpha, x, y);
+    KokkosBatched::SerialAxpy<>::invoke(alpha, x, y);
   }
 
   inline void run() {

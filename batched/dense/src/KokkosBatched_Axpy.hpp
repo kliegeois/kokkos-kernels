@@ -42,6 +42,7 @@ namespace KokkosBatched {
 /// No nested parallel_for is used inside of the function.
 ///
 
+template <int rank = 2>
 struct SerialAxpy {
   template <typename XViewType, typename YViewType, typename alphaViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const alphaViewType &alpha,
@@ -69,7 +70,7 @@ struct SerialAxpy {
 /// A nested parallel_for with TeamThreadRange is used.
 ///
 
-template <typename MemberType>
+template <typename MemberType, int rank = 2>
 struct TeamAxpy {
   template <typename XViewType, typename YViewType, typename alphaViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
@@ -99,7 +100,7 @@ struct TeamAxpy {
 /// (or one with TeamVectorRange) are used inside.
 ///
 
-template <typename MemberType>
+template <typename MemberType, int rank = 2>
 struct TeamVectorAxpy {
   template <typename XViewType, typename YViewType, typename alphaViewType>
   KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
