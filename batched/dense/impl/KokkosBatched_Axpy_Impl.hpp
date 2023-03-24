@@ -177,6 +177,42 @@ struct TeamVectorAxpyInternal {
 ///
 /// Serial Impl
 /// ===========
+
+template <>
+template <typename XViewType, typename YViewType, typename alphaViewType>
+KOKKOS_INLINE_FUNCTION int SerialAxpy<1>::invoke(const alphaViewType& alpha,
+                                              const XViewType& X,
+                                              const YViewType& Y) {
+#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+  static_assert(Kokkos::is_view<XViewType>::value,
+                "KokkosBatched::axpy: XViewType is not a Kokkos::View.");
+  static_assert(Kokkos::is_view<YViewType>::value,
+                "KokkosBatched::axpy: YViewType is not a Kokkos::View.");
+  static_assert(Kokkos::is_view<alphaViewType>::value,
+                "KokkosBatched::axpy: alphaViewType is not a Kokkos::View.");
+  static_assert(XViewType::rank == 1,
+                "KokkosBatched::axpy: XViewType must have rank 2.");
+  static_assert(YViewType::rank == 1,
+                "KokkosBatched::axpy: YViewType must have rank 2.");
+  static_assert(alphaViewType::rank == 0,
+                "KokkosBatched::axpy: alphaViewType must have rank 0.");
+
+  // Check compatibility of dimensions at run time.
+  if (X.extent(0) != Y.extent(0)) {
+    KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+        "KokkosBatched::axpy: Dimensions of X and Y do not match: X: %d, "
+        "Y: %d\n",
+        (int)X.extent(0), (int)Y.extent(0));
+    return 1;
+  }
+#endif
+
+  return SerialAxpyInternal::template invoke<
+      typename alphaViewType::non_const_value_type,
+      typename XViewType::non_const_value_type>(
+      X.extent(0), alpha.data()[0], X.data(), X.stride_0(), Y.data(), Y.stride_0());
+}
+
 template <>
 template <typename XViewType, typename YViewType, typename alphaViewType>
 KOKKOS_INLINE_FUNCTION int SerialAxpy<2>::invoke(const alphaViewType& alpha,
@@ -213,6 +249,10 @@ KOKKOS_INLINE_FUNCTION int SerialAxpy<2>::invoke(const alphaViewType& alpha,
   }
 #endif
 
+  if (X.extent(0) == 1) {
+    return SerialAxpy<1>::invoke(Kokkos::subview( alpha, 0), Kokkos::subview( X, 0, Kokkos::ALL), Kokkos::subview( Y, 0, Kokkos::ALL));
+  }
+
   return SerialAxpyInternal::template invoke<
       typename alphaViewType::non_const_value_type,
       typename XViewType::non_const_value_type>(
@@ -223,6 +263,43 @@ KOKKOS_INLINE_FUNCTION int SerialAxpy<2>::invoke(const alphaViewType& alpha,
 ///
 /// Team Impl
 /// =========
+
+template <typename MemberType>
+struct TeamAxpy<MemberType, 1> {
+  template <typename XViewType, typename YViewType, typename alphaViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(
+      const MemberType& member, const alphaViewType& alpha, const XViewType& X,
+      const YViewType& Y) {
+  #if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+    static_assert(Kokkos::is_view<XViewType>::value,
+                  "KokkosBatched::axpy: XViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<YViewType>::value,
+                  "KokkosBatched::axpy: YViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<alphaViewType>::value,
+                  "KokkosBatched::axpy: alphaViewType is not a Kokkos::View.");
+    static_assert(XViewType::rank == 1,
+                  "KokkosBatched::axpy: XViewType must have rank 1.");
+    static_assert(YViewType::rank == 1,
+                  "KokkosBatched::axpy: YViewType must have rank 1.");
+    static_assert(alphaViewType::rank == 0,
+                  "KokkosBatched::axpy: alphaViewType must have rank 0.");
+
+    // Check compatibility of dimensions at run time.
+    if (X.extent(0) != Y.extent(0)) {
+      KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+          "KokkosBatched::axpy: Dimensions of X and Y do not match: X: %d, "
+          "Y: %d\n",
+          (int)X.extent(0), (int)Y.extent(0));
+      return 1;
+    }
+  #endif
+
+    return TeamAxpyInternal::template invoke<
+        MemberType, typename alphaViewType::non_const_value_type,
+        typename XViewType::non_const_value_type>(
+        member, X.extent(0), alpha.data()[0], X.data(), X.stride_0(), Y.data(), Y.stride_0());
+  }
+};
 
 template <typename MemberType>
 struct TeamAxpy<MemberType, 2> {
@@ -261,6 +338,10 @@ struct TeamAxpy<MemberType, 2> {
     }
   #endif
 
+    if (X.extent(0) == 1) {
+      return TeamAxpy<MemberType, 1>::invoke(member, Kokkos::subview( alpha, 0), Kokkos::subview( X, 0, Kokkos::ALL), Kokkos::subview( Y, 0, Kokkos::ALL));
+    }
+
     return TeamAxpyInternal::template invoke<
         MemberType, typename alphaViewType::non_const_value_type,
         typename XViewType::non_const_value_type>(
@@ -273,6 +354,43 @@ struct TeamAxpy<MemberType, 2> {
 ///
 /// TeamVector Impl
 /// ===============
+
+template <typename MemberType>
+struct TeamVectorAxpy<MemberType, 1> {
+  template <typename XViewType, typename YViewType, typename alphaViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(
+      const MemberType& member, const alphaViewType& alpha, const XViewType& X,
+      const YViewType& Y) {
+  #if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+    static_assert(Kokkos::is_view<XViewType>::value,
+                  "KokkosBatched::axpy: XViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<YViewType>::value,
+                  "KokkosBatched::axpy: YViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<alphaViewType>::value,
+                  "KokkosBatched::axpy: alphaViewType is not a Kokkos::View.");
+    static_assert(XViewType::rank == 1,
+                  "KokkosBatched::axpy: XViewType must have rank 1.");
+    static_assert(YViewType::rank == 1,
+                  "KokkosBatched::axpy: YViewType must have rank 1.");
+    static_assert(alphaViewType::rank == 0,
+                  "KokkosBatched::axpy: alphaViewType must have rank 0.");
+
+    // Check compatibility of dimensions at run time.
+    if (X.extent(0) != Y.extent(0)) {
+      KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+          "KokkosBatched::axpy: Dimensions of X and Y do not match: X: %d, "
+          "Y: %d\n",
+          (int)X.extent(0), (int)Y.extent(0));
+      return 1;
+    }
+  #endif
+
+    return TeamVectorAxpyInternal::invoke<
+        MemberType, typename alphaViewType::non_const_value_type,
+        typename XViewType::non_const_value_type>(
+        member, X.extent(0), alpha.data()[0], X.data(), X.stride_0(), Y.data(), Y.stride_0());
+  }
+};
 
 template <typename MemberType>
 struct TeamVectorAxpy<MemberType, 2> {
@@ -310,6 +428,10 @@ struct TeamVectorAxpy<MemberType, 2> {
       return 1;
     }
   #endif
+
+    if (X.extent(0) == 1) {
+      return TeamVectorAxpy<MemberType, 1>::invoke(member, Kokkos::subview( alpha, 0), Kokkos::subview( X, 0, Kokkos::ALL), Kokkos::subview( Y, 0, Kokkos::ALL));
+    }
 
     return TeamVectorAxpyInternal::invoke<
         MemberType, typename alphaViewType::non_const_value_type,

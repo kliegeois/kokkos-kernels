@@ -162,6 +162,54 @@ struct TeamVectorDotInternal {
 ///
 /// Serial Impl
 /// ===========
+
+template <>
+struct SerialDot<Trans::NoTranspose, 1> {
+  template <typename XViewType, typename YViewType, typename NormViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const XViewType &X,
+                                           const YViewType &Y,
+                                           const NormViewType &dot) {
+#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+    static_assert(Kokkos::is_view<XViewType>::value,
+                  "KokkosBatched::dot: XViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<YViewType>::value,
+                  "KokkosBatched::dot: YViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<NormViewType>::value,
+                  "KokkosBatched::dot: NormViewType is not a Kokkos::View.");
+    static_assert(XViewType::rank == 1,
+                  "KokkosBatched::dot: XViewType must have rank 1.");
+    static_assert(YViewType::rank == 1,
+                  "KokkosBatched::dot: YViewType must have rank 1.");
+    static_assert(NormViewType::rank == 0,
+                  "KokkosBatched::dot: NormViewType must have rank 0.");
+
+    // Check compatibility of dimensions at run time.
+    if (X.extent(0) != Y.extent(0)) {
+      KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+          "KokkosBatched::dot: Dimensions of X and Y do not match: X: %d, "
+          "Y: %d\n",
+          (int)X.extent(0), (int)Y.extent(0));
+      return 1;
+    }
+#endif
+    return SerialDotInternal::template invoke<
+        typename XViewType::non_const_value_type,
+        typename NormViewType::non_const_value_type>(
+        X.extent(0), X.data(), X.stride_0(),
+        Y.data(), Y.stride_0(), dot.data());
+  }
+};
+
+template <>
+struct SerialDot<Trans::Transpose, 1> {
+  template <typename XViewType, typename YViewType, typename NormViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const XViewType &X,
+                                           const YViewType &Y,
+                                           const NormViewType &dot) {
+    return SerialDot<Trans::NoTranspose, 1>::invoke(X, Y, dot);
+  }
+};
+
 template <>
 struct SerialDot<Trans::Transpose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
@@ -200,6 +248,11 @@ struct SerialDot<Trans::Transpose, 2> {
       return 1;
     }
 #endif
+
+    if (X.extent(1) == 1) {
+      return SerialDot<Trans::NoTranspose, 1>::invoke(Kokkos::subview( X, Kokkos::ALL, 0), Kokkos::subview( Y, Kokkos::ALL, 0), Kokkos::subview( dot, 0));
+    }
+
     return SerialDotInternal::template invoke<
         typename XViewType::non_const_value_type,
         typename NormViewType::non_const_value_type>(
@@ -245,6 +298,11 @@ struct SerialDot<Trans::NoTranspose, 2> {
       return 1;
     }
 #endif
+
+    if (X.extent(0) == 1) {
+      return SerialDot<Trans::NoTranspose, 1>::invoke(Kokkos::subview( X, 0, Kokkos::ALL), Kokkos::subview( Y, 0, Kokkos::ALL), Kokkos::subview( dot, 0));
+    }
+
     return SerialDotInternal::template invoke<
         typename XViewType::non_const_value_type,
         typename NormViewType::non_const_value_type>(
@@ -256,6 +314,56 @@ struct SerialDot<Trans::NoTranspose, 2> {
 ///
 /// Team Impl
 /// ===============
+
+template <typename MemberType>
+struct TeamDot<MemberType, Trans::NoTranspose, 1> {
+  template <typename XViewType, typename YViewType, typename NormViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
+                                           const XViewType &X,
+                                           const YViewType &Y,
+                                           const NormViewType &dot) {
+#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+    static_assert(Kokkos::is_view<XViewType>::value,
+                  "KokkosBatched::dot: XViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<YViewType>::value,
+                  "KokkosBatched::dot: YViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<NormViewType>::value,
+                  "KokkosBatched::dot: NormViewType is not a Kokkos::View.");
+    static_assert(XViewType::rank == 1,
+                  "KokkosBatched::dot: XViewType must have rank 1.");
+    static_assert(YViewType::rank == 1,
+                  "KokkosBatched::dot: YViewType must have rank 1.");
+    static_assert(NormViewType::rank == 0,
+                  "KokkosBatched::dot: NormViewType must have rank 0.");
+
+    // Check compatibility of dimensions at run time.
+    if (X.extent(0) != Y.extent(0)) {
+      KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+          "KokkosBatched::dot: Dimensions of X and Y do not match: X: %d, "
+          "Y: %d\n",
+          (int)X.extent(0), (int)Y.extent(0));
+      return 1;
+    }
+#endif
+    return TeamDotInternal::template invoke<
+        MemberType, typename XViewType::non_const_value_type,
+        typename NormViewType::non_const_value_type>(
+        member, X.extent(0), X.data(), X.stride_0(),
+        Y.data(), Y.stride_0(), dot.data());
+  }
+};
+
+template <typename MemberType>
+struct TeamDot<MemberType, Trans::Transpose, 1> {
+  template <typename XViewType, typename YViewType, typename NormViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
+                                           const XViewType &X,
+                                           const YViewType &Y,
+                                           const NormViewType &dot) {
+    return TeamDot<MemberType, Trans::NoTranspose, 1>::invoke(member, X, Y, dot);
+  }
+};
+
 template <typename MemberType>
 struct TeamDot<MemberType, Trans::Transpose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
@@ -295,6 +403,11 @@ struct TeamDot<MemberType, Trans::Transpose, 2> {
       return 1;
     }
 #endif
+
+    if (X.extent(1) == 1) {
+      return TeamDot<MemberType, Trans::NoTranspose, 1>::invoke(member, Kokkos::subview( X, Kokkos::ALL, 0), Kokkos::subview( Y, Kokkos::ALL, 0), Kokkos::subview( dot, 0));
+    }
+
     return TeamDotInternal::template invoke<
         MemberType, typename XViewType::non_const_value_type,
         typename NormViewType::non_const_value_type>(
@@ -341,6 +454,11 @@ struct TeamDot<MemberType, Trans::NoTranspose, 2> {
       return 1;
     }
 #endif
+
+    if (X.extent(0) == 1) {
+      return TeamDot<MemberType, Trans::NoTranspose, 1>::invoke(member, Kokkos::subview( X, 0, Kokkos::ALL), Kokkos::subview( Y, 0, Kokkos::ALL), Kokkos::subview( dot, 0));
+    }
+
     return TeamDotInternal::template invoke<
         MemberType, typename XViewType::non_const_value_type,
         typename NormViewType::non_const_value_type>(
@@ -352,6 +470,56 @@ struct TeamDot<MemberType, Trans::NoTranspose, 2> {
 ///
 /// TeamVector Impl
 /// ===============
+
+template <typename MemberType>
+struct TeamVectorDot<MemberType, Trans::NoTranspose, 1> {
+  template <typename XViewType, typename YViewType, typename NormViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
+                                           const XViewType &X,
+                                           const YViewType &Y,
+                                           const NormViewType &dot) {
+#if (KOKKOSKERNELS_DEBUG_LEVEL > 0)
+    static_assert(Kokkos::is_view<XViewType>::value,
+                  "KokkosBatched::dot: XViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<YViewType>::value,
+                  "KokkosBatched::dot: YViewType is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<NormViewType>::value,
+                  "KokkosBatched::dot: NormViewType is not a Kokkos::View.");
+    static_assert(XViewType::rank == 1,
+                  "KokkosBatched::dot: XViewType must have rank 1.");
+    static_assert(YViewType::rank == 1,
+                  "KokkosBatched::dot: YViewType must have rank 1.");
+    static_assert(NormViewType::rank == 0,
+                  "KokkosBatched::dot: NormViewType must have rank 0.");
+
+    // Check compatibility of dimensions at run time.
+    if (X.extent(0) != Y.extent(0)) {
+      KOKKOS_IMPL_DO_NOT_USE_PRINTF(
+          "KokkosBatched::dot: Dimensions of X and Y do not match: X: %d, "
+          "Y: %d\n",
+          (int)X.extent(0), (int)Y.extent(0));
+      return 1;
+    }
+#endif
+    return TeamVectorDotInternal::template invoke<
+        MemberType, typename XViewType::non_const_value_type,
+        typename NormViewType::non_const_value_type>(
+        member, X.extent(0), X.data(), X.stride_0(),
+        Y.data(), Y.stride_0(), dot.data());
+  }
+};
+
+template <typename MemberType>
+struct TeamVectorDot<MemberType, Trans::Transpose, 1> {
+  template <typename XViewType, typename YViewType, typename NormViewType>
+  KOKKOS_INLINE_FUNCTION static int invoke(const MemberType &member,
+                                           const XViewType &X,
+                                           const YViewType &Y,
+                                           const NormViewType &dot) {
+    return TeamVectorDot<MemberType, Trans::NoTranspose, 1>::invoke(member, X, Y, dot);
+  }
+};
+
 template <typename MemberType>
 struct TeamVectorDot<MemberType, Trans::Transpose, 2> {
   template <typename XViewType, typename YViewType, typename NormViewType>
@@ -391,6 +559,11 @@ struct TeamVectorDot<MemberType, Trans::Transpose, 2> {
       return 1;
     }
 #endif
+
+    if (X.extent(1) == 1) {
+      return TeamVectorDot<MemberType, Trans::NoTranspose, 1>::invoke(member, Kokkos::subview( X, Kokkos::ALL, 0), Kokkos::subview( Y, Kokkos::ALL, 0), Kokkos::subview( dot, 0));
+    }
+
     return TeamVectorDotInternal::template invoke<
         MemberType, typename XViewType::non_const_value_type,
         typename NormViewType::non_const_value_type>(
@@ -437,6 +610,11 @@ struct TeamVectorDot<MemberType, Trans::NoTranspose, 2> {
       return 1;
     }
 #endif
+
+    if (X.extent(0) == 1) {
+      return TeamVectorDot<MemberType, Trans::NoTranspose, 1>::invoke(member, Kokkos::subview( X, 0, Kokkos::ALL), Kokkos::subview( Y, 0, Kokkos::ALL), Kokkos::subview( dot, 0));
+    }
+
     return TeamVectorDotInternal::template invoke<
         MemberType, typename XViewType::non_const_value_type,
         typename NormViewType::non_const_value_type>(
