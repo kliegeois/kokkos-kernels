@@ -268,8 +268,11 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
       CUSPARSE_POINTER_MODE_HOST);  // scalars are passed by reference on host
 
   // > create a empty info structure for L-solve (e.g., analysis results)
+  #if (CUDA_VERSION >= 11030)
+  #else
   csrsv2Info_t infoL = 0;
   status             = cusparseCreateCsrsv2Info(&infoL);
+  #endif
   if (CUSPARSE_STATUS_SUCCESS != status) {
     std::cout << " ** cusparseCreateCsrsv2Info failed with "
               << getCuSparseErrorString(status) << " ** " << std::endl;
@@ -303,6 +306,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   void *pBufferL             = 0;
   cusparseOperation_t transL = (col_majorL ? CUSPARSE_OPERATION_TRANSPOSE
                                            : CUSPARSE_OPERATION_NON_TRANSPOSE);
+  #if (CUDA_VERSION >= 11030)
+  #else
   if (std::is_same<scalar_t, double>::value) {
     cusparseDcsrsv2_bufferSize(handle, transL, nrows, nnzL, descrL,
                                reinterpret_cast<double *>(valuesL.data()),
@@ -314,6 +319,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
         reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(),
         entriesL.data(), infoL, &pBufferSize);
   }
+  #endif
   cudaMalloc((void **)&pBufferL, pBufferSize);
 
   // ==============================================
@@ -321,6 +327,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   std::cout << "  Lower-Triangular" << std::endl;
   timer.reset();
   const cusparseSolvePolicy_t policy = CUSPARSE_SOLVE_POLICY_USE_LEVEL;
+  #if (CUDA_VERSION >= 11030)
+  #else
   if (std::is_same<scalar_t, double>::value) {
     status = cusparseDcsrsv2_analysis(
         handle, transL, nrows, nnzL, descrL,
@@ -332,6 +340,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
         reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(),
         entriesL.data(), infoL, policy, pBufferL);
   }
+  #endif
   double time_symbolic = timer.seconds();
   std::cout << "  Cusparse Symbolic Time: " << time_symbolic << std::endl;
   if (CUSPARSE_STATUS_SUCCESS != status) {
@@ -341,10 +350,13 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   // L has unit diagonal, so no structural zero is reported.
 
   int structural_zero;
+  #if (CUDA_VERSION >= 11030)
+  #else
   status = cusparseXcsrsv2_zeroPivot(handle, infoL, &structural_zero);
   if (CUSPARSE_STATUS_ZERO_PIVOT == status) {
     printf("L(%d,%d) is missing\n", structural_zero, structural_zero);
   }
+  #endif
 
   // ==============================================
   // Preaparing for the first solve
@@ -372,6 +384,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   // step 2: solve L*y = x
   Kokkos::fence();
   timer.reset();
+  #if (CUDA_VERSION >= 11030)
+  #else
   if (std::is_same<scalar_t, double>::value) {
     const double alpha = 1.0;
     status             = cusparseDcsrsv2_solve(
@@ -387,6 +401,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
         entriesL.data(), infoL, reinterpret_cast<cuDoubleComplex *>(rhs.data()),
         reinterpret_cast<cuDoubleComplex *>(sol.data()), policy, pBufferL);
   }
+  #endif
   Kokkos::fence();
   double time_solve = timer.seconds();
   std::cout << "  Cusparse Solve Time   : " << time_solve << std::endl;
@@ -396,10 +411,13 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   }
   // L has unit diagonal, so no numerical zero is reported.
   int numerical_zero;
+  #if (CUDA_VERSION >= 11030)
+  #else
   status = cusparseXcsrsv2_zeroPivot(handle, infoL, &numerical_zero);
   if (CUSPARSE_STATUS_ZERO_PIVOT == status) {
     printf("L(%d,%d) is zero\n", numerical_zero, numerical_zero);
   }
+  #endif
 
   // ==============================================
   // Preparing for U-solve
@@ -410,8 +428,11 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   auto valuesU   = U.values;
 
   // > create a empty info structure for U-solve (e.g., analysis results)
+  #if (CUDA_VERSION >= 11030)
+  #else
   csrsv2Info_t infoU = 0;
   status             = cusparseCreateCsrsv2Info(&infoU);
+  #endif
   if (CUSPARSE_STATUS_SUCCESS != status) {
     std::cout << " ** cusparseCreateCsrsv2Info failed with "
               << getCuSparseErrorString(status) << " ** " << std::endl;
@@ -441,6 +462,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   void *pBufferU             = 0;
   cusparseOperation_t transU = (col_majorU ? CUSPARSE_OPERATION_TRANSPOSE
                                            : CUSPARSE_OPERATION_NON_TRANSPOSE);
+  #if (CUDA_VERSION >= 11030)
+  #else
   if (std::is_same<scalar_t, double>::value) {
     cusparseDcsrsv2_bufferSize(handle, transU, nrows, nnzU, descrU,
                                reinterpret_cast<double *>(valuesU.data()),
@@ -452,12 +475,15 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
         reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(),
         entriesU.data(), infoU, &pBufferSize);
   }
+  #endif
   cudaMalloc((void **)&pBufferU, pBufferSize);
 
   // ==============================================
   // step 3: analysis
   std::cout << std::endl << "  Upper-Triangular" << std::endl;
   timer.reset();
+  #if (CUDA_VERSION >= 11030)
+  #else
   if (std::is_same<scalar_t, double>::value) {
     status = cusparseDcsrsv2_analysis(
         handle, transU, nrows, nnzU, descrU,
@@ -469,20 +495,26 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
         reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(),
         entriesU.data(), infoU, policy, pBufferU);
   }
+  #endif
   time_symbolic = timer.seconds();
   std::cout << "  Cusparse Symbolic Time: " << time_symbolic << std::endl;
   if (CUSPARSE_STATUS_SUCCESS != status) {
     std::cout << " ** cusparseDcsrsv2_analysis failed with "
               << getCuSparseErrorString(status) << " ** " << std::endl;
   }
+  #if (CUDA_VERSION >= 11030)
+  #else
   status = cusparseXcsrsv2_zeroPivot(handle, infoU, &structural_zero);
   if (CUSPARSE_STATUS_ZERO_PIVOT == status) {
     printf("U(%d,%d) is missing\n", structural_zero, structural_zero);
   }
+  #endif
 
   // ==============================================
   // step 1: solve U*y = x
   timer.reset();
+  #if (CUDA_VERSION >= 11030)
+  #else
   if (std::is_same<scalar_t, double>::value) {
     const double alpha = 1.0;
     status             = cusparseDcsrsv2_solve(
@@ -498,6 +530,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
         entriesU.data(), infoU, reinterpret_cast<cuDoubleComplex *>(sol.data()),
         reinterpret_cast<cuDoubleComplex *>(rhs.data()), policy, pBufferU);
   }
+  #endif
   Kokkos::fence();
   time_solve = timer.seconds();
   std::cout << "  Cusparse Solve Time   : " << time_solve << std::endl;
@@ -505,10 +538,13 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
     std::cout << " ** usparseDcsrsv2_solve failed with "
               << getCuSparseErrorString(status) << " ** " << std::endl;
   }
+  #if (CUDA_VERSION >= 11030)
+  #else
   status = cusparseXcsrsv2_zeroPivot(handle, infoU, &numerical_zero);
   if (CUSPARSE_STATUS_ZERO_PIVOT == status) {
     printf("U(%d,%d) is zero\n", numerical_zero, numerical_zero);
   }
+  #endif
 
   // ==============================================
   // copy solution to host
@@ -535,6 +571,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
 
     // copy & solve & copy back
     Kokkos::deep_copy(rhs, tmp_host);
+    #if (CUDA_VERSION >= 11030)
+    #else
     if (std::is_same<scalar_t, double>::value) {
       const double alpha = 1.0;
       cusparseDcsrsv2_solve(
@@ -562,6 +600,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
                             reinterpret_cast<cuDoubleComplex *>(rhs.data()),
                             policy, pBufferU);
     }
+    #endif
     Kokkos::deep_copy(tmp_host, rhs);
 
     // backward pivot and check
@@ -579,6 +618,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
     double max_time = 0.0;
     double ave_time = 0.0;
     Kokkos::fence();
+    #if (CUDA_VERSION >= 11030)
+    #else
     for (int i = 0; i < loop; i++) {
       double time;
       if (std::is_same<scalar_t, double>::value) {
@@ -607,6 +648,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
       if (time > max_time || i == 0) max_time = time;
       if (time < min_time || i == 0) min_time = time;
     }
+    #endif
     std::cout << " L-solve: loop = " << loop << std::endl;
     std::cout << "  LOOP_AVG_TIME:  " << ave_time / loop << std::endl;
     std::cout << "  LOOP_MAX_TIME:  " << max_time << std::endl;
@@ -619,6 +661,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
     Kokkos::fence();
     for (int i = 0; i < loop; i++) {
       double time;
+      #if (CUDA_VERSION >= 11030)
+      #else
       if (std::is_same<scalar_t, double>::value) {
         double alpha = 1.0;
         timer.reset();
@@ -641,6 +685,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
         Kokkos::fence();
         time = timer.seconds();
       }
+      #endif
       ave_time += time;
       if (time > max_time || i == 0) max_time = time;
       if (time < min_time || i == 0) min_time = time;
