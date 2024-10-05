@@ -51,7 +51,7 @@
 template <typename AType, typename XType, typename YType>
 void armpl_matvec(AType /*A*/, XType x, YType y, spmv_additional_data* data);
 
-enum { KOKKOS, MKL, ARMPL, CUSPARSE, KK_KERNELS, KK_KERNELS_INSP, KK_INSP, OMP_STATIC, OMP_DYNAMIC, OMP_INSP };
+enum { KOKKOS, MKL, ARMPL, CUSPARSE, KK_KERNELS, KK_KERNELS_T, KK_KERNELS_INSP, KK_INSP, OMP_STATIC, OMP_DYNAMIC, OMP_INSP };
 enum { AUTO, DYNAMIC, STATIC };
 
 using Scalar  = default_scalar;
@@ -169,6 +169,7 @@ void matvec(AType& A, XType x, YType y, Ordinal rows_per_thread, int team_size, 
     case ARMPL: armpl_matvec(A, x, y, data); break;
 #endif
     case KK_KERNELS: KokkosSparse::spmv(KokkosSparse::NoTranspose, 1.0, A, x, 0.0, y); break;
+    case KK_KERNELS_T: KokkosSparse::spmv(KokkosSparse::Transpose, 1.0, A, x, 0.0, y); break;
     case KK_KERNELS_INSP:
       if (A.graph.row_block_offsets.data() == NULL) {
         printf("PTR: %p\n", static_cast<const void*>(A.graph.row_block_offsets.data()));

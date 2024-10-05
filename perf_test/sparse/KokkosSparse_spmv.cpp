@@ -186,6 +186,7 @@ int main(int argc, char** argv) {
       if ((strcmp(argv[i], "kk") == 0)) test = KOKKOS;
       if ((strcmp(argv[i], "cusparse") == 0)) test = CUSPARSE;
       if ((strcmp(argv[i], "kk-kernels") == 0)) test = KK_KERNELS;
+      if ((strcmp(argv[i], "kk-kernels-T") == 0)) test = KK_KERNELS_T;
       if ((strcmp(argv[i], "kk-kernels-insp") == 0)) test = KK_KERNELS_INSP;
       if ((strcmp(argv[i], "kk-insp") == 0)) test = KK_INSP;
 #ifdef KOKKOS_ENABLE_OPENMP
